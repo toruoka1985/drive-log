@@ -256,18 +256,99 @@
   .record-card.私用 .record-cost  { color: var(--priv); }
 
   .del-btn {
-    position: absolute;
-    right: 12px;
-    top: 12px;
     background: none;
     border: none;
     color: var(--text3);
     cursor: pointer;
-    padding: 4px;
-    font-size: 14px;
+    padding: 4px 6px;
+    font-size: 13px;
     line-height: 1;
+    border-radius: 4px;
+    flex-shrink: 0;
   }
   .del-btn:hover { color: var(--danger); }
+
+  /* カードのアクションバー（下部） */
+  .record-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .action-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text2);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 11px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .action-btn:active { opacity: .7; }
+  .action-btn.danger { color: var(--danger); border-color: rgba(245,90,58,.3); }
+
+  /* 編集モーダル */
+  .edit-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.75);
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+  .edit-modal-overlay.show { display: flex; }
+  .edit-modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 40px;
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .edit-modal-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 4px;
+  }
+  .edit-modal-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .edit-modal-btns .btn-save {
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    color: #0f0f0f;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 14px;
+    cursor: pointer;
+  }
+  .edit-modal-btns .btn-cancel {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    padding: 14px;
+    cursor: pointer;
+  }
 
   .empty-msg {
     text-align: center;
@@ -472,6 +553,47 @@
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
       <button class="btn-delete" onclick="confirmDelete()">削除する</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="edit-modal-overlay" id="editModalOverlay">
+  <div class="edit-modal">
+    <div class="edit-modal-title">記録を編集</div>
+
+    <div class="field">
+      <label>日付</label>
+      <input type="date" id="e-date">
+    </div>
+    <div class="field">
+      <label>目的</label>
+      <input type="text" id="e-purpose" placeholder="例：○○訪問、納品など">
+    </div>
+    <div class="field">
+      <label>費用区分</label>
+      <div class="seg-wrap">
+        <button class="seg-btn edit-seg" data-v="法人" onclick="selectEditCat(this)">法人</button>
+        <button class="seg-btn edit-seg" data-v="個人事業" onclick="selectEditCat(this)">個人事業</button>
+        <button class="seg-btn edit-seg" data-v="私用" onclick="selectEditCat(this)">私用</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>開始オドメーター (km)</label>
+      <input type="number" id="e-odo-start" inputmode="numeric" oninput="updateEditPreview()">
+    </div>
+    <div class="field">
+      <label>終了オドメーター (km)</label>
+      <input type="number" id="e-odo-end" inputmode="numeric" oninput="updateEditPreview()">
+    </div>
+    <div class="dist-preview">
+      <span class="label">走行距離</span>
+      <span class="value" id="e-preview-km">— km</span>
+    </div>
+
+    <div class="edit-modal-btns">
+      <button class="btn-cancel" onclick="closeEditModal()">キャンセル</button>
+      <button class="btn-save" onclick="saveEdit()">保存する</button>
     </div>
   </div>
 </div>
@@ -751,7 +873,6 @@ function renderHistory() {
       <div class="month-label">${y}年 ${parseInt(m)}月</div>`;
     recs.forEach(r => {
       html += `<div class="record-card ${r.category}">
-        <button class="del-btn" onclick="askDelete(${r.id})">✕</button>
         <div class="record-top">
           <span class="record-date">${formatDate(r.date)}</span>
           <span class="record-cat">${r.category}</span>
@@ -761,6 +882,10 @@ function renderHistory() {
         <div class="record-bottom">
           <span class="record-km">${r.km.toFixed(1)} km</span>
           <span class="record-cost">¥${r.cost.toLocaleString()}</span>
+        </div>
+        <div class="record-actions">
+          <button class="action-btn" onclick="openEditModal(${r.id})">編集</button>
+          <button class="action-btn danger" onclick="askDelete(${r.id})">削除</button>
         </div>
       </div>`;
     });
@@ -837,6 +962,74 @@ function renderSummary() {
 function changeMonth(dir) {
   summaryMonth = new Date(summaryMonth.getFullYear(), summaryMonth.getMonth() + dir, 1);
   renderSummary();
+}
+
+// ── EDIT MODAL ──
+let editTargetId = null;
+
+function openEditModal(id) {
+  const r = records.find(r => r.id === id);
+  if (!r) return;
+  editTargetId = id;
+
+  document.getElementById('e-date').value = r.date;
+  document.getElementById('e-purpose').value = r.purpose;
+  document.getElementById('e-odo-start').value = r.odoStart;
+  document.getElementById('e-odo-end').value = r.odoEnd;
+
+  document.querySelectorAll('.edit-seg').forEach(b => {
+    b.classList.toggle('active', b.dataset.v === r.category);
+  });
+
+  updateEditPreview();
+  document.getElementById('editModalOverlay').classList.add('show');
+}
+
+function closeEditModal() {
+  document.getElementById('editModalOverlay').classList.remove('show');
+  editTargetId = null;
+}
+
+function selectEditCat(btn) {
+  document.querySelectorAll('.edit-seg').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function updateEditPreview() {
+  const start = parseFloat(document.getElementById('e-odo-start').value);
+  const end = parseFloat(document.getElementById('e-odo-end').value);
+  const el = document.getElementById('e-preview-km');
+  if (!isNaN(start) && !isNaN(end) && end > start) {
+    el.textContent = (end - start).toFixed(1) + ' km';
+  } else {
+    el.textContent = '— km';
+  }
+}
+
+function saveEdit() {
+  const date = document.getElementById('e-date').value;
+  const purpose = document.getElementById('e-purpose').value.trim();
+  const cat = document.querySelector('.edit-seg.active')?.dataset.v;
+  const start = parseFloat(document.getElementById('e-odo-start').value);
+  const end = parseFloat(document.getElementById('e-odo-end').value);
+
+  if (!date || !purpose || !cat) { toast('日付・目的・費用区分を入力してください'); return; }
+  if (isNaN(start) || isNaN(end)) { toast('オドメーターを入力してください'); return; }
+  if (end <= start) { toast('終了値は開始値より大きくしてください'); return; }
+
+  const km = end - start;
+  const cost = Math.round(km * RATE);
+
+  records = records.map(r => r.id === editTargetId ? {
+    ...r, date, purpose, category: cat,
+    odoStart: start, odoEnd: end,
+    km: parseFloat(km.toFixed(1)), cost
+  } : r);
+
+  save();
+  closeEditModal();
+  renderHistory();
+  toast('更新しました ✓');
 }
 
 // ── DELETE ──

@@ -122,6 +122,9 @@
   .field input.readonly-odo {
     color: var(--text2);
     font-size: 15px;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   .odo-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
@@ -503,7 +506,7 @@
     <div class="field">
       <label>開始オドメーター (km)</label>
       <div class="odo-row">
-        <input type="number" id="f-odo-start" class="readonly-odo" readonly placeholder="前回終了値">
+        <input type="number" id="f-odo-start" class="readonly-odo" inputmode="numeric" placeholder="前回終了値">
         <button class="edit-btn" id="edit-start-btn" onclick="toggleEditStart()">編集</button>
       </div>
     </div>
@@ -612,7 +615,7 @@ function setLastOdo() {
   const last = records[records.length - 1];
   const input = document.getElementById('f-odo-start');
   input.value = last.odoEnd;
-  input.dataset.auto = '1';
+  input.classList.add('readonly-odo');
   updatePreview();
 }
 
@@ -642,14 +645,17 @@ function toggleEditStart() {
   const input = document.getElementById('f-odo-start');
   const btn = document.getElementById('edit-start-btn');
   if (editStartEnabled) {
-    input.removeAttribute('readonly');
     input.classList.remove('readonly-odo');
-    input.focus();
     btn.classList.add('active');
     btn.textContent = '確定';
+    // iOS対応：少し遅延してからfocus
+    setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 50);
   } else {
-    input.setAttribute('readonly', true);
     input.classList.add('readonly-odo');
+    input.blur();
     btn.classList.remove('active');
     btn.textContent = '編集';
     updatePreview();
@@ -701,15 +707,15 @@ function saveRecord() {
   // reset form
   document.getElementById('f-purpose').value = '';
   document.getElementById('f-odo-end').value = '';
-  document.getElementById('f-odo-start').value = end;
+  const startInput = document.getElementById('f-odo-start');
+  startInput.value = end;
+  startInput.classList.add('readonly-odo');
   document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
   updatePreview();
 
   // reset edit mode
   if (editStartEnabled) {
     editStartEnabled = false;
-    document.getElementById('f-odo-start').setAttribute('readonly', true);
-    document.getElementById('f-odo-start').classList.add('readonly-odo');
     document.getElementById('edit-start-btn').classList.remove('active');
     document.getElementById('edit-start-btn').textContent = '編集';
   }

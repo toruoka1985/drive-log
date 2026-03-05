@@ -600,9 +600,12 @@ let summaryMonth = new Date();
 
 // ── INIT ──
 window.addEventListener('DOMContentLoaded', () => {
-  // Set today's date
+  // Set today's date（タイムゾーンずれ対策）
   const today = new Date();
-  document.getElementById('f-date').value = today.toISOString().split('T')[0];
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const d = String(today.getDate()).padStart(2, '0');
+  document.getElementById('f-date').value = `${y}-${m}-${d}`;
 
   // Set last odo
   setLastOdo();

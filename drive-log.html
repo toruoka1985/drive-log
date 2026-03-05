@@ -790,7 +790,7 @@ function renderSummary() {
     const recs = monthRecs.filter(r => r.category === cat);
     const km = recs.reduce((s, r) => s + r.km, 0);
     const cost = recs.reduce((s, r) => s + r.cost, 0);
-    totalCost += cost;
+    if (cat !== '法人') totalCost += cost;
     cardsHtml += `<div class="summary-card ${cat}">
       <div class="sc-top">
         <span class="sc-label">${cat}</span>
@@ -823,8 +823,9 @@ function renderSummary() {
   document.getElementById('summary-content').innerHTML = `
     <div class="summary-cards">${cardsHtml}</div>
     <div class="total-card">
-      <div class="t-label">月間合計</div>
+      <div class="t-label">今月の振込額（個人事業 ＋ 私用）</div>
       <div class="t-amount">¥${totalCost.toLocaleString()}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px;font-family:'DM Mono',monospace;">個人 → 法人への振込金額</div>
     </div>
     ${detailHtml}
   `;

@@ -715,8 +715,9 @@
 
 <script>
 const RATE = 300;
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxNRIZnoBGVgKkpEO3O1YOgzAlq1XzrU7_UJJANoE9pTc3_tG0KCtKPvqXh-z8XDBU6fA/exec';
-const SECRET = 'drivelog2026';
+const JSONBIN_KEY = '$2a$10$852399csM.hHmkNwqdk9le40.llhQWaRt4Hh9zMCb7OGlEeJ8/lx6';
+const JSONBIN_URL = 'https://api.jsonbin.io/v3/b';
+let BIN_ID = localStorage.getItem('jsonbinId') || null;
 
 let records = [];
 let editStartEnabled = false;
@@ -725,20 +726,41 @@ let editTargetId = null;
 let summaryMonth = new Date();
 
 // ── API ──
-async function apiGet(params) {
-  const url = new URL(GAS_URL);
-  url.searchParams.set('secret', SECRET);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString());
-  return res.json();
+async function loadRecords() {
+  if (!BIN_ID) {
+    // 初回：新しいBinを作成
+    const res = await fetch(JSONBIN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': JSONBIN_KEY,
+        'X-Bin-Name': 'drive-log',
+        'X-Bin-Private': 'true'
+      },
+      body: JSON.stringify({ records: [] })
+    });
+    const data = await res.json();
+    BIN_ID = data.metadata.id;
+    localStorage.setItem('jsonbinId', BIN_ID);
+    return [];
+  } else {
+    const res = await fetch(`${JSONBIN_URL}/${BIN_ID}/latest`, {
+      headers: { 'X-Master-Key': JSONBIN_KEY }
+    });
+    const data = await res.json();
+    return data.record.records || [];
+  }
 }
 
-async function apiPost(body) {
-  const res = await fetch(GAS_URL, {
-    method: 'POST',
-    body: JSON.stringify({ secret: SECRET, ...body })
+async function saveAllRecords() {
+  await fetch(`${JSONBIN_URL}/${BIN_ID}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Key': JSONBIN_KEY
+    },
+    body: JSON.stringify({ records })
   });
-  return res.json();
 }
 
 // ── INIT ──
@@ -751,8 +773,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   setLoading(true);
   try {
-    const data = await apiGet({ action: 'getAll' });
-    records = (data.records || []).map(normalizeRecord);
+    const loaded = await loadRecords();
+    records = loaded.map(normalizeRecord);
     records.sort((a, b) => a.date.localeCompare(b.date));
   } catch(e) {
     toast('データ読込に失敗しました');
@@ -869,6 +891,7 @@ async function saveRecord() {
   try {
     await apiPost({ action: 'save', record });
     records.push(record);
+    await saveAllRecords();
     toast('記録しました ✓');
 
     document.getElementById('f-purpose').value = '';
@@ -1058,8 +1081,8 @@ async function saveEdit() {
   };
 
   try {
-    await apiPost({ action: 'update', record: updated });
     records = records.map(r => r.id === editTargetId ? updated : r);
+    await saveAllRecords();
     closeEditModal();
     renderHistory();
     toast('更新しました ✓');
@@ -1079,8 +1102,8 @@ function closeModal() {
 }
 async function confirmDelete() {
   try {
-    await apiPost({ action: 'delete', id: deleteTargetId });
     records = records.filter(r => r.id !== deleteTargetId);
+    await saveAllRecords();
     closeModal();
     renderHistory();
     toast('削除しました');

@@ -449,6 +449,23 @@
     color: var(--accent);
   }
 
+  .settings-save-btn {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text2);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 16px;
+    cursor: pointer;
+    margin-top: 24px;
+    transition: all .2s;
+    letter-spacing: .04em;
+  }
+  .settings-save-btn:active { opacity: .7; transform: scale(.98); }
+
   .settings-section-label {
     font-family: 'DM Mono', monospace;
     font-size: 10px;
@@ -462,30 +479,30 @@
 
   /* export buttons */
   .export-wrap {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
     margin-top: 20px;
   }
   .export-btn {
+    width: 100%;
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     color: var(--text);
     font-family: 'Noto Sans JP', sans-serif;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 14px 10px;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 18px 20px;
     cursor: pointer;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
+    gap: 10px;
     transition: all .2s;
+    letter-spacing: .02em;
   }
-  .export-btn:active { opacity: .7; transform: scale(.97); }
-  .export-btn svg { width: 20px; height: 20px; color: var(--accent); }
-  .export-btn span { color: var(--text2); font-size: 10px; font-family: 'DM Mono', monospace; letter-spacing: .06em; }
+  .export-btn:active { opacity: .7; transform: scale(.98); }
+  .export-btn svg { width: 22px; height: 22px; color: var(--accent); flex-shrink: 0; }
+  .export-btn .export-sub { color: var(--text3); font-size: 10px; font-family: 'DM Mono', monospace; letter-spacing: .1em; margin-left: 4px; }
   .export-btn.issued {
     background: rgba(200,245,58,.08);
     border-color: var(--accent);
@@ -746,7 +763,7 @@
       <input type="text" id="s-bank-holder" placeholder="例：カブシキガイシャ〇〇">
     </div>
 
-    <button class="btn-record" onclick="saveSettings()" style="margin-top:24px">設定を保存</button>
+    <button class="settings-save-btn" onclick="saveSettings()">設定を保存</button>
   </div>
 </div>
 

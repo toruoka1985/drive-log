@@ -728,7 +728,7 @@ let summaryMonth = new Date();
 // ── API ──
 async function loadRecords() {
   if (!BIN_ID) {
-    // 初回：新しいBinを作成
+    // 初回：新しいBinを作成（空のrecordsで初期化）
     const res = await fetch(JSONBIN_URL, {
       method: 'POST',
       headers: {
@@ -753,6 +753,23 @@ async function loadRecords() {
 }
 
 async function saveAllRecords() {
+  if (!BIN_ID) {
+    // BIN_IDがない場合は先にBinを作成
+    const res = await fetch(JSONBIN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': JSONBIN_KEY,
+        'X-Bin-Name': 'drive-log',
+        'X-Bin-Private': 'true'
+      },
+      body: JSON.stringify({ records })
+    });
+    const data = await res.json();
+    BIN_ID = data.metadata.id;
+    localStorage.setItem('jsonbinId', BIN_ID);
+    return;
+  }
   await fetch(`${JSONBIN_URL}/${BIN_ID}`, {
     method: 'PUT',
     headers: {

@@ -901,6 +901,17 @@ window.addEventListener('DOMContentLoaded', () => {
   renderHistory();
   renderSummary();
   loadSettings();
+
+  // デバッグ：safe-area-inset-topの値を表示
+  const debugEl = document.createElement('div');
+  debugEl.id = 'debug-info';
+  debugEl.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;font-size:11px;padding:4px 8px;z-index:9999;font-family:monospace;';
+  document.body.appendChild(debugEl);
+  const sat = getComputedStyle(document.documentElement).getPropertyValue('--sat') || 'n/a';
+  const innerH = window.innerHeight;
+  const screenH = window.screen.height;
+  const standalone = window.navigator.standalone;
+  debugEl.textContent = `standalone:${standalone} innerH:${innerH} screenH:${screenH} sat:${getComputedStyle(document.body).paddingTop}`;
 });
 
 function setLastOdo() {

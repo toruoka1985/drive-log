@@ -1001,6 +1001,7 @@ function renderSummary() {
     ${detailHtml}
   `;
   updateInvoiceBtn();
+}
 
 function changeMonth(dir) {
   summaryMonth = new Date(summaryMonth.getFullYear(), summaryMonth.getMonth() + dir, 1);
@@ -1168,7 +1169,7 @@ function saveSettings() {
 function exportInvoice() {
   const y = summaryMonth.getFullYear();
   const m = summaryMonth.getMonth() + 1;
-  const key = `${y}-${String(m).padStart(2,'0')}`;
+  const key = y + '-' + String(m).padStart(2,'0');
   const monthRecs = records.filter(r => r.date.startsWith(key));
   const targetRecs = monthRecs.filter(r => r.category !== '法人');
 
@@ -1185,123 +1186,105 @@ function exportInvoice() {
   const company = settings.company || '（会社名未設定）';
   const name    = settings.name    || '（氏名未設定）';
   const address = settings.address || '';
+  const invoiceNo = '' + y + String(m).padStart(2,'0');
+  const t = new Date();
+  const issueDate = t.getFullYear() + '年' + (t.getMonth()+1) + '月' + t.getDate() + '日';
 
-  // 請求書番号
-  const invoiceNo = `${y}${String(m).padStart(2,'0')}`;
-  const issueDate = (() => {
-    const t = new Date(); 
-    return `${t.getFullYear()}年${t.getMonth()+1}月${t.getDate()}日`;
-  })();
+  const detailRows = targetRecs.map(r =>
+    '<tr>' +
+    '<td>' + formatDate(r.date) + '</td>' +
+    '<td>' + escHtml(r.purpose) + '</td>' +
+    '<td style="text-align:center">' + r.category + '</td>' +
+    '<td style="text-align:right">' + r.km.toFixed(1) + '</td>' +
+    '<td style="text-align:right">¥' + r.cost.toLocaleString() + '</td>' +
+    '</tr>'
+  ).join('');
 
-  // 明細行HTML
-  const detailRows = targetRecs.map(r => `
-    <tr>
-      <td>${formatDate(r.date)}</td>
-      <td>${escHtml(r.purpose)}</td>
-      <td style="text-align:center">${r.category}</td>
-      <td style="text-align:right">${r.km.toFixed(1)}</td>
-      <td style="text-align:right">¥${r.cost.toLocaleString()}</td>
-    </tr>`).join('');
+  const addressHtml = address ? '<div class="party-address">' + escHtml(address) + '</div>' : '';
 
-  const html = `<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<title>車両利用料請求書 ${y}年${m}月</title>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif; font-size:13px; color:#1a1a1a; padding:40px; max-width:800px; margin:0 auto; }
-  h1 { font-size:22px; font-weight:700; letter-spacing:.04em; margin-bottom:6px; }
-  .invoice-meta { font-size:12px; color:#666; margin-bottom:32px; }
-  .invoice-meta span { margin-right:20px; }
-  .parties { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:32px; }
-  .party-box { padding:16px; border:1px solid #e0e0e0; border-radius:8px; }
-  .party-label { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#999; margin-bottom:6px; }
-  .party-name { font-size:15px; font-weight:700; }
-  .party-address { font-size:12px; color:#666; margin-top:4px; }
-  .summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:28px; }
-  .summary-box { padding:14px 16px; border-radius:8px; }
-  .summary-box.self { background:#fff8ee; border:1px solid #f5a23a; }
-  .summary-box.priv { background:#f5f5f5; border:1px solid #ccc; }
-  .summary-box .s-label { font-size:10px; letter-spacing:.12em; color:#888; margin-bottom:4px; }
-  .summary-box.self .s-label { color:#c8821a; }
-  .summary-box .s-km { font-size:12px; color:#888; }
-  .summary-box .s-cost { font-size:20px; font-weight:700; margin-top:4px; }
-  .summary-box.self .s-cost { color:#c8821a; }
-  .total-box { background:#1a1a1a; color:#fff; border-radius:8px; padding:18px 20px; margin-bottom:28px; display:flex; justify-content:space-between; align-items:center; }
-  .total-box .t-label { font-size:11px; letter-spacing:.12em; }
-  .total-box .t-amount { font-size:28px; font-weight:700; color:#c8f53a; }
-  .detail-title { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#999; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #e0e0e0; }
-  table { width:100%; border-collapse:collapse; font-size:12px; }
-  th { background:#f5f5f5; padding:8px 10px; text-align:left; font-weight:600; border-bottom:2px solid #e0e0e0; }
-  td { padding:8px 10px; border-bottom:1px solid #f0f0f0; }
-  tr:last-child td { border-bottom:none; }
-  .note { margin-top:28px; padding:14px 16px; background:#f9f9f9; border-radius:8px; font-size:11px; color:#888; line-height:1.8; }
-  @media print { body { padding:20px; } }
-</style>
-</head>
-<body>
-  <h1>車両利用料 請求書</h1>
-  <div class="invoice-meta">
-    <span>No. INV-${invoiceNo}</span>
-    <span>発行日：${issueDate}</span>
-    <span>対象月：${y}年${m}月</span>
-  </div>
-
-  <div class="parties">
-    <div class="party-box">
-      <div class="party-label">請求先</div>
-      <div class="party-name">${escHtml(name)} 様</div>
-      ${address ? `<div class="party-address">${escHtml(address)}</div>` : ''}
-    </div>
-    <div class="party-box">
-      <div class="party-label">発行者</div>
-      <div class="party-name">${escHtml(company)}</div>
-    </div>
-  </div>
-
-  <div class="summary-grid">
-    <div class="summary-box self">
-      <div class="s-label">個人事業利用</div>
-      <div class="s-km">${selfKm.toFixed(1)} km · ${selfRecs.length}件</div>
-      <div class="s-cost">¥${selfCost.toLocaleString()}</div>
-    </div>
-    <div class="summary-box priv">
-      <div class="s-label">私的利用</div>
-      <div class="s-km">${privKm.toFixed(1)} km · ${privRecs.length}件</div>
-      <div class="s-cost">¥${privCost.toLocaleString()}</div>
-    </div>
-  </div>
-
-  <div class="total-box">
-    <div class="t-label">合計振込額（個人事業 ＋ 私用）</div>
-    <div class="t-amount">¥${total.toLocaleString()}</div>
-  </div>
-
-  <div class="detail-title">利用明細</div>
-  <table>
-    <thead>
-      <tr>
-        <th>日付</th><th>目的</th><th style="text-align:center">区分</th><th style="text-align:right">距離(km)</th><th style="text-align:right">金額</th>
-      </tr>
-    </thead>
-    <tbody>${detailRows}</tbody>
-    <tfoot>
-      <tr style="font-weight:700; background:#f9f9f9;">
-        <td colspan="3">合計</td>
-        <td style="text-align:right">${(selfKm+privKm).toFixed(1)}</td>
-        <td style="text-align:right">¥${total.toLocaleString()}</td>
-      </tr>
-    </tfoot>
-  </table>
-
-  <div class="note">
-    ※ 法人業務分（${monthRecs.filter(r=>r.category==='法人').length}件）は精算不要のため本請求書には含まれません。<br>
-    ※ 利用料算定レート：¥${RATE}/km<br>
-    ※ 上記合計額を下記口座へお振込ください。
-  </div>
-<\/body>
-<\/html>`;
+  const html = '<!DOCTYPE html>\n' +
+'<html lang="ja">\n' +
+'<head>\n' +
+'<meta charset="UTF-8">\n' +
+'<title>車両利用料請求書 ' + y + '年' + m + '月</title>\n' +
+'<style>\n' +
+'* { margin:0; padding:0; box-sizing:border-box; }\n' +
+'body { font-family: "Hiragino Sans", sans-serif; font-size:13px; color:#1a1a1a; padding:40px; max-width:800px; margin:0 auto; }\n' +
+'h1 { font-size:22px; font-weight:700; letter-spacing:.04em; margin-bottom:6px; }\n' +
+'.invoice-meta { font-size:12px; color:#666; margin-bottom:32px; }\n' +
+'.invoice-meta span { margin-right:20px; }\n' +
+'.parties { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:32px; }\n' +
+'.party-box { padding:16px; border:1px solid #e0e0e0; border-radius:8px; }\n' +
+'.party-label { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#999; margin-bottom:6px; }\n' +
+'.party-name { font-size:15px; font-weight:700; }\n' +
+'.party-address { font-size:12px; color:#666; margin-top:4px; }\n' +
+'.summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:28px; }\n' +
+'.summary-box { padding:14px 16px; border-radius:8px; }\n' +
+'.summary-box.self { background:#fff8ee; border:1px solid #f5a23a; }\n' +
+'.summary-box.priv { background:#f5f5f5; border:1px solid #ccc; }\n' +
+'.summary-box .s-label { font-size:10px; letter-spacing:.12em; color:#888; margin-bottom:4px; }\n' +
+'.summary-box.self .s-label { color:#c8821a; }\n' +
+'.summary-box .s-km { font-size:12px; color:#888; }\n' +
+'.summary-box .s-cost { font-size:20px; font-weight:700; margin-top:4px; }\n' +
+'.summary-box.self .s-cost { color:#c8821a; }\n' +
+'.total-box { background:#1a1a1a; color:#fff; border-radius:8px; padding:18px 20px; margin-bottom:28px; display:flex; justify-content:space-between; align-items:center; }\n' +
+'.total-box .t-label { font-size:11px; letter-spacing:.12em; }\n' +
+'.total-box .t-amount { font-size:28px; font-weight:700; color:#c8f53a; }\n' +
+'.detail-title { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#999; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #e0e0e0; }\n' +
+'table { width:100%; border-collapse:collapse; font-size:12px; }\n' +
+'th { background:#f5f5f5; padding:8px 10px; text-align:left; font-weight:600; border-bottom:2px solid #e0e0e0; }\n' +
+'td { padding:8px 10px; border-bottom:1px solid #f0f0f0; }\n' +
+'tr:last-child td { border-bottom:none; }\n' +
+'.note { margin-top:28px; padding:14px 16px; background:#f9f9f9; border-radius:8px; font-size:11px; color:#888; line-height:1.8; }\n' +
+'</style>\n' +
+'</head>\n' +
+'<body>\n' +
+'<h1>車両利用料 請求書</h1>\n' +
+'<div class="invoice-meta">\n' +
+'  <span>No. INV-' + invoiceNo + '</span>\n' +
+'  <span>発行日：' + issueDate + '</span>\n' +
+'  <span>対象月：' + y + '年' + m + '月</span>\n' +
+'</div>\n' +
+'<div class="parties">\n' +
+'  <div class="party-box">\n' +
+'    <div class="party-label">請求先</div>\n' +
+'    <div class="party-name">' + escHtml(name) + ' 様</div>\n' +
+'    ' + addressHtml + '\n' +
+'  </div>\n' +
+'  <div class="party-box">\n' +
+'    <div class="party-label">発行者</div>\n' +
+'    <div class="party-name">' + escHtml(company) + '</div>\n' +
+'  </div>\n' +
+'</div>\n' +
+'<div class="summary-grid">\n' +
+'  <div class="summary-box self">\n' +
+'    <div class="s-label">個人事業利用</div>\n' +
+'    <div class="s-km">' + selfKm.toFixed(1) + ' km · ' + selfRecs.length + '件</div>\n' +
+'    <div class="s-cost">¥' + selfCost.toLocaleString() + '</div>\n' +
+'  </div>\n' +
+'  <div class="summary-box priv">\n' +
+'    <div class="s-label">私的利用</div>\n' +
+'    <div class="s-km">' + privKm.toFixed(1) + ' km · ' + privRecs.length + '件</div>\n' +
+'    <div class="s-cost">¥' + privCost.toLocaleString() + '</div>\n' +
+'  </div>\n' +
+'</div>\n' +
+'<div class="total-box">\n' +
+'  <div class="t-label">合計振込額（個人事業 ＋ 私用）</div>\n' +
+'  <div class="t-amount">¥' + total.toLocaleString() + '</div>\n' +
+'</div>\n' +
+'<div class="detail-title">利用明細</div>\n' +
+'<table>\n' +
+'  <thead><tr><th>日付</th><th>目的</th><th style="text-align:center">区分</th><th style="text-align:right">距離(km)</th><th style="text-align:right">金額</th></tr></thead>\n' +
+'  <tbody>' + detailRows + '</tbody>\n' +
+'  <tfoot><tr style="font-weight:700;background:#f9f9f9;"><td colspan="3">合計</td><td style="text-align:right">' + (selfKm+privKm).toFixed(1) + '</td><td style="text-align:right">¥' + total.toLocaleString() + '</td></tr></tfoot>\n' +
+'</table>\n' +
+'<div class="note">\n' +
+'  ※ 法人業務分（' + monthRecs.filter(r=>r.category==='法人').length + '件）は精算不要のため本請求書には含まれません。<br>\n' +
+'  ※ 利用料算定レート：¥' + RATE + '/km<br>\n' +
+'  ※ 上記合計額を下記口座へお振込ください。\n' +
+'</div>\n' +
+'</body>\n' +
+'</html>';
 
   const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
   const url = URL.createObjectURL(blob);

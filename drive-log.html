@@ -906,7 +906,6 @@ async function saveRecord() {
 
   setLoading(true);
   try {
-    await apiPost({ action: 'save', record });
     records.push(record);
     await saveAllRecords();
     toast('記録しました ✓');

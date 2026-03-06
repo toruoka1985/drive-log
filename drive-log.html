@@ -80,7 +80,7 @@
   }
   @media all and (display-mode: standalone) {
     .header {
-      padding: calc(env(safe-area-inset-top) + 16px) 20px 20px;
+      padding: env(safe-area-inset-top) 20px 20px;
     }
   }
   .header h1 {
@@ -1335,9 +1335,9 @@ function exportInvoice() {
 '  ※ 上記合計額を下記口座へお振込ください。<br><br>\n' +
 '  ' + bankHtml + '\n' +
 '</div>\n' +
-'<div style="margin-top:16px;padding:12px 16px;border:1px solid #e8e8e8;border-radius:8px;font-size:11px;color:#aaa;line-height:1.8;">\n' +
+'<p style="margin-top:20px;font-size:10px;color:#bbb;line-height:1.8;">\n' +
 '  本請求に対する領収書は発行いたしません。振込完了後の銀行振込明細書をもって、支払いの証明とみなします。\n' +
-'</div>\n' +
+'</p>\n' +
 '<script>window.onload=function(){window.print();}<\/script>\n' +
 '</body>\n' +
 '</html>';

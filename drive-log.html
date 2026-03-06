@@ -672,12 +672,6 @@
   <div class="preview-scroll">
     <img id="preview-img" src="" alt="請求書プレビュー">
   </div>
-  <button class="preview-share-btn" id="preview-share-btn">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    AirDropで送る
-  </button>
 </div>
 
 <!-- CONFIRM MODAL -->
@@ -1463,8 +1457,8 @@ function exportInvoice() {
         const imgUrl = URL.createObjectURL(blob);
         document.getElementById('preview-img').src = imgUrl;
         document.getElementById('previewOverlay').classList.add('show');
-        // 共有ボタンに処理をセット
-        document.getElementById('preview-share-btn').onclick = async () => {
+        // プレビューを見せつつ共有シートを起動
+        try {
           if (navigator.share && navigator.canShare({ files: [file] })) {
             await navigator.share({ files: [file], title: `自動車利用料金請求書 ${y}年${m}月` });
           } else {
@@ -1477,7 +1471,10 @@ function exportInvoice() {
           updateInvoiceBtn();
           closePreview();
           toast('請求書を共有しました ✓');
-        };
+        } catch(e) {
+          // キャンセルした場合はプレビューを残す
+          if (e.name !== 'AbortError') toast('共有に失敗しました');
+        }
       }, 'image/png');
     } catch(e) {
       document.body.removeChild(iframe);

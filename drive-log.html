@@ -1335,6 +1335,9 @@ function exportInvoice() {
 '  ※ 上記合計額を下記口座へお振込ください。<br><br>\n' +
 '  ' + bankHtml + '\n' +
 '</div>\n' +
+'<div style="margin-top:16px;padding:12px 16px;border:1px solid #e8e8e8;border-radius:8px;font-size:11px;color:#aaa;line-height:1.8;">\n' +
+'  本請求に対する領収書は発行いたしません。振込完了後の銀行振込明細書をもって、支払いの証明とみなします。\n' +
+'</div>\n' +
 '<script>window.onload=function(){window.print();}<\/script>\n' +
 '</body>\n' +
 '</html>';
@@ -1369,14 +1372,14 @@ function exportInvoice() {
       document.body.removeChild(iframe);
 
       canvas.toBlob(async (blob) => {
-        const file = new File([blob], `請求書_${y}年${m}月.png`, { type: 'image/png' });
+        const file = new File([blob], `${y}${String(m).padStart(2,'0')}_自動車利用料金請求書.png`, { type: 'image/png' });
         if (navigator.share && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: `請求書 ${y}年${m}月` });
+          await navigator.share({ files: [file], title: `自動車利用料金請求書 ${y}年${m}月` });
         } else {
           // フォールバック：ダウンロード
           const a = document.createElement('a');
           a.href = URL.createObjectURL(blob);
-          a.download = `請求書_${y}年${m}月.png`;
+          a.download = `${y}${String(m).padStart(2,'0')}_自動車利用料金請求書.png`;
           a.click();
         }
         setInvoiceIssued(y, m);

@@ -732,6 +732,20 @@
       <input type="text" id="s-address" placeholder="例：東京都渋谷区〇〇1-2-3">
     </div>
 
+    <div class="settings-section-label" style="margin-top:20px">振込先口座</div>
+    <div class="field">
+      <label>銀行名・支店名</label>
+      <input type="text" id="s-bank-name" placeholder="例：〇〇銀行 〇〇支店">
+    </div>
+    <div class="field">
+      <label>口座種別・番号</label>
+      <input type="text" id="s-bank-type" placeholder="例：普通 1234567">
+    </div>
+    <div class="field">
+      <label>口座名義</label>
+      <input type="text" id="s-bank-holder" placeholder="例：カブシキガイシャ〇〇">
+    </div>
+
     <button class="btn-record" onclick="saveSettings()" style="margin-top:24px">設定を保存</button>
   </div>
 </div>
@@ -1153,6 +1167,9 @@ function loadSettings() {
   document.getElementById('s-company').value = settings.company || '';
   document.getElementById('s-name').value = settings.name || '';
   document.getElementById('s-address').value = settings.address || '';
+  document.getElementById('s-bank-name').value = settings.bankName || '';
+  document.getElementById('s-bank-type').value = settings.bankType || '';
+  document.getElementById('s-bank-holder').value = settings.bankHolder || '';
 }
 
 function saveSettings() {
@@ -1160,6 +1177,9 @@ function saveSettings() {
     company: document.getElementById('s-company').value.trim(),
     name: document.getElementById('s-name').value.trim(),
     address: document.getElementById('s-address').value.trim(),
+    bankName: document.getElementById('s-bank-name').value.trim(),
+    bankType: document.getElementById('s-bank-type').value.trim(),
+    bankHolder: document.getElementById('s-bank-holder').value.trim(),
   };
   localStorage.setItem('driveSettings', JSON.stringify(settings));
   toast('設定を保存しました ✓');
@@ -1186,6 +1206,15 @@ function exportInvoice() {
   const company = settings.company || '（会社名未設定）';
   const name    = settings.name    || '（氏名未設定）';
   const address = settings.address || '';
+  const bankName   = settings.bankName   || '';
+  const bankType   = settings.bankType   || '';
+  const bankHolder = settings.bankHolder || '';
+  const bankHtml = (bankName || bankType || bankHolder)
+    ? '  <strong>振込先口座</strong><br>\n' +
+      (bankName   ? '  ' + escHtml(bankName)   + '<br>\n' : '') +
+      (bankType   ? '  ' + escHtml(bankType)   + '<br>\n' : '') +
+      (bankHolder ? '  名義：' + escHtml(bankHolder) : '')
+    : '（口座情報は設定画面で入力してください）';
   const invoiceNo = '' + y + String(m).padStart(2,'0');
   const t = new Date();
   const issueDate = t.getFullYear() + '年' + (t.getMonth()+1) + '月' + t.getDate() + '日';
@@ -1281,8 +1310,10 @@ function exportInvoice() {
 '<div class="note">\n' +
 '  ※ 法人業務分（' + monthRecs.filter(r=>r.category==='法人').length + '件）は精算不要のため本請求書には含まれません。<br>\n' +
 '  ※ 利用料算定レート：¥' + RATE + '/km<br>\n' +
-'  ※ 上記合計額を下記口座へお振込ください。\n' +
+'  ※ 上記合計額を下記口座へお振込ください。<br><br>\n' +
+'  ' + bankHtml + '\n' +
 '</div>\n' +
+'<script>window.onload=function(){window.print();}<\/script>\n' +
 '</body>\n' +
 '</html>';
 

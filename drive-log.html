@@ -655,7 +655,18 @@
     gap: 8px;
     letter-spacing: .04em;
   }
-  .preview-share-btn svg { width: 20px; height: 20px; }
+  .preview-reshare-btn {
+    background: none;
+    border: none;
+    color: var(--text2);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .preview-reshare-btn svg { width: 22px; height: 22px; }
+  .preview-reshare-btn:active { opacity: .5; }
 </style>
 </head>
 <body>
@@ -667,7 +678,14 @@
 <div class="preview-overlay" id="previewOverlay">
   <div class="preview-header">
     <span class="preview-title">Invoice Preview</span>
-    <button class="preview-close" onclick="closePreview()">✕ 閉じる</button>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <button class="preview-reshare-btn" id="preview-reshare-btn" title="共有">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <button class="preview-close" onclick="closePreview()">✕ 閉じる</button>
+    </div>
   </div>
   <div class="preview-scroll">
     <img id="preview-img" src="" alt="請求書プレビュー">
@@ -1457,24 +1475,30 @@ function exportInvoice() {
         const imgUrl = URL.createObjectURL(blob);
         document.getElementById('preview-img').src = imgUrl;
         document.getElementById('previewOverlay').classList.add('show');
-        // プレビューを見せつつ共有シートを起動
-        try {
-          if (navigator.share && navigator.canShare({ files: [file] })) {
-            await navigator.share({ files: [file], title: `自動車利用料金請求書 ${y}年${m}月` });
-          } else {
-            const a = document.createElement('a');
-            a.href = imgUrl;
-            a.download = `${y}${String(m).padStart(2,'0')}_自動車利用料金請求書.png`;
-            a.click();
+
+        const doShare = async () => {
+          try {
+            if (navigator.share && navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], title: `自動車利用料金請求書 ${y}年${m}月` });
+            } else {
+              const a = document.createElement('a');
+              a.href = imgUrl;
+              a.download = `${y}${String(m).padStart(2,'0')}_自動車利用料金請求書.png`;
+              a.click();
+            }
+            setInvoiceIssued(y, m);
+            updateInvoiceBtn();
+            closePreview();
+            toast('請求書を共有しました ✓');
+          } catch(e) {
+            if (e.name !== 'AbortError') toast('共有に失敗しました');
           }
-          setInvoiceIssued(y, m);
-          updateInvoiceBtn();
-          closePreview();
-          toast('請求書を共有しました ✓');
-        } catch(e) {
-          // キャンセルした場合はプレビューを残す
-          if (e.name !== 'AbortError') toast('共有に失敗しました');
-        }
+        };
+
+        // 再共有ボタン
+        document.getElementById('preview-reshare-btn').onclick = doShare;
+        // プレビューと同時に共有シートを起動
+        doShare();
       }, 'image/png');
     } catch(e) {
       document.body.removeChild(iframe);

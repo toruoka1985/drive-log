@@ -1107,24 +1107,6 @@ function renderSummary() {
     </div>`;
   });
 
-  let detailHtml = '';
-  if (monthRecs.length > 0) {
-    detailHtml = `<div class="detail-title">明細</div>`;
-    [...monthRecs].reverse().forEach(r => {
-      detailHtml += `<div class="record-card ${r.category}" style="margin-bottom:8px">
-        <div class="record-top">
-          <span class="record-date">${formatDate(r.date)}</span>
-          <span class="record-cat">${r.category}</span>
-        </div>
-        <div class="record-purpose">${escHtml(r.purpose)}</div>
-        <div class="record-bottom">
-          <span class="record-km">${r.km.toFixed(1)} km</span>
-          <span class="record-cost">¥${r.cost.toLocaleString()}</span>
-        </div>
-      </div>`;
-    });
-  }
-
   document.getElementById('summary-content').innerHTML = `
     <div class="summary-cards">${cardsHtml}</div>
     <div class="total-card">
@@ -1132,7 +1114,6 @@ function renderSummary() {
       <div class="t-amount">¥${totalCost.toLocaleString()}</div>
       <div style="font-size:11px;color:var(--text3);margin-top:6px;font-family:'DM Mono',monospace;">個人 → 法人への振込金額</div>
     </div>
-    ${detailHtml}
   `;
   updateInvoiceBtn();
 }

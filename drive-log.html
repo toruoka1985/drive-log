@@ -715,110 +715,28 @@
 
 <script>
 const RATE = 300;
-const JSONBIN_KEY = '$2a$10$852399csM.hHmkNwqdk9le40.llhQWaRt4Hh9zMCb7OGlEeJ8/lx6';
-const JSONBIN_URL = 'https://api.jsonbin.io/v3/b';
-let BIN_ID = localStorage.getItem('jsonbinId') || null;
-
-let records = [];
+let records = JSON.parse(localStorage.getItem('driveRecords') || '[]');
 let editStartEnabled = false;
 let deleteTargetId = null;
 let editTargetId = null;
 let summaryMonth = new Date();
 
-// ── API ──
-async function loadRecords() {
-  if (!BIN_ID) {
-    // 初回：新しいBinを作成（空のrecordsで初期化）
-    const res = await fetch(JSONBIN_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': JSONBIN_KEY,
-        'X-Bin-Name': 'drive-log',
-        'X-Bin-Private': 'true'
-      },
-      body: JSON.stringify({ records: [] })
-    });
-    const data = await res.json();
-    BIN_ID = data.metadata.id;
-    localStorage.setItem('jsonbinId', BIN_ID);
-    return [];
-  } else {
-    const res = await fetch(`${JSONBIN_URL}/${BIN_ID}/latest`, {
-      headers: { 'X-Master-Key': JSONBIN_KEY }
-    });
-    const data = await res.json();
-    return data.record.records || [];
-  }
-}
-
-async function saveAllRecords() {
-  if (!BIN_ID) {
-    // BIN_IDがない場合は先にBinを作成
-    const res = await fetch(JSONBIN_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': JSONBIN_KEY,
-        'X-Bin-Name': 'drive-log',
-        'X-Bin-Private': 'true'
-      },
-      body: JSON.stringify({ records })
-    });
-    const data = await res.json();
-    BIN_ID = data.metadata.id;
-    localStorage.setItem('jsonbinId', BIN_ID);
-    return;
-  }
-  await fetch(`${JSONBIN_URL}/${BIN_ID}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Master-Key': JSONBIN_KEY
-    },
-    body: JSON.stringify({ records })
-  });
-}
-
 // ── INIT ──
-window.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('DOMContentLoaded', () => {
   const today = new Date();
   const y = today.getFullYear();
   const m = String(today.getMonth() + 1).padStart(2, '0');
   const d = String(today.getDate()).padStart(2, '0');
   document.getElementById('f-date').value = `${y}-${m}-${d}`;
 
-  setLoading(true);
-  try {
-    const loaded = await loadRecords();
-    records = loaded.map(normalizeRecord);
-    records.sort((a, b) => a.date.localeCompare(b.date));
-  } catch(e) {
-    toast('データ読込に失敗しました');
-  }
-  setLoading(false);
   setLastOdo();
   renderHistory();
   renderSummary();
 });
-
-function normalizeRecord(r) {
-  return {
-    id: Number(r.id),
-    date: r.date,
-    purpose: r.purpose,
-    category: r.category,
-    odoStart: Number(r.odoStart),
-    odoEnd: Number(r.odoEnd),
-    km: Number(r.km),
-    cost: Number(r.cost)
-  };
-}
-
-function setLoading(on) {
-  document.getElementById('submit-btn').disabled = on;
-  document.getElementById('submit-btn').textContent = on ? '通信中…' : '記録する';
-}
+  setLastOdo();
+  renderHistory();
+  renderSummary();
+});
 
 function setLastOdo() {
   if (records.length === 0) return;
@@ -881,7 +799,7 @@ function updatePreview() {
 }
 
 // ── SAVE ──
-async function saveRecord() {
+function saveRecord() {
   const date = document.getElementById('f-date').value;
   const purpose = document.getElementById('f-purpose').value.trim();
   const cat = getCategory();
@@ -904,29 +822,28 @@ async function saveRecord() {
     cost
   };
 
-  setLoading(true);
-  try {
-    records.push(record);
-    await saveAllRecords();
-    toast('記録しました ✓');
+  records.push(record);
+  save();
+  toast('記録しました ✓');
 
-    document.getElementById('f-purpose').value = '';
-    document.getElementById('f-odo-end').value = '';
-    const startInput = document.getElementById('f-odo-start');
-    startInput.value = end;
-    startInput.classList.add('readonly-odo');
-    document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
-    updatePreview();
+  document.getElementById('f-purpose').value = '';
+  document.getElementById('f-odo-end').value = '';
+  const startInput = document.getElementById('f-odo-start');
+  startInput.value = end;
+  startInput.classList.add('readonly-odo');
+  document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  updatePreview();
 
-    if (editStartEnabled) {
-      editStartEnabled = false;
-      document.getElementById('edit-start-btn').classList.remove('active');
-      document.getElementById('edit-start-btn').textContent = '編集';
-    }
-  } catch(e) {
-    toast('保存に失敗しました');
+  if (editStartEnabled) {
+    editStartEnabled = false;
+    document.getElementById('edit-start-btn').classList.remove('active');
+    document.getElementById('edit-start-btn').textContent = '編集';
   }
-  setLoading(false);
+}
+
+// ── SAVE/LOAD ──
+function save() {
+  localStorage.setItem('driveRecords', JSON.stringify(records));
 }
 
 // ── HISTORY ──
@@ -1077,7 +994,7 @@ function updateEditPreview() {
   }
 }
 
-async function saveEdit() {
+function saveEdit() {
   const date = document.getElementById('e-date').value;
   const purpose = document.getElementById('e-purpose').value.trim();
   const cat = document.querySelector('.edit-seg.active')?.dataset.v;
@@ -1096,15 +1013,11 @@ async function saveEdit() {
     km: parseFloat(km.toFixed(1)), cost
   };
 
-  try {
-    records = records.map(r => r.id === editTargetId ? updated : r);
-    await saveAllRecords();
-    closeEditModal();
-    renderHistory();
-    toast('更新しました ✓');
-  } catch(e) {
-    toast('更新に失敗しました');
-  }
+  records = records.map(r => r.id === editTargetId ? updated : r);
+  save();
+  closeEditModal();
+  renderHistory();
+  toast('更新しました ✓');
 }
 
 // ── DELETE ──
@@ -1116,16 +1029,12 @@ function closeModal() {
   document.getElementById('modalOverlay').classList.remove('show');
   deleteTargetId = null;
 }
-async function confirmDelete() {
-  try {
-    records = records.filter(r => r.id !== deleteTargetId);
-    await saveAllRecords();
-    closeModal();
-    renderHistory();
-    toast('削除しました');
-  } catch(e) {
-    toast('削除に失敗しました');
-  }
+function confirmDelete() {
+  records = records.filter(r => r.id !== deleteTargetId);
+  save();
+  closeModal();
+  renderHistory();
+  toast('削除しました');
 }
 
 // ── CSV EXPORT ──

@@ -714,26 +714,72 @@
 </nav>
 
 <script>
-const RATE = 300; // 円/km
-let records = JSON.parse(localStorage.getItem('driveRecords') || '[]');
+const RATE = 300;
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxNRIZnoBGVgKkpEO3O1YOgzAlq1XzrU7_UJJANoE9pTc3_tG0KCtKPvqXh-z8XDBU6fA/exec';
+const SECRET = 'drivelog2026';
+
+let records = [];
 let editStartEnabled = false;
 let deleteTargetId = null;
+let editTargetId = null;
 let summaryMonth = new Date();
 
+// ── API ──
+async function apiGet(params) {
+  const url = new URL(GAS_URL);
+  url.searchParams.set('secret', SECRET);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString());
+  return res.json();
+}
+
+async function apiPost(body) {
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    body: JSON.stringify({ secret: SECRET, ...body })
+  });
+  return res.json();
+}
+
 // ── INIT ──
-window.addEventListener('DOMContentLoaded', () => {
-  // Set today's date（タイムゾーンずれ対策）
+window.addEventListener('DOMContentLoaded', async () => {
   const today = new Date();
   const y = today.getFullYear();
   const m = String(today.getMonth() + 1).padStart(2, '0');
   const d = String(today.getDate()).padStart(2, '0');
   document.getElementById('f-date').value = `${y}-${m}-${d}`;
 
-  // Set last odo
+  setLoading(true);
+  try {
+    const data = await apiGet({ action: 'getAll' });
+    records = (data.records || []).map(normalizeRecord);
+    records.sort((a, b) => a.date.localeCompare(b.date));
+  } catch(e) {
+    toast('データ読込に失敗しました');
+  }
+  setLoading(false);
   setLastOdo();
   renderHistory();
   renderSummary();
 });
+
+function normalizeRecord(r) {
+  return {
+    id: Number(r.id),
+    date: r.date,
+    purpose: r.purpose,
+    category: r.category,
+    odoStart: Number(r.odoStart),
+    odoEnd: Number(r.odoEnd),
+    km: Number(r.km),
+    cost: Number(r.cost)
+  };
+}
+
+function setLoading(on) {
+  document.getElementById('submit-btn').disabled = on;
+  document.getElementById('submit-btn').textContent = on ? '通信中…' : '記録する';
+}
 
 function setLastOdo() {
   if (records.length === 0) return;
@@ -773,11 +819,7 @@ function toggleEditStart() {
     input.classList.remove('readonly-odo');
     btn.classList.add('active');
     btn.textContent = '確定';
-    // iOS対応：少し遅延してからfocus
-    setTimeout(() => {
-      input.focus();
-      input.select();
-    }, 50);
+    setTimeout(() => { input.focus(); input.select(); }, 50);
   } else {
     input.classList.add('readonly-odo');
     input.blur();
@@ -794,15 +836,13 @@ function updatePreview() {
   const el = document.getElementById('preview-km');
   if (!isNaN(start) && !isNaN(end) && end > start) {
     el.textContent = (end - start).toFixed(1) + ' km';
-    el.style.color = 'var(--accent)';
   } else {
     el.textContent = '— km';
-    el.style.color = 'var(--accent)';
   }
 }
 
 // ── SAVE ──
-function saveRecord() {
+async function saveRecord() {
   const date = document.getElementById('f-date').value;
   const purpose = document.getElementById('f-purpose').value.trim();
   const cat = getCategory();
@@ -825,30 +865,29 @@ function saveRecord() {
     cost
   };
 
-  records.push(record);
-  save();
-  toast('記録しました ✓');
+  setLoading(true);
+  try {
+    await apiPost({ action: 'save', record });
+    records.push(record);
+    toast('記録しました ✓');
 
-  // reset form
-  document.getElementById('f-purpose').value = '';
-  document.getElementById('f-odo-end').value = '';
-  const startInput = document.getElementById('f-odo-start');
-  startInput.value = end;
-  startInput.classList.add('readonly-odo');
-  document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
-  updatePreview();
+    document.getElementById('f-purpose').value = '';
+    document.getElementById('f-odo-end').value = '';
+    const startInput = document.getElementById('f-odo-start');
+    startInput.value = end;
+    startInput.classList.add('readonly-odo');
+    document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+    updatePreview();
 
-  // reset edit mode
-  if (editStartEnabled) {
-    editStartEnabled = false;
-    document.getElementById('edit-start-btn').classList.remove('active');
-    document.getElementById('edit-start-btn').textContent = '編集';
+    if (editStartEnabled) {
+      editStartEnabled = false;
+      document.getElementById('edit-start-btn').classList.remove('active');
+      document.getElementById('edit-start-btn').textContent = '編集';
+    }
+  } catch(e) {
+    toast('保存に失敗しました');
   }
-}
-
-// ── SAVE/LOAD ──
-function save() {
-  localStorage.setItem('driveRecords', JSON.stringify(records));
+  setLoading(false);
 }
 
 // ── HISTORY ──
@@ -858,7 +897,6 @@ function renderHistory() {
     wrap.innerHTML = '<p class="empty-msg">NO RECORDS YET</p>';
     return;
   }
-  // group by month
   const groups = {};
   [...records].reverse().forEach(r => {
     const m = r.date.slice(0, 7);
@@ -869,8 +907,7 @@ function renderHistory() {
   let html = '';
   Object.entries(groups).sort((a,b) => b[0].localeCompare(a[0])).forEach(([month, recs]) => {
     const [y, m] = month.split('-');
-    html += `<div class="month-group">
-      <div class="month-label">${y}年 ${parseInt(m)}月</div>`;
+    html += `<div class="month-group"><div class="month-label">${y}年 ${parseInt(m)}月</div>`;
     recs.forEach(r => {
       html += `<div class="record-card ${r.category}">
         <div class="record-top">
@@ -902,11 +939,9 @@ function renderSummary() {
   document.getElementById('summary-month-label').textContent = `${y}年 ${m}月`;
 
   const monthRecs = records.filter(r => r.date.startsWith(key));
-
   const cats = ['法人', '個人事業', '私用'];
-  const colors = { '法人': 'corp', '個人事業': 'self', '私用': 'priv' };
   const notes = {
-    '法人': '会社への振込対象',
+    '法人': '参考値（法人業務のため精算不要）',
     '個人事業': '事業経費として計上',
     '私用': '自己負担'
   };
@@ -929,7 +964,6 @@ function renderSummary() {
     </div>`;
   });
 
-  // detail records
   let detailHtml = '';
   if (monthRecs.length > 0) {
     detailHtml = `<div class="detail-title">明細</div>`;
@@ -965,8 +999,6 @@ function changeMonth(dir) {
 }
 
 // ── EDIT MODAL ──
-let editTargetId = null;
-
 function openEditModal(id) {
   const r = records.find(r => r.id === id);
   if (!r) return;
@@ -1006,7 +1038,7 @@ function updateEditPreview() {
   }
 }
 
-function saveEdit() {
+async function saveEdit() {
   const date = document.getElementById('e-date').value;
   const purpose = document.getElementById('e-purpose').value.trim();
   const cat = document.querySelector('.edit-seg.active')?.dataset.v;
@@ -1019,17 +1051,21 @@ function saveEdit() {
 
   const km = end - start;
   const cost = Math.round(km * RATE);
-
-  records = records.map(r => r.id === editTargetId ? {
-    ...r, date, purpose, category: cat,
+  const updated = {
+    id: editTargetId, date, purpose, category: cat,
     odoStart: start, odoEnd: end,
     km: parseFloat(km.toFixed(1)), cost
-  } : r);
+  };
 
-  save();
-  closeEditModal();
-  renderHistory();
-  toast('更新しました ✓');
+  try {
+    await apiPost({ action: 'update', record: updated });
+    records = records.map(r => r.id === editTargetId ? updated : r);
+    closeEditModal();
+    renderHistory();
+    toast('更新しました ✓');
+  } catch(e) {
+    toast('更新に失敗しました');
+  }
 }
 
 // ── DELETE ──
@@ -1041,12 +1077,16 @@ function closeModal() {
   document.getElementById('modalOverlay').classList.remove('show');
   deleteTargetId = null;
 }
-function confirmDelete() {
-  records = records.filter(r => r.id !== deleteTargetId);
-  save();
-  closeModal();
-  renderHistory();
-  toast('削除しました');
+async function confirmDelete() {
+  try {
+    await apiPost({ action: 'delete', id: deleteTargetId });
+    records = records.filter(r => r.id !== deleteTargetId);
+    closeModal();
+    renderHistory();
+    toast('削除しました');
+  } catch(e) {
+    toast('削除に失敗しました');
+  }
 }
 
 // ── CSV EXPORT ──
@@ -1054,27 +1094,19 @@ function exportCSV(mode) {
   const y = summaryMonth.getFullYear();
   const m = summaryMonth.getMonth() + 1;
   const key = `${y}-${String(m).padStart(2,'0')}`;
-
-  const target = mode === 'month'
-    ? records.filter(r => r.date.startsWith(key))
-    : [...records];
-
+  const target = mode === 'month' ? records.filter(r => r.date.startsWith(key)) : [...records];
   if (target.length === 0) { toast('データがありません'); return; }
 
   const header = '日付,目的,費用区分,開始オドメーター,終了オドメーター,走行距離(km),金額(円)';
   const rows = target.map(r =>
     `${r.date},${r.purpose},${r.category},${r.odoStart},${r.odoEnd},${r.km},${r.cost}`
   );
-  const csv = '\uFEFF' + [header, ...rows].join('\n'); // BOM付きでExcel対応
-
+  const csv = '\uFEFF' + [header, ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const filename = mode === 'month'
-    ? `走行記録_${y}年${m}月.csv`
-    : `走行記録_全データ.csv`;
   a.href = url;
-  a.download = filename;
+  a.download = mode === 'month' ? `走行記録_${y}年${m}月.csv` : `走行記録_全データ.csv`;
   a.click();
   URL.revokeObjectURL(url);
   toast('CSVを保存しました ✓');

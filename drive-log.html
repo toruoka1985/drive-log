@@ -1334,12 +1334,57 @@ function exportInvoice() {
 '</body>\n' +
 '</html>';
 
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
-  setInvoiceIssued(y, m);
-  updateInvoiceBtn();
-  toast('請求書を開きました ✓');
+  // 請求書HTMLをiframe内でレンダリングしてhtml2canvasでPNG化
+  toast('請求書を生成中…');
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;height:1px;border:none;';
+  document.body.appendChild(iframe);
+  iframe.contentDocument.open();
+  iframe.contentDocument.write(html.replace('<script>window.onload=function(){window.print();}<\/script>', ''));
+  iframe.contentDocument.close();
+
+  // html2canvas読み込み
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+  script.onload = async () => {
+    try {
+      await new Promise(r => setTimeout(r, 800)); // レンダリング待ち
+      const iframeBody = iframe.contentDocument.body;
+      const h = iframeBody.scrollHeight;
+      iframe.style.height = h + 'px';
+      await new Promise(r => setTimeout(r, 300));
+
+      const canvas = await html2canvas(iframeBody, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        width: 800,
+        height: h
+      });
+      document.body.removeChild(iframe);
+
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], `請求書_${y}年${m}月.png`, { type: 'image/png' });
+        if (navigator.share && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: `請求書 ${y}年${m}月` });
+        } else {
+          // フォールバック：ダウンロード
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `請求書_${y}年${m}月.png`;
+          a.click();
+        }
+        setInvoiceIssued(y, m);
+        updateInvoiceBtn();
+        toast('請求書を共有しました ✓');
+      }, 'image/png');
+    } catch(e) {
+      document.body.removeChild(iframe);
+      toast('生成に失敗しました');
+      console.error(e);
+    }
+  };
+  document.head.appendChild(script);
 }
 
 // ── TOAST ──

@@ -1605,12 +1605,10 @@ function exportInvoice() {
   iframe.contentDocument.write(html.replace('<script>window.onload=function(){window.print();}<\/script>', ''));
   iframe.contentDocument.close();
 
-  // html2canvas読み込み
-  const script = document.createElement('script');
-  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-  script.onload = async () => {
+  // html2canvas（初回のみ読み込み、以降はキャッシュを使用）
+  const runCanvas = async () => {
     try {
-      await new Promise(r => setTimeout(r, 800)); // レンダリング待ち
+      await new Promise(r => setTimeout(r, 800));
       const iframeBody = iframe.contentDocument.body;
       const h = iframeBody.scrollHeight;
       iframe.style.height = h + 'px';
@@ -1627,7 +1625,6 @@ function exportInvoice() {
 
       canvas.toBlob(async (blob) => {
         const file = new File([blob], `${y}${String(m).padStart(2,'0')}_自動車利用料金請求書.png`, { type: 'image/png' });
-        // プレビューモーダルを表示（ピンチズーム対応）
         const imgUrl = URL.createObjectURL(blob);
         const previewImg = document.getElementById('preview-img');
         previewImg.src = imgUrl;
@@ -1653,17 +1650,24 @@ function exportInvoice() {
             if (e.name !== 'AbortError') toast('共有に失敗しました');
           }
         };
-
-        // 再共有ボタンのみ（自動起動しない）
         document.getElementById('preview-reshare-btn').onclick = doShare;
       }, 'image/png');
     } catch(e) {
-      document.body.removeChild(iframe);
+      if (document.body.contains(iframe)) document.body.removeChild(iframe);
       toast('生成に失敗しました');
       console.error(e);
     }
   };
-  document.head.appendChild(script);
+
+  if (typeof html2canvas !== 'undefined') {
+    runCanvas();
+  } else {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    script.onload = runCanvas;
+    script.onerror = () => { toast('ライブラリの読み込みに失敗しました'); };
+    document.head.appendChild(script);
+  }
 }
 
 // ── PREVIEW ──

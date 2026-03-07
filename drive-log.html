@@ -709,7 +709,7 @@
       <button class="preview-close" onclick="closePreview()">✕ 閉じる</button>
     </div>
   </div>
-  <div class="preview-scroll">
+  <div class="preview-scroll" id="preview-scroll">
     <img id="preview-img" src="" alt="請求書プレビュー">
   </div>
 </div>
@@ -1597,28 +1597,10 @@ function exportInvoice() {
   toast('請求書を生成中…');
   const iframe = document.createElement('iframe');
   iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;height:1px;border:none;';
-
-  const htmlForRender = html.replace('<script>window.onload=function(){window.print();}<\/script>', '');
-  const blobForRender = new Blob([htmlForRender], { type: 'text/html;charset=utf-8' });
-  const blobUrl = URL.createObjectURL(blobForRender);
-
-  iframe.onload = () => {
-    URL.revokeObjectURL(blobUrl);
-    if (typeof html2canvas !== 'undefined') {
-      runCanvas();
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-      script.onload = runCanvas;
-      script.onerror = () => { toast('ライブラリの読み込みに失敗しました'); };
-      document.head.appendChild(script);
-    }
-  };
-
-  iframe.src = blobUrl;
   document.body.appendChild(iframe);
 
-  // html2canvas（初回のみ読み込み、以降はキャッシュを使用）
+  const htmlForRender = html.replace('<script>window.onload=function(){window.print();}<\/script>', '');
+
   const runCanvas = async () => {
     try {
       await new Promise(r => setTimeout(r, 800));
@@ -1671,6 +1653,35 @@ function exportInvoice() {
       console.error(e);
     }
   };
+
+  const startRender = () => {
+    if (typeof html2canvas !== 'undefined') {
+      runCanvas();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      script.onload = runCanvas;
+      script.onerror = () => { toast('ライブラリの読み込みに失敗しました'); };
+      document.head.appendChild(script);
+    }
+  };
+
+  let renderStarted = false;
+  iframe.onload = () => {
+    if (renderStarted) return;
+    renderStarted = true;
+    startRender();
+  };
+  setTimeout(() => {
+    if (!renderStarted) {
+      renderStarted = true;
+      startRender();
+    }
+  }, 600);
+
+  iframe.contentDocument.open();
+  iframe.contentDocument.write(htmlForRender);
+  iframe.contentDocument.close();
 }
 
 // ── PREVIEW ──

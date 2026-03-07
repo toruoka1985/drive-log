@@ -1597,9 +1597,13 @@ function exportInvoice() {
   toast('請求書を生成中…');
   const iframe = document.createElement('iframe');
   iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;height:1px;border:none;';
-  document.body.appendChild(iframe);
 
-  const startRender = () => {
+  const htmlForRender = html.replace('<script>window.onload=function(){window.print();}<\/script>', '');
+  const blobForRender = new Blob([htmlForRender], { type: 'text/html;charset=utf-8' });
+  const blobUrl = URL.createObjectURL(blobForRender);
+
+  iframe.onload = () => {
+    URL.revokeObjectURL(blobUrl);
     if (typeof html2canvas !== 'undefined') {
       runCanvas();
     } else {
@@ -1611,10 +1615,8 @@ function exportInvoice() {
     }
   };
 
-  iframe.onload = startRender;
-  iframe.contentDocument.open();
-  iframe.contentDocument.write(html.replace('<script>window.onload=function(){window.print();}<\/script>', ''));
-  iframe.contentDocument.close();
+  iframe.src = blobUrl;
+  document.body.appendChild(iframe);
 
   // html2canvas（初回のみ読み込み、以降はキャッシュを使用）
   const runCanvas = async () => {

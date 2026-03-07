@@ -457,6 +457,19 @@
     color: var(--accent);
   }
 
+  .rate-preview {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text2);
+    line-height: 1.8;
+    margin-top: 4px;
+  }
+  .rate-preview .r-formula { color: var(--accent); font-size: 13px; font-weight: 500; }
+
   .settings-save-btn {
     width: 100%;
     background: var(--surface2);
@@ -488,7 +501,16 @@
   /* export buttons */
   .export-wrap {
     margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
+  .csv-btn {
+    opacity: .6;
+    margin-top: 12px;
+  }
+  .csv-btn svg { color: var(--text2) !important; }
+  .csv-btn:active { opacity: .4; }
   .export-btn {
     width: 100%;
     background: var(--surface2);
@@ -738,6 +760,18 @@
       <span class="value" id="e-preview-km">— km</span>
     </div>
 
+    <div class="field" style="margin-top:4px;">
+      <label style="display:flex;justify-content:space-between;align-items:center;">
+        <span>料金（円）</span>
+        <button type="button" onclick="resetEditCost()" style="background:none;border:none;color:var(--accent);font-size:11px;font-family:'DM Mono',monospace;cursor:pointer;padding:0;letter-spacing:.04em;">自動計算に戻す</button>
+      </label>
+      <div style="position:relative;">
+        <input type="number" id="e-custom-cost" inputmode="numeric" placeholder="自動計算" oninput="onEditCostInput()" style="padding-right:48px;">
+        <span id="e-cost-lock" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);">AUTO</span>
+      </div>
+      <div id="e-cost-hint" style="font-size:10px;color:var(--text3);margin-top:6px;font-family:'DM Mono',monospace;"></div>
+    </div>
+
     <div class="edit-modal-btns">
       <button class="btn-cancel" onclick="closeEditModal()">キャンセル</button>
       <button class="btn-save" onclick="saveEdit()">保存する</button>
@@ -825,6 +859,14 @@
         <span id="invoice-btn-label">請求書を発行</span>
         <span id="invoice-btn-sub" class="export-sub">EXPORT INVOICE</span>
       </button>
+      <button class="export-btn csv-btn" onclick="exportCSV()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M12 3v13M7 11l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 20h16" stroke-linecap="round"/>
+        </svg>
+        <span>全履歴をCSV出力</span>
+        <span class="export-sub">EXPORT ALL</span>
+      </button>
     </div>
   </div>
 </div>
@@ -836,7 +878,22 @@
     <h2>設定</h2>
   </div>
   <div class="form-wrap">
-    <div class="settings-section-label">請求書の発行者（法人）</div>
+    <div class="settings-section-label">料金設定</div>
+    <div class="field">
+      <label>km単価（円/km）</label>
+      <input type="number" id="s-rate" inputmode="numeric" placeholder="例：300">
+    </div>
+    <div class="field">
+      <label>固定基本料金（円）<span style="font-size:10px;color:var(--text3);margin-left:6px;font-weight:400;">任意</span></label>
+      <input type="number" id="s-base" inputmode="numeric" placeholder="0">
+    </div>
+    <div class="field">
+      <label>上限金額（円）<span style="font-size:10px;color:var(--text3);margin-left:6px;font-weight:400;">任意・0で無制限</span></label>
+      <input type="number" id="s-cap" inputmode="numeric" placeholder="0">
+    </div>
+    <div class="rate-preview" id="rate-preview"></div>
+
+    <div class="settings-section-label" style="margin-top:20px">請求書の発行者（法人）</div>
     <div class="field">
       <label>会社名</label>
       <input type="text" id="s-company" placeholder="例：株式会社〇〇">
@@ -900,12 +957,22 @@
 </nav>
 
 <script>
-const RATE = 300;
+const RATE = 300; // フォールバック用（設定未保存時）
 let records = JSON.parse(localStorage.getItem('driveRecords') || '[]');
 let editStartEnabled = false;
 let deleteTargetId = null;
 let editTargetId = null;
 let summaryMonth = new Date();
+
+// ── 料金計算 ──
+function calcCost(km, overrideRate) {
+  const r = overrideRate != null ? overrideRate : (settings.ratePerKm != null ? settings.ratePerKm : RATE);
+  const base = settings.baseFixed || 0;
+  const cap = settings.capAmount || 0;
+  let cost = base + Math.round(km * r);
+  if (cap > 0) cost = Math.min(cost, cap);
+  return cost;
+}
 
 // ── INIT ──
 window.addEventListener('DOMContentLoaded', () => {
@@ -938,7 +1005,12 @@ function showPage(name, btn) {
   btn.classList.add('active');
   if (name === 'history') renderHistory();
   if (name === 'summary') renderSummary();
-  if (name === 'settings') loadSettings();
+  if (name === 'settings') {
+    loadSettings();
+    ['s-rate','s-base','s-cap'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updateRatePreview);
+    });
+  }
 }
 
 // ── CATEGORY ──
@@ -995,7 +1067,7 @@ function saveRecord() {
   if (end <= start) { toast('終了値は開始値より大きくしてください'); return; }
 
   const km = end - start;
-  const cost = Math.round(km * RATE);
+  const cost = calcCost(km, null);
   const record = {
     id: Date.now(),
     date, purpose,
@@ -1003,7 +1075,8 @@ function saveRecord() {
     odoStart: start,
     odoEnd: end,
     km: parseFloat(km.toFixed(1)),
-    cost
+    cost,
+    customRate: null
   };
 
   records.push(record);
@@ -1134,6 +1207,23 @@ function openEditModal(id) {
   document.getElementById('e-odo-start').value = r.odoStart;
   document.getElementById('e-odo-end').value = r.odoEnd;
 
+  // 料金欄：個別指定があれば表示、なければ空欄（AUTO）
+  const costInput = document.getElementById('e-custom-cost');
+  const lock = document.getElementById('e-cost-lock');
+  const hint = document.getElementById('e-cost-hint');
+  if (r.customRate) {
+    costInput.value = r.cost;
+    lock.textContent = 'FIXED';
+    lock.style.color = 'var(--self)';
+    hint.textContent = '個別指定中 — 設定レートは使用されません';
+    hint.style.color = 'var(--self)';
+  } else {
+    costInput.value = '';
+    lock.textContent = 'AUTO';
+    lock.style.color = 'var(--text3)';
+    hint.textContent = '';
+  }
+
   document.querySelectorAll('.edit-seg').forEach(b => {
     b.classList.toggle('active', b.dataset.v === r.category);
   });
@@ -1156,11 +1246,42 @@ function updateEditPreview() {
   const start = parseFloat(document.getElementById('e-odo-start').value);
   const end = parseFloat(document.getElementById('e-odo-end').value);
   const el = document.getElementById('e-preview-km');
+  const hint = document.getElementById('e-cost-hint');
+  const costInput = document.getElementById('e-custom-cost');
   if (!isNaN(start) && !isNaN(end) && end > start) {
-    el.textContent = (end - start).toFixed(1) + ' km';
+    const km = end - start;
+    el.textContent = km.toFixed(1) + ' km';
+    const autoCost = calcCost(km, null);
+    if (costInput.value === '') {
+      hint.textContent = '自動計算：¥' + autoCost.toLocaleString();
+    }
   } else {
     el.textContent = '— km';
+    hint.textContent = '';
   }
+}
+
+function onEditCostInput() {
+  const lock = document.getElementById('e-cost-lock');
+  const hint = document.getElementById('e-cost-hint');
+  const val = document.getElementById('e-custom-cost').value;
+  if (val === '') {
+    lock.textContent = 'AUTO';
+    lock.style.color = 'var(--text3)';
+    updateEditPreview();
+  } else {
+    lock.textContent = 'FIXED';
+    lock.style.color = 'var(--self)';
+    hint.textContent = '個別指定中 — 設定レートは使用されません';
+    hint.style.color = 'var(--self)';
+  }
+}
+
+function resetEditCost() {
+  document.getElementById('e-custom-cost').value = '';
+  document.getElementById('e-cost-lock').textContent = 'AUTO';
+  document.getElementById('e-cost-lock').style.color = 'var(--text3)';
+  updateEditPreview();
 }
 
 function saveEdit() {
@@ -1175,11 +1296,15 @@ function saveEdit() {
   if (end <= start) { toast('終了値は開始値より大きくしてください'); return; }
 
   const km = end - start;
-  const cost = Math.round(km * RATE);
+  const customCostVal = document.getElementById('e-custom-cost').value.trim();
+  const hasCustom = customCostVal !== '' && !isNaN(Number(customCostVal));
+  const cost = hasCustom ? Math.round(Number(customCostVal)) : calcCost(km, null);
   const updated = {
     id: editTargetId, date, purpose, category: cat,
     odoStart: start, odoEnd: end,
-    km: parseFloat(km.toFixed(1)), cost
+    km: parseFloat(km.toFixed(1)),
+    cost,
+    customRate: hasCustom ? true : null
   };
 
   records = records.map(r => r.id === editTargetId ? updated : r);
@@ -1213,6 +1338,33 @@ function confirmDelete() {
   closeModal();
   renderHistory();
   toast('削除しました');
+}
+
+// ── CSV EXPORT ──
+async function exportCSV() {
+  if (records.length === 0) { toast('データがありません'); return; }
+  const header = '日付,目的,費用区分,開始オドメーター,終了オドメーター,走行距離(km),金額(円)';
+  const rows = [...records].sort((a,b) => a.date.localeCompare(b.date)).map(r =>
+    `${r.date},${r.purpose},${r.category},${r.odoStart},${r.odoEnd},${r.km},${r.cost}`
+  );
+  const csv = '\uFEFF' + [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const t = new Date();
+  const fname = `${t.getFullYear()}${String(t.getMonth()+1).padStart(2,'0')}${String(t.getDate()).padStart(2,'0')}_走行記録_全履歴.csv`;
+  const file = new File([blob], fname, { type: 'text/csv' });
+  try {
+    if (navigator.share && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: fname });
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fname;
+      a.click();
+    }
+    toast('CSV出力しました ✓');
+  } catch(e) {
+    if (e.name !== 'AbortError') toast('出力に失敗しました');
+  }
 }
 
 // ── INVOICE STATUS ──
@@ -1265,22 +1417,45 @@ function updateInvoiceBtn() {
 let settings = JSON.parse(localStorage.getItem('driveSettings') || '{}');
 
 function loadSettings() {
+  document.getElementById('s-rate').value = settings.ratePerKm != null ? settings.ratePerKm : 300;
+  document.getElementById('s-base').value = settings.baseFixed || '';
+  document.getElementById('s-cap').value = settings.capAmount || '';
   document.getElementById('s-company').value = settings.company || '';
   document.getElementById('s-name').value = settings.name || '';
   document.getElementById('s-address').value = settings.address || '';
   document.getElementById('s-bank-name').value = settings.bankName || '';
   document.getElementById('s-bank-type').value = settings.bankType || '';
   document.getElementById('s-bank-holder').value = settings.bankHolder || '';
+  updateRatePreview();
+}
+
+function updateRatePreview() {
+  const rate = parseFloat(document.getElementById('s-rate').value) || 0;
+  const base = parseFloat(document.getElementById('s-base').value) || 0;
+  const cap  = parseFloat(document.getElementById('s-cap').value)  || 0;
+  const el = document.getElementById('rate-preview');
+  if (!el) return;
+  let formula = '';
+  if (base > 0 && rate > 0) formula = `¥${base.toLocaleString()} + km × ¥${rate}`;
+  else if (rate > 0)         formula = `km × ¥${rate}`;
+  else if (base > 0)         formula = `¥${base.toLocaleString()}（固定）`;
+  else                       formula = '—';
+  if (cap > 0) formula += ` （上限 ¥${cap.toLocaleString()}）`;
+  const ex100 = (() => { let c = base + rate * 100; if (cap > 0) c = Math.min(c, cap); return Math.round(c); })();
+  el.innerHTML = `<div class="r-formula">${formula}</div><div style="margin-top:4px;color:var(--text3);">例：100km → ¥${ex100.toLocaleString()}</div>`;
 }
 
 function saveSettings() {
   settings = {
-    company: document.getElementById('s-company').value.trim(),
-    name: document.getElementById('s-name').value.trim(),
-    address: document.getElementById('s-address').value.trim(),
-    bankName: document.getElementById('s-bank-name').value.trim(),
-    bankType: document.getElementById('s-bank-type').value.trim(),
-    bankHolder: document.getElementById('s-bank-holder').value.trim(),
+    ratePerKm:   parseFloat(document.getElementById('s-rate').value) || 300,
+    baseFixed:   parseFloat(document.getElementById('s-base').value) || 0,
+    capAmount:   parseFloat(document.getElementById('s-cap').value)  || 0,
+    company:     document.getElementById('s-company').value.trim(),
+    name:        document.getElementById('s-name').value.trim(),
+    address:     document.getElementById('s-address').value.trim(),
+    bankName:    document.getElementById('s-bank-name').value.trim(),
+    bankType:    document.getElementById('s-bank-type').value.trim(),
+    bankHolder:  document.getElementById('s-bank-holder').value.trim(),
   };
   localStorage.setItem('driveSettings', JSON.stringify(settings));
   toast('設定を保存しました ✓');
@@ -1410,7 +1585,7 @@ function exportInvoice() {
 '</table>\n' +
 '<div class="note">\n' +
 '  ※ 法人業務分（' + monthRecs.filter(r=>r.category==='法人').length + '件）は精算不要のため本請求書には含まれません。<br>\n' +
-'  ※ 利用料算定レート：¥' + RATE + '/km<br>\n' +
+'  ※ 利用料算定レート：¥' + (settings.ratePerKm != null ? settings.ratePerKm : RATE) + '/km' + (settings.baseFixed ? '　固定基本料：¥' + settings.baseFixed.toLocaleString() : '') + (settings.capAmount ? '　上限：¥' + settings.capAmount.toLocaleString() : '') + '<br>\n' +
 '  ※ 上記合計額を下記口座へお振込ください。<br><br>\n' +
 '  ' + bankHtml + '\n' +
 '</div>\n' +
@@ -1452,9 +1627,12 @@ function exportInvoice() {
 
       canvas.toBlob(async (blob) => {
         const file = new File([blob], `${y}${String(m).padStart(2,'0')}_自動車利用料金請求書.png`, { type: 'image/png' });
-        // プレビューモーダルを表示
+        // プレビューモーダルを表示（ピンチズーム対応）
         const imgUrl = URL.createObjectURL(blob);
-        document.getElementById('preview-img').src = imgUrl;
+        const previewImg = document.getElementById('preview-img');
+        previewImg.src = imgUrl;
+        previewImg.style.cssText = 'width:100%;border-radius:10px;display:block;touch-action:pinch-zoom;';
+        document.getElementById('preview-scroll').style.cssText = 'flex:1;overflow:auto;width:100%;padding:0 16px 12px;-webkit-overflow-scrolling:touch;touch-action:pan-y pinch-zoom;';
         document.getElementById('previewOverlay').classList.add('show');
 
         const doShare = async () => {
@@ -1476,10 +1654,8 @@ function exportInvoice() {
           }
         };
 
-        // 再共有ボタン
+        // 再共有ボタンのみ（自動起動しない）
         document.getElementById('preview-reshare-btn').onclick = doShare;
-        // プレビューと同時に共有シートを起動
-        doShare();
       }, 'image/png');
     } catch(e) {
       document.body.removeChild(iframe);

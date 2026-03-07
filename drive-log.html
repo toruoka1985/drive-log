@@ -435,6 +435,13 @@
     color: var(--text3);
     margin-top: 4px;
   }
+  .summary-card .sc-breakdown {
+    font-size: 10px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    margin-top: 3px;
+    letter-spacing: .02em;
+  }
 
   .total-card {
     background: var(--surface2);
@@ -469,6 +476,57 @@
     margin-top: 4px;
   }
   .rate-preview .r-formula { color: var(--accent); font-size: 13px; font-weight: 500; }
+
+  .fuel-add-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text2);
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: .06em;
+    padding: 7px 14px;
+    cursor: pointer;
+    margin: 16px 0 0;
+  }
+  .fuel-add-btn:active { opacity: .6; }
+
+  /* 給油記録カード（履歴タブ） */
+  .fuel-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  .fuel-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: #4fa8e0;
+  }
+  .fuel-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .fuel-card-date { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text2); }
+  .fuel-card-badge {
+    font-size: 10px; font-weight: 500;
+    padding: 2px 8px; border-radius: 4px;
+    background: rgba(79,168,224,.15); color: #4fa8e0;
+  }
+  .fuel-card-title { font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+  .fuel-card-detail { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text2); }
+  .fuel-card-bottom {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);
+  }
+  .fuel-card-alloc { font-size: 11px; color: var(--text3); }
+  .fuel-card-cost { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; color: #4fa8e0; }
+  .fuel-card-actions { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
 
   .settings-save-btn {
     width: 100%;
@@ -835,11 +893,47 @@
   </div>
 </div>
 
+<!-- FUEL MODAL -->
+<div class="edit-modal-overlay" id="fuelModalOverlay">
+  <div class="edit-modal">
+    <div class="edit-modal-title">給油を記録</div>
+    <div class="field">
+      <label>日付</label>
+      <input type="date" id="fuel-date">
+    </div>
+    <div class="field">
+      <label>金額（円）</label>
+      <input type="number" id="fuel-amount" inputmode="numeric" placeholder="例：7200">
+    </div>
+    <div class="field">
+      <label>給油名義</label>
+      <div class="seg-wrap">
+        <button class="seg-btn fuel-seg" data-v="法人" onclick="selectFuelCat(this)">法人</button>
+        <button class="seg-btn fuel-seg" data-v="個人事業" onclick="selectFuelCat(this)">個人事業</button>
+        <button class="seg-btn fuel-seg active" data-v="私用" onclick="selectFuelCat(this)">私用</button>
+      </div>
+      <div id="fuel-cat-hint" style="font-size:10px;color:var(--text3);margin-top:8px;font-family:'DM Mono',monospace;line-height:1.6;"></div>
+    </div>
+    <div class="edit-modal-btns">
+      <button class="btn-cancel" onclick="closeFuelModal()">キャンセル</button>
+      <button class="btn-save" onclick="saveFuel()">記録する</button>
+    </div>
+  </div>
+</div>
+
 <!-- PAGE: 履歴 -->
 <div class="page" id="page-history">
   <div class="header">
     <h1>History</h1>
     <h2>履歴</h2>
+  </div>
+  <div style="padding: 0 20px 0; margin-bottom: -4px;">
+    <button class="fuel-add-btn" onclick="openFuelModal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+        <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+      </svg>
+      給油を記録
+    </button>
   </div>
   <div class="records-wrap" id="records-wrap"></div>
 </div>
@@ -966,6 +1060,7 @@
 <script>
 const RATE = 300; // フォールバック用（設定未保存時）
 let records = JSON.parse(localStorage.getItem('driveRecords') || '[]');
+let fuelRecords = JSON.parse(localStorage.getItem('fuelRecords') || '[]');
 let editStartEnabled = false;
 let deleteTargetId = null;
 let editTargetId = null;
@@ -988,6 +1083,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const m = String(today.getMonth() + 1).padStart(2, '0');
   const d = String(today.getDate()).padStart(2, '0');
   document.getElementById('f-date').value = `${y}-${m}-${d}`;
+  document.getElementById('fuel-date').value = `${y}-${m}-${d}`;
 
   setLastOdo();
   renderHistory();
@@ -1108,43 +1204,78 @@ function saveRecord() {
 // ── SAVE/LOAD ──
 function save() {
   localStorage.setItem('driveRecords', JSON.stringify(records));
+  localStorage.setItem('fuelRecords', JSON.stringify(fuelRecords));
 }
 
 // ── HISTORY ──
 function renderHistory() {
   const wrap = document.getElementById('records-wrap');
-  if (records.length === 0) {
+  if (records.length === 0 && fuelRecords.length === 0) {
     wrap.innerHTML = '<p class="empty-msg">NO RECORDS YET</p>';
     return;
   }
+
+  // 走行記録と給油記録を月ごとにまとめる
   const groups = {};
   [...records].reverse().forEach(r => {
-    const m = r.date.slice(0, 7);
-    if (!groups[m]) groups[m] = [];
-    groups[m].push(r);
+    const mk = r.date.slice(0, 7);
+    if (!groups[mk]) groups[mk] = [];
+    groups[mk].push({ type: 'drive', data: r });
+  });
+  [...fuelRecords].reverse().forEach(f => {
+    const mk = f.date.slice(0, 7);
+    if (!groups[mk]) groups[mk] = [];
+    groups[mk].push({ type: 'fuel', data: f });
   });
 
   let html = '';
-  Object.entries(groups).sort((a,b) => b[0].localeCompare(a[0])).forEach(([month, recs]) => {
+  Object.entries(groups).sort((a,b) => b[0].localeCompare(a[0])).forEach(([month, items]) => {
     const [y, m] = month.split('-');
     html += `<div class="month-group"><div class="month-label">${y}年 ${parseInt(m)}月</div>`;
-    recs.forEach(r => {
-      html += `<div class="record-card ${r.category}">
-        <div class="record-top">
-          <span class="record-date">${formatDate(r.date)}</span>
-          <span class="record-cat">${r.category}</span>
-        </div>
-        <div class="record-purpose">${escHtml(r.purpose)}</div>
-        <div class="record-odo">${r.odoStart.toLocaleString()} → ${r.odoEnd.toLocaleString()} km</div>
-        <div class="record-bottom">
-          <span class="record-km">${r.km.toFixed(1)} km</span>
-          <span class="record-cost">¥${r.cost.toLocaleString()}</span>
-        </div>
-        <div class="record-actions">
-          <button class="action-btn" onclick="openEditModal(${r.id})">編集</button>
-          <button class="action-btn danger" onclick="askDelete(${r.id})">削除</button>
-        </div>
-      </div>`;
+
+    // 日付降順でソート
+    items.sort((a,b) => b.data.date.localeCompare(a.data.date));
+
+    items.forEach(item => {
+      if (item.type === 'drive') {
+        const r = item.data;
+        html += `<div class="record-card ${r.category}">
+          <div class="record-top">
+            <span class="record-date">${formatDate(r.date)}</span>
+            <span class="record-cat">${r.category}</span>
+          </div>
+          <div class="record-purpose">${escHtml(r.purpose)}</div>
+          <div class="record-odo">${r.odoStart.toLocaleString()} → ${r.odoEnd.toLocaleString()} km</div>
+          <div class="record-bottom">
+            <span class="record-km">${r.km.toFixed(1)} km</span>
+            <span class="record-cost">¥${r.cost.toLocaleString()}</span>
+          </div>
+          <div class="record-actions">
+            <button class="action-btn" onclick="openEditModal(${r.id})">編集</button>
+            <button class="action-btn danger" onclick="askDelete(${r.id})">削除</button>
+          </div>
+        </div>`;
+      } else {
+        const f = item.data;
+        const alloc = calcFuelAlloc(f);
+        const allocText = alloc.totalKm === 0
+          ? '走行記録なし'
+          : `${alloc.personalKm}km / ${alloc.totalKm}km（${Math.round(alloc.ratio*100)}%）`;
+        html += `<div class="fuel-card">
+          <div class="fuel-card-top">
+            <span class="fuel-card-date">${formatDate(f.date)}</span>
+            <span class="fuel-card-badge">給油</span>
+          </div>
+          <div class="fuel-card-title">¥${f.amount.toLocaleString()}</div>
+          <div class="fuel-card-bottom">
+            <span class="fuel-card-alloc">個人按分 ${allocText}</span>
+            <span class="fuel-card-cost">¥${alloc.personalCost.toLocaleString()}</span>
+          </div>
+          <div class="fuel-card-actions">
+            <button class="action-btn danger" onclick="deleteFuel(${f.id})">削除</button>
+          </div>
+        </div>`;
+      }
     });
     html += `</div>`;
   });
@@ -1166,30 +1297,84 @@ function renderSummary() {
     '私用': '自己負担'
   };
 
-  let totalCost = 0;
+  let totalDrive = 0;
   let cardsHtml = '';
+
+  // 月次の給油内訳（名義別）
+  const monthFuels = fuelRecords.filter(f => f.date.startsWith(key));
+  const fuelBySign = { add: 0, sub: 0 }; // add=上乗せ, sub=差し引き
+  monthFuels.forEach(f => {
+    const alloc = calcFuelAlloc(f);
+    if (fuelSign(f.category || '私用') > 0) fuelBySign.add += alloc.personalCost;
+    else fuelBySign.sub += alloc.personalCost;
+  });
+  const fuelNet = fuelBySign.add - fuelBySign.sub; // 正=上乗せ超、負=差し引き超
 
   cats.forEach(cat => {
     const recs = monthRecs.filter(r => r.category === cat);
-    const km = recs.reduce((s, r) => s + r.km, 0);
+    const km   = recs.reduce((s, r) => s + r.km, 0);
     const cost = recs.reduce((s, r) => s + r.cost, 0);
-    if (cat !== '法人') totalCost += cost;
+
+    // この区分の給油按分
+    const catFuels = monthFuels.filter(f => f.category === cat);
+    const catFuelCost = catFuels.reduce((s, f) => s + calcFuelAlloc(f).personalCost, 0);
+    const catTotal = cat !== '法人'
+      ? cost + fuelSign(cat) * catFuelCost
+      : cost;
+
+    if (cat !== '法人') totalDrive += cost;
+
+    const fuelDetail = catFuels.length > 0
+      ? `<div class="sc-breakdown">${cat === '法人' ? '法人給油：上乗せ' : '個人給油：差し引き'} ¥${catFuelCost.toLocaleString()}</div>`
+      : '';
+
     cardsHtml += `<div class="summary-card ${cat}">
       <div class="sc-top">
         <span class="sc-label">${cat}</span>
         <span class="sc-km">${km.toFixed(1)} km · ${recs.length}件</span>
       </div>
-      <div class="sc-cost">¥${cost.toLocaleString()}</div>
+      <div class="sc-cost">¥${cat !== '法人' ? catTotal.toLocaleString() : cost.toLocaleString()}</div>
+      ${cat !== '法人' ? `<div class="sc-breakdown">走行：¥${cost.toLocaleString()}${catFuels.length > 0 ? `　給油精算：${fuelSign(cat)>0?'+':'-'}¥${catFuelCost.toLocaleString()}` : ''}</div>` : ''}
       <div class="sc-note">${notes[cat]}</div>
     </div>`;
   });
 
+  // 持ち越し
+  const carry = calcCarryover(y, m);
+  const carryHtml = carry < 0 ? `
+    <div class="summary-card" style="border-color:var(--accent);opacity:.85;">
+      <div class="sc-top">
+        <span class="sc-label" style="color:var(--accent);">前月繰越</span>
+        <span class="sc-km" style="font-size:10px;">払い戻し残高</span>
+      </div>
+      <div class="sc-cost" style="color:var(--accent);">-¥${Math.abs(carry).toLocaleString()}</div>
+      <div class="sc-note">今月の振込額から差し引き済み</div>
+    </div>` : '';
+
+  // 全体合計（走行+給油net+持ち越し）
+  const grandTotal = totalDrive + fuelNet + carry;
+  const grandLabel = grandTotal >= 0 ? `¥${grandTotal.toLocaleString()}` : `-¥${Math.abs(grandTotal).toLocaleString()}`;
+  const grandNote  = grandTotal < 0 ? '（次月に持ち越し）' : '個人 → 法人への振込金額';
+
+  // ガソリン合計カード（両名義あるとき）
+  const fuelSummaryHtml = monthFuels.length > 0 ? `
+    <div class="summary-card" style="border-color:#4fa8e0;">
+      <div class="sc-top">
+        <span class="sc-label" style="color:#4fa8e0;">FUEL / ガソリン代</span>
+        <span class="sc-km">${monthFuels.length}回給油</span>
+      </div>
+      <div class="sc-cost" style="color:#4fa8e0;">${fuelNet >= 0 ? '+' : '-'}¥${Math.abs(fuelNet).toLocaleString()}</div>
+      ${fuelBySign.add > 0 ? `<div class="sc-breakdown">法人給油（上乗せ）：+¥${fuelBySign.add.toLocaleString()}</div>` : ''}
+      ${fuelBySign.sub > 0 ? `<div class="sc-breakdown">個人給油（差し引き）：-¥${fuelBySign.sub.toLocaleString()}</div>` : ''}
+      <div class="sc-note">按分：走行距離比率</div>
+    </div>` : '';
+
   document.getElementById('summary-content').innerHTML = `
-    <div class="summary-cards">${cardsHtml}</div>
+    <div class="summary-cards">${cardsHtml}${fuelSummaryHtml}${carryHtml}</div>
     <div class="total-card">
-      <div class="t-label">今月の振込額（個人事業 ＋ 私用）</div>
-      <div class="t-amount">¥${totalCost.toLocaleString()}</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:6px;font-family:'DM Mono',monospace;">個人 → 法人への振込金額</div>
+      <div class="t-label">今月の振込額</div>
+      <div class="t-amount">${grandLabel}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px;font-family:'DM Mono',monospace;">${grandNote}</div>
     </div>
   `;
   updateInvoiceBtn();
@@ -1342,6 +1527,121 @@ function confirmDelete() {
   closeModal();
   renderHistory();
   toast('削除しました');
+}
+
+// ── FUEL ──
+
+function selectFuelCat(btn) {
+  document.querySelectorAll('.fuel-seg').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateFuelHint();
+}
+function getFuelCat() {
+  return document.querySelector('.fuel-seg.active')?.dataset.v || '私用';
+}
+function updateFuelHint() {
+  const cat = getFuelCat();
+  const hint = document.getElementById('fuel-cat-hint');
+  if (cat === '法人') {
+    hint.textContent = '法人カードで給油 → 按分額を利用料に上乗せ請求';
+    hint.style.color = 'var(--self)';
+  } else {
+    hint.textContent = '個人カードで給油 → 按分額を利用料から差し引き精算';
+    hint.style.color = 'var(--accent)';
+  }
+}
+
+function openFuelModal() {
+  const today = new Date();
+  const yy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  document.getElementById('fuel-date').value = `${yy}-${mm}-${dd}`;
+  document.getElementById('fuel-amount').value = '';
+  document.querySelectorAll('.fuel-seg').forEach(b => b.classList.toggle('active', b.dataset.v === '私用'));
+  updateFuelHint();
+  document.getElementById('fuelModalOverlay').classList.add('show');
+}
+function closeFuelModal() {
+  document.getElementById('fuelModalOverlay').classList.remove('show');
+}
+
+// 按分計算：前回給油日〜今回給油日の期間の走行距離比率
+function calcFuelAlloc(fuel) {
+  const sorted = [...fuelRecords].sort((a, b) => a.date.localeCompare(b.date));
+  const idx = sorted.findIndex(f => f.id === fuel.id);
+  const prevDate = idx > 0 ? sorted[idx - 1].date : null;
+  const inRange = records.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= fuel.date);
+  const totalKm    = inRange.reduce((s, r) => s + r.km, 0);
+  const personalKm = inRange.filter(r => r.category !== '法人').reduce((s, r) => s + r.km, 0);
+  if (totalKm === 0) return { personalKm: 0, totalKm: 0, ratio: 0, personalCost: 0 };
+  const ratio = personalKm / totalKm;
+  const personalCost = Math.round(fuel.amount * ratio);
+  return { personalKm: parseFloat(personalKm.toFixed(1)), totalKm: parseFloat(totalKm.toFixed(1)), ratio, personalCost };
+}
+
+// 名義ごとの精算符号：法人=+（上乗せ）、個人事業・私用=-（差し引き）
+function fuelSign(cat) { return cat === '法人' ? 1 : -1; }
+
+function saveFuel() {
+  const date   = document.getElementById('fuel-date').value;
+  const amount = parseFloat(document.getElementById('fuel-amount').value);
+  const cat    = getFuelCat();
+  if (!date)                       { toast('日付を入力してください'); return; }
+  if (isNaN(amount) || amount <= 0){ toast('金額を入力してください'); return; }
+  const fuel = { id: Date.now(), date, amount, category: cat };
+  fuelRecords.push(fuel);
+  save();
+  closeFuelModal();
+  const alloc = calcFuelAlloc(fuel);
+  const sign = fuelSign(cat) > 0 ? '+' : '-';
+  toast(alloc.totalKm === 0
+    ? '給油を記録しました（走行記録なし）✓'
+    : `給油を記録しました ✓　精算：${sign}¥${alloc.personalCost.toLocaleString()}`);
+  renderHistory();
+  renderSummary();
+}
+
+function deleteFuel(id) {
+  fuelRecords = fuelRecords.filter(f => f.id !== id);
+  save();
+  renderHistory();
+  renderSummary();
+  toast('給油記録を削除しました');
+}
+
+// 月ごとの給油精算額（正=上乗せ、負=差し引き）
+function calcMonthFuelNet(y, m) {
+  const key = `${y}-${String(m).padStart(2,'0')}`;
+  return fuelRecords
+    .filter(f => f.date.startsWith(key))
+    .reduce((sum, f) => sum + fuelSign(f.category || '私用') * calcFuelAlloc(f).personalCost, 0);
+}
+
+// 前月までの未精算累積を計算（持ち越し）
+// 各月の net = 走行料金合計 + 給油精算額 を累積、マイナスが持ち越し残高
+function calcCarryover(targetY, targetM) {
+  // 全給油・走行の最古月を特定
+  const allDates = [
+    ...records.map(r => r.date.slice(0,7)),
+    ...fuelRecords.map(f => f.date.slice(0,7))
+  ];
+  if (allDates.length === 0) return 0;
+  allDates.sort();
+  let [cy, cm] = allDates[0].split('-').map(Number);
+  let carry = 0;
+  while (cy < targetY || (cy === targetY && cm < targetM)) {
+    const driveTotal = records
+      .filter(r => r.date.startsWith(`${cy}-${String(cm).padStart(2,'0')}`) && r.category !== '法人')
+      .reduce((s, r) => s + r.cost, 0);
+    const fuelNet = calcMonthFuelNet(cy, cm);
+    const net = driveTotal + fuelNet;
+    if (net < 0) carry += net; // マイナス（払い戻し超過）を蓄積
+    else carry = Math.min(carry + net, 0); // 過去の赤字をその月で解消
+    cm++;
+    if (cm > 12) { cm = 1; cy++; }
+  }
+  return carry; // 負の値＝個人が受け取るべき未精算残高
 }
 
 // ── CSV EXPORT ──
@@ -1509,7 +1809,34 @@ function exportInvoice() {
     '</tr>'
   ).join('');
 
-  const addressHtml = address ? '<div class="party-address">' + escHtml(address) + '</div>' : '';
+  // 給油精算
+  const monthFuelsInv = fuelRecords.filter(f => f.date.startsWith(key));
+  let fuelAddInv = 0, fuelSubInv = 0;
+  monthFuelsInv.forEach(f => {
+    const alloc = calcFuelAlloc(f);
+    if (fuelSign(f.category || '私用') > 0) fuelAddInv += alloc.personalCost;
+    else fuelSubInv += alloc.personalCost;
+  });
+  const fuelNetInv = fuelAddInv - fuelSubInv;
+  const carryInv   = calcCarryover(y, m);
+  const grandTotalInvoice = total + fuelNetInv + carryInv;
+
+  const fuelBoxHtml = monthFuelsInv.length > 0
+    ? '<div class="summary-box fuel">\n' +
+      '  <div class="s-label">ガソリン代 精算</div>\n' +
+      '  <div class="s-km">' + monthFuelsInv.length + '回給油（走行距離比率按分）</div>\n' +
+      (fuelAddInv > 0 ? '  <div class="s-detail">法人給油（上乗せ）：+¥' + fuelAddInv.toLocaleString() + '</div>\n' : '') +
+      (fuelSubInv > 0 ? '  <div class="s-detail">個人給油（差し引き）：-¥' + fuelSubInv.toLocaleString() + '</div>\n' : '') +
+      '  <div class="s-cost" style="color:' + (fuelNetInv >= 0 ? '#c8821a' : '#2a7ab0') + ';">' + (fuelNetInv >= 0 ? '+' : '-') + '¥' + Math.abs(fuelNetInv).toLocaleString() + '</div>\n' +
+      '</div>\n'
+    : '';
+
+  const carryBoxHtml = carryInv < 0
+    ? '<div class="summary-box carry">\n' +
+      '  <div class="s-label">前月繰越（払い戻し残高）</div>\n' +
+      '  <div class="s-cost" style="color:#2a7ab0;">-¥' + Math.abs(carryInv).toLocaleString() + '</div>\n' +
+      '</div>\n'
+    : '';
 
   const html = '<!DOCTYPE html>\n' +
 '<html lang="ja">\n' +
@@ -1527,14 +1854,19 @@ function exportInvoice() {
 '.party-label { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#999; margin-bottom:6px; }\n' +
 '.party-name { font-size:15px; font-weight:700; }\n' +
 '.party-address { font-size:12px; color:#666; margin-top:4px; }\n' +
-'.summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:28px; }\n' +
-'.summary-box { padding:14px 16px; border-radius:8px; }\n' +
+'.summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }\n' +
+'.summary-box { padding:14px 16px; border-radius:8px; margin-bottom:12px; }\n' +
 '.summary-box.self { background:#fff8ee; border:1px solid #f5a23a; }\n' +
 '.summary-box.priv { background:#f5f5f5; border:1px solid #ccc; }\n' +
+'.summary-box.fuel { background:#eef6fc; border:1px solid #4fa8e0; }\n' +
+'.summary-box.carry { background:#f0f8ff; border:1px solid #4fa8e0; }\n' +
 '.summary-box .s-label { font-size:10px; letter-spacing:.12em; color:#888; margin-bottom:4px; }\n' +
 '.summary-box.self .s-label { color:#c8821a; }\n' +
-'.summary-box .s-km { font-size:12px; color:#888; }\n' +
-'.summary-box .s-cost { font-size:20px; font-weight:700; margin-top:4px; }\n' +
+'.summary-box.fuel .s-label { color:#2a7ab0; }\n' +
+'.summary-box.carry .s-label { color:#2a7ab0; }\n' +
+'.summary-box .s-km { font-size:12px; color:#888; margin-bottom:4px; }\n' +
+'.summary-box .s-detail { font-size:11px; color:#888; margin-top:2px; }\n' +
+'.summary-box .s-cost { font-size:20px; font-weight:700; margin-top:6px; }\n' +
 '.summary-box.self .s-cost { color:#c8821a; }\n' +
 '.total-box { background:#1a1a1a; color:#fff; border-radius:8px; padding:18px 20px; margin-bottom:28px; display:flex; justify-content:space-between; align-items:center; }\n' +
 '.total-box .t-label { font-size:11px; letter-spacing:.12em; }\n' +
@@ -1577,9 +1909,11 @@ function exportInvoice() {
 '    <div class="s-cost">¥' + privCost.toLocaleString() + '</div>\n' +
 '  </div>\n' +
 '</div>\n' +
+fuelBoxHtml +
+carryBoxHtml +
 '<div class="total-box">\n' +
-'  <div class="t-label">合計振込額（個人事業 ＋ 私用）</div>\n' +
-'  <div class="t-amount">¥' + total.toLocaleString() + '</div>\n' +
+'  <div class="t-label">合計振込額</div>\n' +
+'  <div class="t-amount">' + (grandTotalInvoice >= 0 ? '¥' + grandTotalInvoice.toLocaleString() : '-¥' + Math.abs(grandTotalInvoice).toLocaleString()) + '</div>\n' +
 '</div>\n' +
 '<div class="detail-title">利用明細</div>\n' +
 '<table>\n' +
@@ -1590,6 +1924,7 @@ function exportInvoice() {
 '<div class="note">\n' +
 '  ※ 法人業務分（' + monthRecs.filter(r=>r.category==='法人').length + '件）は精算不要のため本請求書には含まれません。<br>\n' +
 '  ※ 利用料算定レート：¥' + (settings.ratePerKm != null ? settings.ratePerKm : RATE) + '/km' + (settings.baseFixed ? '　固定基本料：¥' + settings.baseFixed.toLocaleString() : '') + (settings.capAmount ? '　上限：¥' + settings.capAmount.toLocaleString() : '') + '<br>\n' +
+(grandTotalInvoice < 0 ? '  ※ 今月は払い戻し超過（-¥' + Math.abs(grandTotalInvoice).toLocaleString() + '）のため次月に繰越します。<br>\n' : '') +
 '  ※ 上記合計額を下記口座へお振込ください。<br><br>\n' +
 '  ' + bankHtml + '\n' +
 '</div>\n' +

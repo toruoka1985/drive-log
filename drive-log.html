@@ -986,6 +986,9 @@ window.addEventListener('DOMContentLoaded', () => {
   renderHistory();
   renderSummary();
   loadSettings();
+  ['s-rate','s-base','s-cap'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateRatePreview);
+  });
 });
 
 function setLastOdo() {
@@ -1005,12 +1008,6 @@ function showPage(name, btn) {
   btn.classList.add('active');
   if (name === 'history') renderHistory();
   if (name === 'summary') renderSummary();
-  if (name === 'settings') {
-    loadSettings();
-    ['s-rate','s-base','s-cap'].forEach(id => {
-      document.getElementById(id).addEventListener('input', updateRatePreview);
-    });
-  }
 }
 
 // ── CATEGORY ──

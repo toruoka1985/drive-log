@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -652,12 +652,19 @@
   }
   .preview-scroll {
     flex: 1;
-    overflow-y: auto;
+    overflow: auto;
     width: 100%;
     padding: 0 16px 12px;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y pinch-zoom;
   }
-  .preview-scroll img { width: 100%; border-radius: 10px; display: block; }
+  .preview-scroll img {
+    display: block;
+    border-radius: 10px;
+    width: 100%;
+    min-width: 100%;
+    touch-action: pan-x pan-y pinch-zoom;
+  }
   .preview-share-btn {
     width: calc(100% - 32px);
     margin: 10px 16px calc(env(safe-area-inset-bottom) + 10px);
@@ -1623,8 +1630,9 @@ function exportInvoice() {
         const imgUrl = URL.createObjectURL(blob);
         const previewImg = document.getElementById('preview-img');
         previewImg.src = imgUrl;
-        previewImg.style.cssText = 'width:100%;border-radius:10px;display:block;touch-action:pinch-zoom;';
-        document.getElementById('preview-scroll').style.cssText = 'flex:1;overflow:auto;width:100%;padding:0 16px 12px;-webkit-overflow-scrolling:touch;touch-action:pan-y pinch-zoom;';
+        // プレビュー中はピンチズームを許可
+        document.querySelector('meta[name=viewport]').content =
+          'width=device-width, initial-scale=1.0, viewport-fit=cover';
         document.getElementById('previewOverlay').classList.add('show');
 
         const doShare = async () => {
@@ -1690,6 +1698,9 @@ function closePreview() {
   const img = document.getElementById('preview-img');
   if (img.src) URL.revokeObjectURL(img.src);
   img.src = '';
+  // ズーム禁止に戻す
+  document.querySelector('meta[name=viewport]').content =
+    'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
 }
 
 // ── TOAST ──

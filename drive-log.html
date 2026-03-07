@@ -1598,6 +1598,20 @@ function exportInvoice() {
   const iframe = document.createElement('iframe');
   iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;height:1px;border:none;';
   document.body.appendChild(iframe);
+
+  const startRender = () => {
+    if (typeof html2canvas !== 'undefined') {
+      runCanvas();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      script.onload = runCanvas;
+      script.onerror = () => { toast('ライブラリの読み込みに失敗しました'); };
+      document.head.appendChild(script);
+    }
+  };
+
+  iframe.onload = startRender;
   iframe.contentDocument.open();
   iframe.contentDocument.write(html.replace('<script>window.onload=function(){window.print();}<\/script>', ''));
   iframe.contentDocument.close();
@@ -1655,16 +1669,6 @@ function exportInvoice() {
       console.error(e);
     }
   };
-
-  if (typeof html2canvas !== 'undefined') {
-    runCanvas();
-  } else {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-    script.onload = runCanvas;
-    script.onerror = () => { toast('ライブラリの読み込みに失敗しました'); };
-    document.head.appendChild(script);
-  }
 }
 
 // ── PREVIEW ──

@@ -1353,9 +1353,15 @@ function renderSummary() {
   let fuelCardHtml = '';
   if (monthFuels.length > 0) {
     const fuelRows = monthFuels.map(f => {
-      const alloc = calcFuelAlloc(f);
       const cat = f.category || '私用';
-      return `<div class="sc-breakdown">${f.date.slice(5).replace('-','/')} ${cat}：¥${f.amount.toLocaleString()}（按分¥${alloc.personalCost.toLocaleString()}）</div>`;
+      const sortedF = [...fuelRecords].sort((a, b) => a.date.localeCompare(b.date));
+      const idxF = sortedF.findIndex(r => r.id === f.id);
+      const prevDateF = idxF > 0 ? sortedF[idxF - 1].date : null;
+      const inRangeF = records.filter(r => (prevDateF ? r.date > prevDateF : true) && r.date <= f.date);
+      const totalKmF = inRangeF.reduce((s, r) => s + r.km, 0);
+      const hojinKmF = inRangeF.filter(r => r.category === '法人').reduce((s, r) => s + r.km, 0);
+      const hojinCost = totalKmF > 0 ? Math.round(f.amount * hojinKmF / totalKmF) : 0;
+      return `<div class="sc-breakdown">${f.date.slice(5).replace('-','/')} ${cat}名義：¥${f.amount.toLocaleString()}（法人分¥${hojinCost.toLocaleString()}）</div>`;
     }).join('');
     fuelCardHtml = `<div class="summary-card" style="border-color:#4fa8e0;">
       <div class="sc-top">

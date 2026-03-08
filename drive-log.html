@@ -896,7 +896,7 @@
 <!-- FUEL MODAL -->
 <div class="edit-modal-overlay" id="fuelModalOverlay">
   <div class="edit-modal">
-    <div class="edit-modal-title">給油を記録</div>
+    <div class="edit-modal-title" id="fuelModalTitle">給油を記録</div>
     <div class="field">
       <label>日付</label>
       <input type="date" id="fuel-date">
@@ -1272,6 +1272,7 @@ function renderHistory() {
             <span class="fuel-card-cost">¥${alloc.personalCost.toLocaleString()}</span>
           </div>
           <div class="fuel-card-actions">
+            <button class="action-btn" onclick="openFuelModal(${f.id})">編集</button>
             <button class="action-btn danger" onclick="deleteFuel(${f.id})">削除</button>
           </div>
         </div>`;
@@ -1609,19 +1610,35 @@ function updateFuelHint() {
   }
 }
 
-function openFuelModal() {
-  const today = new Date();
-  const yy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
-  document.getElementById('fuel-date').value = `${yy}-${mm}-${dd}`;
-  document.getElementById('fuel-amount').value = '';
-  document.querySelectorAll('.fuel-seg').forEach(b => b.classList.toggle('active', b.dataset.v === '私用'));
+let editingFuelId = null;
+
+function openFuelModal(id) {
+  editingFuelId = id || null;
+  if (editingFuelId) {
+    // 編集モード
+    const f = fuelRecords.find(r => r.id === editingFuelId);
+    if (!f) return;
+    document.getElementById('fuelModalTitle').textContent = '給油を編集';
+    document.getElementById('fuel-date').value = f.date;
+    document.getElementById('fuel-amount').value = f.amount;
+    document.querySelectorAll('.fuel-seg').forEach(b => b.classList.toggle('active', b.dataset.v === (f.category || '私用')));
+  } else {
+    // 新規モード
+    document.getElementById('fuelModalTitle').textContent = '給油を記録';
+    const today = new Date();
+    const yy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    document.getElementById('fuel-date').value = `${yy}-${mm}-${dd}`;
+    document.getElementById('fuel-amount').value = '';
+    document.querySelectorAll('.fuel-seg').forEach(b => b.classList.toggle('active', b.dataset.v === '私用'));
+  }
   updateFuelHint();
   document.getElementById('fuelModalOverlay').classList.add('show');
 }
 function closeFuelModal() {
   document.getElementById('fuelModalOverlay').classList.remove('show');
+  editingFuelId = null;
 }
 
 // 按分計算：前回給油日〜今回給油日の期間の走行距離比率
@@ -1647,19 +1664,43 @@ function saveFuel() {
   const cat    = getFuelCat();
   if (!date)                       { toast('日付を入力してください'); return; }
   if (isNaN(amount) || amount <= 0){ toast('金額を入力してください'); return; }
-  const fuel = { id: Date.now(), date, amount, category: cat };
-  fuelRecords.push(fuel);
-  save();
-  const fy = parseInt(date.slice(0,4)), fm = parseInt(date.slice(5,7));
-  markDirtyIfChanged(fy, fm);
+
+  if (editingFuelId) {
+    // 編集モード：既存レコードを更新
+    const idx = fuelRecords.findIndex(f => f.id === editingFuelId);
+    if (idx !== -1) {
+      const oldFuel = fuelRecords[idx];
+      // 旧日付の月も dirty チェック
+      const oldY = parseInt(oldFuel.date.slice(0,4)), oldM = parseInt(oldFuel.date.slice(5,7));
+      fuelRecords[idx] = { id: editingFuelId, date, amount, category: cat };
+      save();
+      markDirtyIfChanged(oldY, oldM);
+      const newY = parseInt(date.slice(0,4)), newM = parseInt(date.slice(5,7));
+      if (newY !== oldY || newM !== oldM) markDirtyIfChanged(newY, newM);
+      const alloc = calcFuelAlloc(fuelRecords[idx]);
+      const sign = fuelSign(cat) > 0 ? '+' : '-';
+      toast(alloc.totalKm === 0
+        ? '給油を更新しました（走行記録なし）✓'
+        : `給油を更新しました ✓　精算：${sign}¥${alloc.personalCost.toLocaleString()}`);
+    }
+  } else {
+    // 新規モード
+    const fuel = { id: Date.now(), date, amount, category: cat };
+    fuelRecords.push(fuel);
+    save();
+    const fy = parseInt(date.slice(0,4)), fm = parseInt(date.slice(5,7));
+    markDirtyIfChanged(fy, fm);
+    const alloc = calcFuelAlloc(fuel);
+    const sign = fuelSign(cat) > 0 ? '+' : '-';
+    toast(alloc.totalKm === 0
+      ? '給油を記録しました（走行記録なし）✓'
+      : `給油を記録しました ✓　精算：${sign}¥${alloc.personalCost.toLocaleString()}`);
+  }
+
   closeFuelModal();
-  const alloc = calcFuelAlloc(fuel);
-  const sign = fuelSign(cat) > 0 ? '+' : '-';
-  toast(alloc.totalKm === 0
-    ? '給油を記録しました（走行記録なし）✓'
-    : `給油を記録しました ✓　精算：${sign}¥${alloc.personalCost.toLocaleString()}`);
   renderHistory();
   renderSummary();
+  updateInvoiceBtn();
 }
 
 function deleteFuel(id) {
@@ -1672,6 +1713,7 @@ function deleteFuel(id) {
   }
   renderHistory();
   renderSummary();
+  updateInvoiceBtn();
   toast('給油記録を削除しました');
 }
 
@@ -1971,7 +2013,7 @@ function exportInvoice() {
   // 精算行（ガソリン調整・繰越）
   if (fuelAdjustInv !== 0) detailRows +=
     '<tr class="adj">' +
-    '<td colspan="4">' + (fuelAdjustInv > 0 ? 'ガソリン按分（法人払い分・上乗せ）' : 'ガソリン按分（個人払い分・差引）') + '</td>' +
+    '<td colspan="4">' + (fuelAdjustInv > 0 ? 'ガソリン按分（法人払い分・上乗せ）' : 'ガソリン按分（法人負担分・差引）') + '</td>' +
     '<td class="r">' + (fuelAdjustInv > 0 ? '+¥' + fuelAdjustInv.toLocaleString() : '−¥' + Math.abs(fuelAdjustInv).toLocaleString()) + '</td></tr>';
   if (carryInv < 0) detailRows +=
     '<tr class="adj">' +

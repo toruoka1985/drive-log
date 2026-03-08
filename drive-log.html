@@ -1337,7 +1337,7 @@ function renderSummary() {
     if (cat !== '法人') totalDrive += cost;
 
     let breakdownHtml = `<div class="sc-breakdown">走行：¥${cost.toLocaleString()}</div>`;
-    if (share > 0) breakdownHtml += `<div class="sc-breakdown">ガソリン按分：¥${share.toLocaleString()}</div>`;
+    if (share > 0) breakdownHtml += `<div class="sc-breakdown">ガソリン消費分：¥${share.toLocaleString()}</div>`;
 
     cardsHtml += `<div class="summary-card ${cat}">
       <div class="sc-top">
@@ -1420,8 +1420,8 @@ function renderSummary() {
 
   // 振込額の内訳メモ
   let totalBreakdown = `走行（個人事業＋私用）：¥${personalDrive.toLocaleString()}`;
-  if (fuelAdjust > 0) totalBreakdown += `　ガソリン精算：+¥${fuelAdjust.toLocaleString()}`;
-  if (fuelAdjust < 0) totalBreakdown += `　ガソリン精算：-¥${Math.abs(fuelAdjust).toLocaleString()}`;
+  if (fuelAdjust > 0) totalBreakdown += `　ガソリン消費分：+¥${fuelAdjust.toLocaleString()}`;
+  if (fuelAdjust < 0) totalBreakdown += `　ガソリン消費分：-¥${Math.abs(fuelAdjust).toLocaleString()}`;
   if (carry < 0)      totalBreakdown += `　前月繰越：-¥${Math.abs(carry).toLocaleString()}`;
 
   const grandLabel = grandTotal >= 0 ? `¥${grandTotal.toLocaleString()}` : `-¥${Math.abs(grandTotal).toLocaleString()}`;
@@ -2000,7 +2000,7 @@ function exportInvoice() {
     });
     // 名義別小計行（ガソリン按分含む）
     const shareNote = share > 0
-      ? '<span style="font-size:9.5px;font-weight:400;color:#999;margin-left:8px;">走行 ¥' + driveCost.toLocaleString() + ' ＋ 給油按分 ¥' + share.toLocaleString() + '</span>'
+      ? '<span style="font-size:9.5px;font-weight:400;color:#999;margin-left:8px;">走行 ¥' + driveCost.toLocaleString() + ' ＋ ガソリン消費分 ¥' + share.toLocaleString() + '</span>'
       : '';
     detailRows +=
       '<tr class="subtotal">' +
@@ -2013,7 +2013,7 @@ function exportInvoice() {
   // 精算行（個人立替のみ表示）
   if (fuelAdjustInv < 0) detailRows +=
     '<tr class="adj">' +
-    '<td colspan="4">ガソリン精算（個人立替・法人負担分）</td>' +
+    '<td colspan="4">ガソリン代立替（法人消費分）</td>' +
     '<td class="r">−¥' + Math.abs(fuelAdjustInv).toLocaleString() + '</td></tr>';
   if (carryInv < 0) detailRows +=
     '<tr class="adj">' +

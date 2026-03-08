@@ -1618,6 +1618,8 @@ function saveFuel() {
   const fuel = { id: Date.now(), date, amount, category: cat };
   fuelRecords.push(fuel);
   save();
+  const fy = parseInt(date.slice(0,4)), fm = parseInt(date.slice(5,7));
+  markDirtyIfChanged(fy, fm);
   closeFuelModal();
   const alloc = calcFuelAlloc(fuel);
   const sign = fuelSign(cat) > 0 ? '+' : '-';
@@ -1629,8 +1631,13 @@ function saveFuel() {
 }
 
 function deleteFuel(id) {
+  const fuel = fuelRecords.find(f => f.id === id);
   fuelRecords = fuelRecords.filter(f => f.id !== id);
   save();
+  if (fuel) {
+    const fy = parseInt(fuel.date.slice(0,4)), fm = parseInt(fuel.date.slice(5,7));
+    markDirtyIfChanged(fy, fm);
+  }
   renderHistory();
   renderSummary();
   toast('給油記録を削除しました');
@@ -1729,8 +1736,11 @@ function setInvoiceIssued(y, m) {
 }
 function getMonthHash(y, m) {
   const key = `${y}-${String(m).padStart(2,'0')}`;
-  const monthRecs = records.filter(r => r.date.startsWith(key));
-  return monthRecs.map(r => `${r.id}-${r.km}-${r.cost}`).join('|');
+  const monthRecs  = records.filter(r => r.date.startsWith(key));
+  const monthFuels = fuelRecords.filter(f => f.date.startsWith(key));
+  const recHash  = monthRecs.map(r => `${r.id}-${r.km}-${r.cost}`).join('|');
+  const fuelHash = monthFuels.map(f => `${f.id}-${f.amount}-${f.category||''}`).join('|');
+  return recHash + '§' + fuelHash;
 }
 function markDirtyIfChanged(y, m) {
   const status = getInvoiceStatus(y, m);

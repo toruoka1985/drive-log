@@ -2010,11 +2010,11 @@ function exportInvoice() {
       '</tr>';
   });
 
-  // 精算行（ガソリン調整・繰越）
-  if (fuelAdjustInv !== 0) detailRows +=
+  // 精算行（個人立替のみ表示）
+  if (fuelAdjustInv < 0) detailRows +=
     '<tr class="adj">' +
-    '<td colspan="4">' + (fuelAdjustInv > 0 ? 'ガソリン按分（法人払い分・上乗せ）' : 'ガソリン按分（法人負担分・差引）') + '</td>' +
-    '<td class="r">' + (fuelAdjustInv > 0 ? '+¥' + fuelAdjustInv.toLocaleString() : '−¥' + Math.abs(fuelAdjustInv).toLocaleString()) + '</td></tr>';
+    '<td colspan="4">ガソリン精算（個人立替・法人負担分）</td>' +
+    '<td class="r">−¥' + Math.abs(fuelAdjustInv).toLocaleString() + '</td></tr>';
   if (carryInv < 0) detailRows +=
     '<tr class="adj">' +
     '<td colspan="4">前月繰越（払い戻し残高）</td>' +

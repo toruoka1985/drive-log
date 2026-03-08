@@ -1729,12 +1729,27 @@ function calcCarryover(targetY, targetM) {
 
 // ── CSV EXPORT ──
 async function exportCSV() {
-  if (records.length === 0) { toast('データがありません'); return; }
-  const header = '日付,目的,費用区分,開始オドメーター,終了オドメーター,走行距離(km),金額(円)';
-  const rows = [...records].sort((a,b) => a.date.localeCompare(b.date)).map(r =>
-    `${r.date},${r.purpose},${r.category},${r.odoStart},${r.odoEnd},${r.km},${r.cost}`
+  if (records.length === 0 && fuelRecords.length === 0) { toast('データがありません'); return; }
+
+  // ── 走行記録シート ──
+  const driveHeader = '種別,日付,目的,費用区分,開始オドメーター,終了オドメーター,走行距離(km),金額(円)';
+  const driveRows = [...records].sort((a,b) => a.date.localeCompare(b.date)).map(r =>
+    `走行,${r.date},${r.purpose},${r.category},${r.odoStart},${r.odoEnd},${r.km},${r.cost}`
   );
-  const csv = '\uFEFF' + [header, ...rows].join('\n');
+
+  // ── 給油記録シート ──
+  const fuelHeader = '種別,日付,給油名義,合計金額(円)';
+  const fuelRows = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date)).map(f =>
+    `給油,${f.date},${f.category || ''},${f.amount}`
+  );
+
+  // ── 統合（走行 → 空行 → 給油） ──
+  const sections = [
+    driveHeader, ...driveRows,
+    '',
+    fuelHeader, ...fuelRows
+  ];
+  const csv = '\uFEFF' + sections.join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const t = new Date();
   const fname = `${t.getFullYear()}${String(t.getMonth()+1).padStart(2,'0')}${String(t.getDate()).padStart(2,'0')}_走行記録_全履歴.csv`;

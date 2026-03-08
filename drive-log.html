@@ -1300,47 +1300,81 @@ function renderSummary() {
   let totalDrive = 0;
   let cardsHtml = '';
 
-  // 月次の給油内訳（名義別）
+  // ── 給油按分の各名義への配分計算 ──
+  // 全給油について、区間の走行距離比率で各名義の負担額を算出
   const monthFuels = fuelRecords.filter(f => f.date.startsWith(key));
-  const fuelBySign = { add: 0, sub: 0 }; // add=上乗せ, sub=差し引き
-  monthFuels.forEach(f => {
-    const alloc = calcFuelAlloc(f);
-    if (fuelSign(f.category || '私用') > 0) fuelBySign.add += alloc.personalCost;
-    else fuelBySign.sub += alloc.personalCost;
-  });
-  const fuelNet = fuelBySign.add - fuelBySign.sub; // 正=上乗せ超、負=差し引き超
+  const fuelShare = { '法人': 0, '個人事業': 0, '私用': 0 }; // 各名義が負担すべきガソリン按分
+  const fuelPaidPersonal = { '個人事業': 0, '私用': 0 };      // 個人事業・私用名義で実際に払った給油额（按分後）
 
+  monthFuels.forEach(f => {
+    const sorted = [...fuelRecords].sort((a, b) => a.date.localeCompare(b.date));
+    const idx = sorted.findIndex(r => r.id === f.id);
+    const prevDate = idx > 0 ? sorted[idx - 1].date : null;
+    const inRange = records.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= f.date);
+    const totalKm = inRange.reduce((s, r) => s + r.km, 0);
+    if (totalKm === 0) return;
+    ['法人', '個人事業', '私用'].forEach(cat => {
+      const catKm = inRange.filter(r => r.category === cat).reduce((s, r) => s + r.km, 0);
+      fuelShare[cat] += Math.round(f.amount * catKm / totalKm);
+    });
+    // 個人事業または私用名義で給油した場合のみ差し引き対象
+    const fc = f.category || '私用';
+    if (fc === '個人事業' || fc === '私用') {
+      const alloc = calcFuelAlloc(f);
+      fuelPaidPersonal[fc] = (fuelPaidPersonal[fc] || 0) + alloc.personalCost;
+    }
+  });
+
+  // ── 各名義カード（①走行＋ガソリン按分のみ、給油支払いは反映しない） ──
   cats.forEach(cat => {
     const recs = monthRecs.filter(r => r.category === cat);
     const km   = recs.reduce((s, r) => s + r.km, 0);
     const cost = recs.reduce((s, r) => s + r.cost, 0);
-
-    // この区分の給油按分
-    const catFuels = monthFuels.filter(f => f.category === cat);
-    const catFuelCost = catFuels.reduce((s, f) => s + calcFuelAlloc(f).personalCost, 0);
-    const catTotal = cat !== '法人'
-      ? cost + fuelSign(cat) * catFuelCost
-      : cost;
-
+    const share = fuelShare[cat];
+    // カード合計：走行 + ガソリン按分負担（法人は参考のみ）
+    const catTotal = cost + share;
     if (cat !== '法人') totalDrive += cost;
 
-    const fuelDetail = catFuels.length > 0
-      ? `<div class="sc-breakdown">${cat === '法人' ? '法人給油：上乗せ' : '個人給油：差し引き'} ¥${catFuelCost.toLocaleString()}</div>`
-      : '';
+    let breakdownHtml = `<div class="sc-breakdown">走行：¥${cost.toLocaleString()}</div>`;
+    if (share > 0) breakdownHtml += `<div class="sc-breakdown">ガソリン按分：¥${share.toLocaleString()}</div>`;
 
     cardsHtml += `<div class="summary-card ${cat}">
       <div class="sc-top">
         <span class="sc-label">${cat}</span>
         <span class="sc-km">${km.toFixed(1)} km · ${recs.length}件</span>
       </div>
-      <div class="sc-cost">¥${cat !== '法人' ? catTotal.toLocaleString() : cost.toLocaleString()}</div>
-      ${cat !== '法人' ? `<div class="sc-breakdown">走行：¥${cost.toLocaleString()}${catFuels.length > 0 ? `　給油精算：${fuelSign(cat)>0?'+':'-'}¥${catFuelCost.toLocaleString()}` : ''}</div>` : ''}
+      <div class="sc-cost">¥${catTotal.toLocaleString()}</div>
+      ${breakdownHtml}
       <div class="sc-note">${notes[cat]}</div>
     </div>`;
   });
 
-  // 持ち越し
+  // ── ②Fuelカード：給油名義と金額一覧 ──
+  let fuelCardHtml = '';
+  if (monthFuels.length > 0) {
+    const fuelRows = monthFuels.map(f => {
+      const alloc = calcFuelAlloc(f);
+      const cat = f.category || '私用';
+      return `<div class="sc-breakdown">${f.date.slice(5).replace('-','/')} ${cat}：¥${f.amount.toLocaleString()}（按分¥${alloc.personalCost.toLocaleString()}）</div>`;
+    }).join('');
+    fuelCardHtml = `<div class="summary-card" style="border-color:#4fa8e0;">
+      <div class="sc-top">
+        <span class="sc-label" style="color:#4fa8e0;">FUEL / 給油記録</span>
+        <span class="sc-km">${monthFuels.length}回</span>
+      </div>
+      ${fuelRows}
+    </div>`;
+  }
+
+  // ── ③振込額：走行（個人事業＋私用）＋ガソリン按分（個人事業＋私用）－個人名義給油支払い ──
+  const personalDrive = ['個人事業','私用'].reduce((s,c) =>
+    s + monthRecs.filter(r=>r.category===c).reduce((ss,r)=>ss+r.cost,0), 0);
+  const personalShare = fuelShare['個人事業'] + fuelShare['私用'];
+  const personalPaid  = (fuelPaidPersonal['個人事業']||0) + (fuelPaidPersonal['私用']||0);
   const carry = calcCarryover(y, m);
+  const grandTotal = personalDrive + personalShare - personalPaid + carry;
+
+  // 持ち越しカード
   const carryHtml = carry < 0 ? `
     <div class="summary-card" style="border-color:var(--accent);opacity:.85;">
       <div class="sc-top">
@@ -1351,30 +1385,22 @@ function renderSummary() {
       <div class="sc-note">今月の振込額から差し引き済み</div>
     </div>` : '';
 
-  // 全体合計（走行+給油net+持ち越し）
-  const grandTotal = totalDrive + fuelNet + carry;
+  // 振込額の内訳メモ
+  let totalBreakdown = `走行（個人事業＋私用）：¥${personalDrive.toLocaleString()}`;
+  if (personalShare > 0) totalBreakdown += `　ガソリン按分：+¥${personalShare.toLocaleString()}`;
+  if (personalPaid  > 0) totalBreakdown += `　給油支払い：-¥${personalPaid.toLocaleString()}`;
+  if (carry < 0)         totalBreakdown += `　前月繰越：-¥${Math.abs(carry).toLocaleString()}`;
+
   const grandLabel = grandTotal >= 0 ? `¥${grandTotal.toLocaleString()}` : `-¥${Math.abs(grandTotal).toLocaleString()}`;
   const grandNote  = grandTotal < 0 ? '（次月に持ち越し）' : '個人 → 法人への振込金額';
 
-  // ガソリン合計カード（両名義あるとき）
-  const fuelSummaryHtml = monthFuels.length > 0 ? `
-    <div class="summary-card" style="border-color:#4fa8e0;">
-      <div class="sc-top">
-        <span class="sc-label" style="color:#4fa8e0;">FUEL / ガソリン代</span>
-        <span class="sc-km">${monthFuels.length}回給油</span>
-      </div>
-      <div class="sc-cost" style="color:#4fa8e0;">${fuelNet >= 0 ? '+' : '-'}¥${Math.abs(fuelNet).toLocaleString()}</div>
-      ${fuelBySign.add > 0 ? `<div class="sc-breakdown">法人給油（上乗せ）：+¥${fuelBySign.add.toLocaleString()}</div>` : ''}
-      ${fuelBySign.sub > 0 ? `<div class="sc-breakdown">個人給油（差し引き）：-¥${fuelBySign.sub.toLocaleString()}</div>` : ''}
-      <div class="sc-note">按分：走行距離比率</div>
-    </div>` : '';
-
   document.getElementById('summary-content').innerHTML = `
-    <div class="summary-cards">${cardsHtml}${fuelSummaryHtml}${carryHtml}</div>
+    <div class="summary-cards">${cardsHtml}${fuelCardHtml}${carryHtml}</div>
     <div class="total-card">
       <div class="t-label">今月の振込額</div>
       <div class="t-amount">${grandLabel}</div>
       <div style="font-size:11px;color:var(--text3);margin-top:6px;font-family:'DM Mono',monospace;">${grandNote}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px;font-family:'DM Mono',monospace;opacity:.7;">${totalBreakdown}</div>
     </div>
   `;
   updateInvoiceBtn();
@@ -1621,7 +1647,6 @@ function calcMonthFuelNet(y, m) {
 // 前月までの未精算累積を計算（持ち越し）
 // 各月の net = 走行料金合計 + 給油精算額 を累積、マイナスが持ち越し残高
 function calcCarryover(targetY, targetM) {
-  // 全給油・走行の最古月を特定
   const allDates = [
     ...records.map(r => r.date.slice(0,7)),
     ...fuelRecords.map(f => f.date.slice(0,7))
@@ -1631,17 +1656,37 @@ function calcCarryover(targetY, targetM) {
   let [cy, cm] = allDates[0].split('-').map(Number);
   let carry = 0;
   while (cy < targetY || (cy === targetY && cm < targetM)) {
+    const mk = `${cy}-${String(cm).padStart(2,'0')}`;
     const driveTotal = records
-      .filter(r => r.date.startsWith(`${cy}-${String(cm).padStart(2,'0')}`) && r.category !== '法人')
+      .filter(r => r.date.startsWith(mk) && r.category !== '法人')
       .reduce((s, r) => s + r.cost, 0);
-    const fuelNet = calcMonthFuelNet(cy, cm);
-    const net = driveTotal + fuelNet;
-    if (net < 0) carry += net; // マイナス（払い戻し超過）を蓄積
-    else carry = Math.min(carry + net, 0); // 過去の赤字をその月で解消
-    cm++;
-    if (cm > 12) { cm = 1; cy++; }
+
+    // この月の給油精算netを計算
+    const mFuels = fuelRecords.filter(f => f.date.startsWith(mk));
+    const mShare = { '個人事業': 0, '私用': 0 };
+    const mPaid  = { '個人事業': 0, '私用': 0 };
+    mFuels.forEach(f => {
+      const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
+      const idx = sorted.findIndex(r => r.id === f.id);
+      const prevDate = idx > 0 ? sorted[idx-1].date : null;
+      const inRange = records.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= f.date);
+      const totalKm = inRange.reduce((s,r) => s + r.km, 0);
+      if (totalKm === 0) return;
+      ['個人事業','私用'].forEach(cat => {
+        const catKm = inRange.filter(r => r.category === cat).reduce((s,r) => s + r.km, 0);
+        mShare[cat] += Math.round(f.amount * catKm / totalKm);
+      });
+      const alloc = calcFuelAlloc(f);
+      const pc = f.category || '私用';
+      if (pc !== '法人') mPaid[pc] = (mPaid[pc] || 0) + alloc.personalCost;
+    });
+    const fuelNetM = ['個人事業','私用'].reduce((s,c) => s + mShare[c] - (mPaid[c]||0), 0);
+    const net = driveTotal + fuelNetM;
+    if (net < 0) carry += net;
+    else carry = Math.min(carry + net, 0);
+    cm++; if (cm > 12) { cm = 1; cy++; }
   }
-  return carry; // 負の値＝個人が受け取るべき未精算残高
+  return carry;
 }
 
 // ── CSV EXPORT ──
@@ -1786,6 +1831,7 @@ function exportInvoice() {
   const company = settings.company || '（会社名未設定）';
   const name    = settings.name    || '（氏名未設定）';
   const address = settings.address || '';
+  const addressHtml = address ? '<div class="party-address">' + escHtml(address) + '</div>' : '';
   const bankName   = settings.bankName   || '';
   const bankType   = settings.bankType   || '';
   const bankHolder = settings.bankHolder || '';

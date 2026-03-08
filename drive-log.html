@@ -1845,44 +1845,77 @@ function exportInvoice() {
   const t = new Date();
   const issueDate = t.getFullYear() + '年' + (t.getMonth()+1) + '月' + t.getDate() + '日';
 
-  const detailRows = targetRecs.map(r =>
-    '<tr>' +
-    '<td>' + formatDate(r.date) + '</td>' +
-    '<td>' + escHtml(r.purpose) + '</td>' +
-    '<td style="text-align:center">' + r.category + '</td>' +
-    '<td style="text-align:right">' + r.km.toFixed(1) + '</td>' +
-    '<td style="text-align:right">¥' + r.cost.toLocaleString() + '</td>' +
-    '</tr>'
-  ).join('');
-
-  // 給油精算
+  // ── 給油按分（請求書用） ──
   const monthFuelsInv = fuelRecords.filter(f => f.date.startsWith(key));
-  let fuelAddInv = 0, fuelSubInv = 0;
+  const fuelShareInv = { '個人事業': 0, '私用': 0 };
+  const fuelPaidInv  = { '個人事業': 0, '私用': 0 };
   monthFuelsInv.forEach(f => {
-    const alloc = calcFuelAlloc(f);
-    if (fuelSign(f.category || '私用') > 0) fuelAddInv += alloc.personalCost;
-    else fuelSubInv += alloc.personalCost;
+    const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
+    const idx = sorted.findIndex(r => r.id === f.id);
+    const prevDate = idx > 0 ? sorted[idx-1].date : null;
+    const inRange = records.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= f.date);
+    const totalKm = inRange.reduce((s,r) => s+r.km, 0);
+    if (totalKm === 0) return;
+    ['個人事業','私用'].forEach(cat => {
+      const catKm = inRange.filter(r=>r.category===cat).reduce((s,r)=>s+r.km,0);
+      fuelShareInv[cat] += Math.round(f.amount * catKm / totalKm);
+    });
+    const fc = f.category || '私用';
+    if (fc === '個人事業' || fc === '私用') {
+      fuelPaidInv[fc] += calcFuelAlloc(f).personalCost;
+    }
   });
-  const fuelNetInv = fuelAddInv - fuelSubInv;
+  const fuelSelfShare = fuelShareInv['個人事業'];
+  const fuelPrivShare = fuelShareInv['私用'];
+  const fuelPaidTotal = fuelPaidInv['個人事業'] + fuelPaidInv['私用'];
+  const fuelNetInv = fuelSelfShare + fuelPrivShare - fuelPaidTotal;
   const carryInv   = calcCarryover(y, m);
   const grandTotalInvoice = total + fuelNetInv + carryInv;
 
-  const fuelBoxHtml = monthFuelsInv.length > 0
-    ? '<div class="summary-box fuel">\n' +
-      '  <div class="s-label">ガソリン代 精算</div>\n' +
-      '  <div class="s-km">' + monthFuelsInv.length + '回給油（走行距離比率按分）</div>\n' +
-      (fuelAddInv > 0 ? '  <div class="s-detail">法人給油（上乗せ）：+¥' + fuelAddInv.toLocaleString() + '</div>\n' : '') +
-      (fuelSubInv > 0 ? '  <div class="s-detail">個人給油（差し引き）：-¥' + fuelSubInv.toLocaleString() + '</div>\n' : '') +
-      '  <div class="s-cost" style="color:' + (fuelNetInv >= 0 ? '#c8821a' : '#2a7ab0') + ';">' + (fuelNetInv >= 0 ? '+' : '-') + '¥' + Math.abs(fuelNetInv).toLocaleString() + '</div>\n' +
-      '</div>\n'
-    : '';
+  // ── 利用明細：名義別にグループ化して出力 ──
+  // 個人事業・私用のガソリン按分を各行の金額には加えず、名義別の小計行に合算表示
+  let detailRows = '';
+  let detailRows2 = '';
+  ['個人事業', '私用'].forEach(cat => {
+    const recs = targetRecs.filter(r => r.category === cat);
+    if (recs.length === 0 && fuelShareInv[cat] === 0) return;
+    const driveCost = recs.reduce((s,r) => s + r.cost, 0);
+    const share = fuelShareInv[cat];
+    const subtotal = driveCost + share;
+    // 走行行
+    recs.forEach(r => {
+      detailRows +=
+        '<tr>' +
+        '<td>' + formatDate(r.date) + '</td>' +
+        '<td>' + escHtml(r.purpose) + '</td>' +
+        '<td style="text-align:center">' + r.category + '</td>' +
+        '<td style="text-align:right">' + r.km.toFixed(1) + '</td>' +
+        '<td style="text-align:right">¥' + r.cost.toLocaleString() + '</td>' +
+        '</tr>';
+    });
+    // 名義別小計行（ガソリン按分含む）
+    const shareNote = share > 0
+      ? ' <span style="font-size:10px;color:#888;">（走行¥' + driveCost.toLocaleString() + ' ＋ ガソリン按分¥' + share.toLocaleString() + '）</span>'
+      : '';
+    detailRows +=
+      '<tr style="background:#f9f9f9;font-weight:600;">' +
+      '<td colspan="3" style="font-size:11px;">' + cat + ' 小計' + shareNote + '</td>' +
+      '<td style="text-align:right;font-size:11px;">' + recs.reduce((s,r)=>s+r.km,0).toFixed(1) + '</td>' +
+      '<td style="text-align:right;">¥' + subtotal.toLocaleString() + '</td>' +
+      '</tr>';
+  });
 
-  const carryBoxHtml = carryInv < 0
-    ? '<div class="summary-box carry">\n' +
-      '  <div class="s-label">前月繰越（払い戻し残高）</div>\n' +
-      '  <div class="s-cost" style="color:#2a7ab0;">-¥' + Math.abs(carryInv).toLocaleString() + '</div>\n' +
-      '</div>\n'
-    : '';
+  // 精算行（個人払い給油の差し引き・繰越）
+  if (fuelPaidTotal > 0) detailRows +=
+    '<tr style="color:#2a7ab0;">' +
+    '<td colspan="4">ガソリン給油（個人払い・差引）</td>' +
+    '<td style="text-align:right;">-¥' + fuelPaidTotal.toLocaleString() + '</td></tr>';
+  if (carryInv < 0) detailRows +=
+    '<tr style="color:#2a7ab0;">' +
+    '<td colspan="4">前月繰越（払い戻し残高）</td>' +
+    '<td style="text-align:right;">-¥' + Math.abs(carryInv).toLocaleString() + '</td></tr>';
+
+  const footerTotal = grandTotalInvoice;
 
   const html = '<!DOCTYPE html>\n' +
 '<html lang="ja">\n' +
@@ -1900,20 +1933,6 @@ function exportInvoice() {
 '.party-label { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#999; margin-bottom:6px; }\n' +
 '.party-name { font-size:15px; font-weight:700; }\n' +
 '.party-address { font-size:12px; color:#666; margin-top:4px; }\n' +
-'.summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }\n' +
-'.summary-box { padding:14px 16px; border-radius:8px; margin-bottom:12px; }\n' +
-'.summary-box.self { background:#fff8ee; border:1px solid #f5a23a; }\n' +
-'.summary-box.priv { background:#f5f5f5; border:1px solid #ccc; }\n' +
-'.summary-box.fuel { background:#eef6fc; border:1px solid #4fa8e0; }\n' +
-'.summary-box.carry { background:#f0f8ff; border:1px solid #4fa8e0; }\n' +
-'.summary-box .s-label { font-size:10px; letter-spacing:.12em; color:#888; margin-bottom:4px; }\n' +
-'.summary-box.self .s-label { color:#c8821a; }\n' +
-'.summary-box.fuel .s-label { color:#2a7ab0; }\n' +
-'.summary-box.carry .s-label { color:#2a7ab0; }\n' +
-'.summary-box .s-km { font-size:12px; color:#888; margin-bottom:4px; }\n' +
-'.summary-box .s-detail { font-size:11px; color:#888; margin-top:2px; }\n' +
-'.summary-box .s-cost { font-size:20px; font-weight:700; margin-top:6px; }\n' +
-'.summary-box.self .s-cost { color:#c8821a; }\n' +
 '.total-box { background:#1a1a1a; color:#fff; border-radius:8px; padding:18px 20px; margin-bottom:28px; display:flex; justify-content:space-between; align-items:center; }\n' +
 '.total-box .t-label { font-size:11px; letter-spacing:.12em; }\n' +
 '.total-box .t-amount { font-size:28px; font-weight:700; color:#c8f53a; }\n' +
@@ -1921,7 +1940,6 @@ function exportInvoice() {
 'table { width:100%; border-collapse:collapse; font-size:12px; }\n' +
 'th { background:#f5f5f5; padding:8px 10px; text-align:left; font-weight:600; border-bottom:2px solid #e0e0e0; }\n' +
 'td { padding:8px 10px; border-bottom:1px solid #f0f0f0; }\n' +
-'tr:last-child td { border-bottom:none; }\n' +
 '.note { margin-top:28px; padding:14px 16px; background:#f9f9f9; border-radius:8px; font-size:11px; color:#888; line-height:1.8; }\n' +
 '</style>\n' +
 '</head>\n' +
@@ -1943,34 +1961,20 @@ function exportInvoice() {
 '    <div class="party-name">' + escHtml(company) + '</div>\n' +
 '  </div>\n' +
 '</div>\n' +
-'<div class="summary-grid">\n' +
-'  <div class="summary-box self">\n' +
-'    <div class="s-label">個人事業利用</div>\n' +
-'    <div class="s-km">' + selfKm.toFixed(1) + ' km · ' + selfRecs.length + '件</div>\n' +
-'    <div class="s-cost">¥' + selfCost.toLocaleString() + '</div>\n' +
-'  </div>\n' +
-'  <div class="summary-box priv">\n' +
-'    <div class="s-label">私的利用</div>\n' +
-'    <div class="s-km">' + privKm.toFixed(1) + ' km · ' + privRecs.length + '件</div>\n' +
-'    <div class="s-cost">¥' + privCost.toLocaleString() + '</div>\n' +
-'  </div>\n' +
-'</div>\n' +
-fuelBoxHtml +
-carryBoxHtml +
 '<div class="total-box">\n' +
 '  <div class="t-label">合計振込額</div>\n' +
-'  <div class="t-amount">' + (grandTotalInvoice >= 0 ? '¥' + grandTotalInvoice.toLocaleString() : '-¥' + Math.abs(grandTotalInvoice).toLocaleString()) + '</div>\n' +
+'  <div class="t-amount">' + (footerTotal >= 0 ? '¥' + footerTotal.toLocaleString() : '-¥' + Math.abs(footerTotal).toLocaleString()) + '</div>\n' +
 '</div>\n' +
 '<div class="detail-title">利用明細</div>\n' +
 '<table>\n' +
 '  <thead><tr><th>日付</th><th>目的</th><th style="text-align:center">区分</th><th style="text-align:right">距離(km)</th><th style="text-align:right">金額</th></tr></thead>\n' +
 '  <tbody>' + detailRows + '</tbody>\n' +
-'  <tfoot><tr style="font-weight:700;background:#f9f9f9;"><td colspan="3">合計</td><td style="text-align:right">' + (selfKm+privKm).toFixed(1) + '</td><td style="text-align:right">¥' + total.toLocaleString() + '</td></tr></tfoot>\n' +
+'  <tfoot><tr style="font-weight:700;background:#1a1a1a;color:#fff;"><td colspan="4">合計振込額</td><td style="text-align:right;">' + (footerTotal >= 0 ? '¥' + footerTotal.toLocaleString() : '-¥' + Math.abs(footerTotal).toLocaleString()) + '</td></tr></tfoot>\n' +
 '</table>\n' +
 '<div class="note">\n' +
 '  ※ 法人業務分（' + monthRecs.filter(r=>r.category==='法人').length + '件）は精算不要のため本請求書には含まれません。<br>\n' +
 '  ※ 利用料算定レート：¥' + (settings.ratePerKm != null ? settings.ratePerKm : RATE) + '/km' + (settings.baseFixed ? '　固定基本料：¥' + settings.baseFixed.toLocaleString() : '') + (settings.capAmount ? '　上限：¥' + settings.capAmount.toLocaleString() : '') + '<br>\n' +
-(grandTotalInvoice < 0 ? '  ※ 今月は払い戻し超過（-¥' + Math.abs(grandTotalInvoice).toLocaleString() + '）のため次月に繰越します。<br>\n' : '') +
+(footerTotal < 0 ? '  ※ 今月は払い戻し超過（-¥' + Math.abs(footerTotal).toLocaleString() + '）のため次月に繰越します。<br>\n' : '') +
 '  ※ 上記合計額を下記口座へお振込ください。<br><br>\n' +
 '  ' + bankHtml + '\n' +
 '</div>\n' +

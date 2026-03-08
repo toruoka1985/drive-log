@@ -518,7 +518,8 @@
     padding: 2px 8px; border-radius: 4px;
     background: rgba(79,168,224,.15); color: #4fa8e0;
   }
-  .fuel-card-title { font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+  .fuel-card-title { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+  .fuel-card-sub { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
   .fuel-card-detail { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text2); }
   .fuel-card-bottom {
     display: flex; justify-content: space-between; align-items: center;
@@ -526,6 +527,7 @@
   }
   .fuel-card-alloc { font-size: 11px; color: var(--text3); }
   .fuel-card-cost { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; color: #4fa8e0; }
+  .fuel-card-ratio { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
   .fuel-card-actions { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
 
   .settings-save-btn {
@@ -1258,19 +1260,28 @@ function renderHistory() {
       } else {
         const f = item.data;
         const alloc = calcFuelAlloc(f);
-        const allocText = alloc.totalKm === 0
+        const catLabel = (f.category || '私用') + '名義';
+        // 法人利用比率を算出
+        const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
+        const fidx = sorted.findIndex(r => r.id === f.id);
+        const fprev = fidx > 0 ? sorted[fidx-1].date : null;
+        const finRange = records.filter(r => (fprev ? r.date > fprev : true) && r.date <= f.date);
+        const fTotalKm = finRange.reduce((s,r) => s+r.km, 0);
+        const fHojinKm = finRange.filter(r => r.category==='法人').reduce((s,r) => s+r.km, 0);
+        const hojinRatioText = fTotalKm === 0
           ? '走行記録なし'
-          : `${alloc.personalKm}km / ${alloc.totalKm}km（${Math.round(alloc.ratio*100)}%）`;
+          : `${fHojinKm.toFixed(1)}km / ${fTotalKm.toFixed(1)}km = ${Math.round(fHojinKm/fTotalKm*100)}%`;
         html += `<div class="fuel-card">
           <div class="fuel-card-top">
             <span class="fuel-card-date">${formatDate(f.date)}</span>
             <span class="fuel-card-badge">給油</span>
           </div>
-          <div class="fuel-card-title">¥${f.amount.toLocaleString()}</div>
+          <div class="fuel-card-title">給油</div>
           <div class="fuel-card-bottom">
-            <span class="fuel-card-alloc">個人按分 ${allocText}</span>
-            <span class="fuel-card-cost">¥${alloc.personalCost.toLocaleString()}</span>
+            <span class="fuel-card-alloc">${catLabel}</span>
+            <span class="fuel-card-cost">¥${f.amount.toLocaleString()}</span>
           </div>
+          <div class="fuel-card-ratio">法人利用比率　${hojinRatioText}</div>
           <div class="fuel-card-actions">
             <button class="action-btn" onclick="openFuelModal(${f.id})">編集</button>
             <button class="action-btn danger" onclick="deleteFuel(${f.id})">削除</button>

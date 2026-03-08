@@ -1366,13 +1366,39 @@ function renderSummary() {
     </div>`;
   }
 
-  // ── ③振込額：走行（個人事業＋私用）＋ガソリン按分（個人事業＋私用）－個人名義給油支払い ──
+  // ── ③振込額の計算 ──
+  // 給油名義で2パターン：
+  // 個人・私用名義給油 → 個人が立替 → 走行合計 - 法人ガソリン按分
+  // 法人名義給油      → 法人が立替 → 走行合計 + 個人事業ガソリン按分 + 私用ガソリン按分
+  //
+  // 複数回の給油が混在する場合は給油ごとに判定して合算
+
   const personalDrive = ['個人事業','私用'].reduce((s,c) =>
     s + monthRecs.filter(r=>r.category===c).reduce((ss,r)=>ss+r.cost,0), 0);
-  const personalShare = fuelShare['個人事業'] + fuelShare['私用'];
-  const personalPaid  = (fuelPaidPersonal['個人事業']||0) + (fuelPaidPersonal['私用']||0);
+
+  // 給油ごとに振込額への影響を計算
+  let fuelAdjust = 0;
+  monthFuels.forEach(f => {
+    const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
+    const idx = sorted.findIndex(r => r.id === f.id);
+    const prevDate = idx > 0 ? sorted[idx-1].date : null;
+    const inRange = records.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= f.date);
+    const totalKm = inRange.reduce((s,r) => s+r.km, 0);
+    if (totalKm === 0) return;
+    const fc = f.category || '私用';
+    if (fc === '法人') {
+      // 法人払い → 個人事業＋私用の按分を上乗せ
+      const personalKm = inRange.filter(r=>r.category==='個人事業'||r.category==='私用').reduce((s,r)=>s+r.km,0);
+      fuelAdjust += Math.round(f.amount * personalKm / totalKm);
+    } else {
+      // 個人払い → 法人の按分を差し引き
+      const hojinKm = inRange.filter(r=>r.category==='法人').reduce((s,r)=>s+r.km,0);
+      fuelAdjust -= Math.round(f.amount * hojinKm / totalKm);
+    }
+  });
+
   const carry = calcCarryover(y, m);
-  const grandTotal = personalDrive + personalShare - personalPaid + carry;
+  const grandTotal = personalDrive + fuelAdjust + carry;
 
   // 持ち越しカード
   const carryHtml = carry < 0 ? `
@@ -1387,9 +1413,9 @@ function renderSummary() {
 
   // 振込額の内訳メモ
   let totalBreakdown = `走行（個人事業＋私用）：¥${personalDrive.toLocaleString()}`;
-  if (personalShare > 0) totalBreakdown += `　ガソリン按分：+¥${personalShare.toLocaleString()}`;
-  if (personalPaid  > 0) totalBreakdown += `　給油支払い：-¥${personalPaid.toLocaleString()}`;
-  if (carry < 0)         totalBreakdown += `　前月繰越：-¥${Math.abs(carry).toLocaleString()}`;
+  if (fuelAdjust > 0) totalBreakdown += `　ガソリン精算：+¥${fuelAdjust.toLocaleString()}`;
+  if (fuelAdjust < 0) totalBreakdown += `　ガソリン精算：-¥${Math.abs(fuelAdjust).toLocaleString()}`;
+  if (carry < 0)      totalBreakdown += `　前月繰越：-¥${Math.abs(carry).toLocaleString()}`;
 
   const grandLabel = grandTotal >= 0 ? `¥${grandTotal.toLocaleString()}` : `-¥${Math.abs(grandTotal).toLocaleString()}`;
   const grandNote  = grandTotal < 0 ? '（次月に持ち越し）' : '個人 → 法人への振込金額';
@@ -1668,10 +1694,9 @@ function calcCarryover(targetY, targetM) {
       .filter(r => r.date.startsWith(mk) && r.category !== '法人')
       .reduce((s, r) => s + r.cost, 0);
 
-    // この月の給油精算netを計算
+    // この月の給油精算netを計算（正しいロジック）
     const mFuels = fuelRecords.filter(f => f.date.startsWith(mk));
-    const mShare = { '個人事業': 0, '私用': 0 };
-    const mPaid  = { '個人事業': 0, '私用': 0 };
+    let fuelAdjustM = 0;
     mFuels.forEach(f => {
       const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
       const idx = sorted.findIndex(r => r.id === f.id);
@@ -1679,16 +1704,16 @@ function calcCarryover(targetY, targetM) {
       const inRange = records.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= f.date);
       const totalKm = inRange.reduce((s,r) => s + r.km, 0);
       if (totalKm === 0) return;
-      ['個人事業','私用'].forEach(cat => {
-        const catKm = inRange.filter(r => r.category === cat).reduce((s,r) => s + r.km, 0);
-        mShare[cat] += Math.round(f.amount * catKm / totalKm);
-      });
-      const alloc = calcFuelAlloc(f);
-      const pc = f.category || '私用';
-      if (pc !== '法人') mPaid[pc] = (mPaid[pc] || 0) + alloc.personalCost;
+      const fc = f.category || '私用';
+      if (fc === '法人') {
+        const personalKm = inRange.filter(r=>r.category==='個人事業'||r.category==='私用').reduce((s,r)=>s+r.km,0);
+        fuelAdjustM += Math.round(f.amount * personalKm / totalKm);
+      } else {
+        const hojinKm = inRange.filter(r=>r.category==='法人').reduce((s,r)=>s+r.km,0);
+        fuelAdjustM -= Math.round(f.amount * hojinKm / totalKm);
+      }
     });
-    const fuelNetM = ['個人事業','私用'].reduce((s,c) => s + mShare[c] - (mPaid[c]||0), 0);
-    const net = driveTotal + fuelNetM;
+    const net = driveTotal + fuelAdjustM;
     if (net < 0) carry += net;
     else carry = Math.min(carry + net, 0);
     cm++; if (cm > 12) { cm = 1; cy++; }
@@ -1856,9 +1881,11 @@ function exportInvoice() {
   const issueDate = t.getFullYear() + '年' + (t.getMonth()+1) + '月' + t.getDate() + '日';
 
   // ── 給油按分（請求書用） ──
+  // 各名義カードの小計表示用：名義ごとのガソリン按分負担額
   const monthFuelsInv = fuelRecords.filter(f => f.date.startsWith(key));
   const fuelShareInv = { '個人事業': 0, '私用': 0 };
-  const fuelPaidInv  = { '個人事業': 0, '私用': 0 };
+  // 振込額調整用：給油ごとに名義判定
+  let fuelAdjustInv = 0;
   monthFuelsInv.forEach(f => {
     const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
@@ -1866,21 +1893,25 @@ function exportInvoice() {
     const inRange = records.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= f.date);
     const totalKm = inRange.reduce((s,r) => s+r.km, 0);
     if (totalKm === 0) return;
+    // 名義別カード表示用（全給油で按分）
     ['個人事業','私用'].forEach(cat => {
       const catKm = inRange.filter(r=>r.category===cat).reduce((s,r)=>s+r.km,0);
       fuelShareInv[cat] += Math.round(f.amount * catKm / totalKm);
     });
+    // 振込額：法人払い→個人事業+私用按分を上乗せ、個人払い→法人按分を差し引き
     const fc = f.category || '私用';
-    if (fc === '個人事業' || fc === '私用') {
-      fuelPaidInv[fc] += calcFuelAlloc(f).personalCost;
+    if (fc === '法人') {
+      const personalKm = inRange.filter(r=>r.category==='個人事業'||r.category==='私用').reduce((s,r)=>s+r.km,0);
+      fuelAdjustInv += Math.round(f.amount * personalKm / totalKm);
+    } else {
+      const hojinKm = inRange.filter(r=>r.category==='法人').reduce((s,r)=>s+r.km,0);
+      fuelAdjustInv -= Math.round(f.amount * hojinKm / totalKm);
     }
   });
   const fuelSelfShare = fuelShareInv['個人事業'];
   const fuelPrivShare = fuelShareInv['私用'];
-  const fuelPaidTotal = fuelPaidInv['個人事業'] + fuelPaidInv['私用'];
-  const fuelNetInv = fuelSelfShare + fuelPrivShare - fuelPaidTotal;
   const carryInv   = calcCarryover(y, m);
-  const grandTotalInvoice = total + fuelNetInv + carryInv;
+  const grandTotalInvoice = total + fuelAdjustInv + carryInv;
 
   // ── 利用明細：名義別にグループ化して出力 ──
   // 個人事業・私用のガソリン按分を各行の金額には加えず、名義別の小計行に合算表示
@@ -1915,11 +1946,11 @@ function exportInvoice() {
       '</tr>';
   });
 
-  // 精算行（個人払い給油の差し引き・繰越）
-  if (fuelPaidTotal > 0) detailRows +=
-    '<tr style="color:#2a7ab0;">' +
-    '<td colspan="4">ガソリン給油（個人払い・差引）</td>' +
-    '<td style="text-align:right;">-¥' + fuelPaidTotal.toLocaleString() + '</td></tr>';
+  // 精算行（ガソリン調整・繰越）
+  if (fuelAdjustInv !== 0) detailRows +=
+    '<tr style="color:' + (fuelAdjustInv > 0 ? '#c8821a' : '#2a7ab0') + ';">' +
+    '<td colspan="4">' + (fuelAdjustInv > 0 ? 'ガソリン按分（法人払い分・上乗せ）' : 'ガソリン按分（個人払い分・差引）') + '</td>' +
+    '<td style="text-align:right;">' + (fuelAdjustInv > 0 ? '+¥' + fuelAdjustInv.toLocaleString() : '-¥' + Math.abs(fuelAdjustInv).toLocaleString()) + '</td></tr>';
   if (carryInv < 0) detailRows +=
     '<tr style="color:#2a7ab0;">' +
     '<td colspan="4">前月繰越（払い戻し残高）</td>' +

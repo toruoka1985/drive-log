@@ -1056,6 +1056,7 @@
 
     <!-- アカウント連携 -->
     <div class="settings-section-label" style="margin-top:28px">クラウドバックアップ</div>
+    <p id="auth-warning" style="font-size:12px;color:#e57373;margin-bottom:16px;line-height:1.6;">⚠️ 未設定の場合、Safari のデータ消去で記録がすべて消えます。アカウント登録でデータを保護できます。</p>
 
     <!-- ログイン済み表示 -->
     <div id="auth-loggedin" style="display:none;">
@@ -1352,9 +1353,11 @@ function updateAuthUI(user) {
   if (!checking || !loggedin || !form) return; // 要素未存在時はスキップ
 
   checking.style.display = 'none';
+  const warning = document.getElementById('auth-warning');
   if (user) {
     loggedin.style.display = 'block';
     form.style.display     = 'none';
+    if (warning) warning.style.display = 'none';
     const verified = user.emailVerified ? '' : '';
     if (statusWrap) statusWrap.innerHTML = `
       <div style="font-weight:600;color:var(--text1);margin-bottom:2px;">${user.email}</div>
@@ -1362,6 +1365,7 @@ function updateAuthUI(user) {
   } else {
     loggedin.style.display = 'none';
     form.style.display     = 'block';
+    if (warning) warning.style.display = 'block';
     switchAuthTab('login');
   }
 }

@@ -2127,6 +2127,7 @@ async function handleSignOut() {
   const { auth, signOut } = window._fb;
   await signOut(auth);
   currentUser = null;
+  userPlan = 'free';
   updateAuthUI(null);
   toast('ログアウトしました');
 }
@@ -2136,14 +2137,15 @@ function initFirebase() {
   setPersistence(auth, browserLocalPersistence).catch(e => console.warn('persistence', e));
   onAuthStateChanged(auth, async user => {
     currentUser = user;
-    // 設定タブが表示中の場合のみUIを即時更新、そうでなければタブ開時に反映
-    updateAuthUI(currentUser);
     if (user) {
       await restoreFromFirestore(user.uid);
       window.addEventListener('online', () => {
         if (localStorage.getItem('pendingSync')) syncToFirestore();
       });
+    } else {
+      userPlan = 'free';
     }
+    updateAuthUI(currentUser);
   });
 }
 

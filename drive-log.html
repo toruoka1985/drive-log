@@ -645,7 +645,117 @@
     border-bottom: 1px solid var(--border);
   }
 
-  /* toast */
+  /* ── VEHICLE SWITCHER ── */
+  .vehicle-switcher {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text2);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: .03em;
+    transition: border-color .2s;
+    max-width: 200px;
+  }
+  .vehicle-switcher:active { opacity: .7; }
+  .vehicle-switcher svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .vehicle-switcher .v-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+  .vehicle-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.7);
+    z-index: 300;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+  .vehicle-modal-overlay.show { display: flex; }
+  .vehicle-modal {
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    width: 100%;
+    max-width: 480px;
+    padding: 20px 20px calc(env(safe-area-inset-bottom) + 20px);
+  }
+  .vehicle-modal-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 16px;
+  }
+  .vehicle-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-bottom: 6px;
+    background: var(--card);
+    border: 1px solid transparent;
+    transition: border-color .15s;
+  }
+  .vehicle-list-item.active {
+    border-color: var(--accent);
+  }
+  .vehicle-list-item .v-item-name {
+    flex: 1;
+    font-size: 15px;
+    color: var(--text1);
+  }
+  .vehicle-list-item .v-item-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .vehicle-list-item .v-item-actions button {
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 13px;
+  }
+  .vehicle-add-btn {
+    width: 100%;
+    padding: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    background: none;
+    color: var(--text3);
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: border-color .2s, color .2s;
+  }
+  .vehicle-add-btn:active { opacity: .7; }
+  .vehicle-name-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    padding: 12px 14px;
+    outline: none;
+    margin: 10px 0;
+    -webkit-appearance: none;
+    box-sizing: border-box;
+  }
+  .vehicle-name-input:focus { border-color: var(--accent); }
   .toast {
     position: fixed;
     top: 60px;
@@ -873,10 +983,38 @@
 </div>
 
 <!-- PAGE: 記録 -->
+<!-- VEHICLE MODAL -->
+<div class="vehicle-modal-overlay" id="vehicleModalOverlay">
+  <div class="vehicle-modal">
+    <div class="vehicle-modal-title">車両を選択</div>
+    <div id="vehicle-list"></div>
+    <button class="vehicle-add-btn" onclick="showVehicleNameInput()">＋ 車両を追加</button>
+    <div id="vehicle-name-form" style="display:none;margin-top:8px;">
+      <input class="vehicle-name-input" id="vehicle-name-input" type="text" placeholder="例：ロードスター" maxlength="20">
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn-cancel" onclick="hideVehicleNameInput()" style="flex:1;">キャンセル</button>
+        <button class="btn-save" onclick="addVehicle()" style="flex:1;">追加</button>
+      </div>
+    </div>
+    <button class="btn-cancel" onclick="closeVehicleModal()" style="width:100%;margin-top:12px;">閉じる</button>
+  </div>
+</div>
+
 <div class="page active" id="page-record">
-  <div class="header">
-    <h1>Drive Log</h1>
-    <h2>走行記録</h2>
+  <div class="header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <div>
+      <h1>Drive Log</h1>
+      <h2>走行記録</h2>
+    </div>
+    <button class="vehicle-switcher" onclick="openVehicleModal()" id="vehicle-switcher-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="15.5" cy="17.5" r="2.5"/><circle cx="5.5" cy="17.5" r="2.5"/>
+        <path d="M15 17H8" stroke-linecap="round"/>
+      </svg>
+      <span class="v-name" id="vehicle-switcher-name">---</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
   </div>
   <div class="form-wrap">
 
@@ -1056,7 +1194,7 @@
 
     <!-- アカウント連携 -->
     <div class="settings-section-label" style="margin-top:28px">クラウドバックアップ</div>
-    <p id="auth-warning" style="font-size:12px;color:#e57373;margin-bottom:16px;line-height:1.6;">⚠️ 未設定の場合、Safari のデータ消去で記録がすべて消えます。アカウント登録でデータを保護できます。</p>
+    <p id="auth-warning" style="font-size:12px;color:#e57373;margin-bottom:16px;line-height:1.6;">⚠️ 未設定の場合、Safari のデータ消去で記録がすべて消えます。アカウント登録すると記録をクラウドで保護できます。</p>
 
     <!-- ログイン済み表示 -->
     <div id="auth-loggedin" style="display:none;">
@@ -1069,10 +1207,6 @@
 
     <!-- 未ログイン表示 -->
     <div id="auth-form" style="display:none;">
-      <p style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6;">
-        アカウントを登録するとデータをクラウドに自動保存します。Safari のデータ消去でも記録が消えません。
-      </p>
-
       <!-- モード切り替え -->
       <div style="display:flex;background:var(--surface);border-radius:10px;padding:4px;margin-bottom:20px;border:1px solid var(--border);">
         <button id="tab-login" onclick="switchAuthTab('login')"
@@ -1101,6 +1235,9 @@
         style="display:block;width:100%;margin-top:12px;padding:10px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">
         パスワードを忘れた場合
       </button>
+      <p style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6;text-align:center;">
+        パスワードリセットメールが届かない場合は、迷惑メールフォルダをご確認ください。
+      </p>
     </div>
 
     <!-- 確認中 -->
@@ -1146,6 +1283,139 @@ let deleteTargetId = null;
 let editTargetId = null;
 let summaryMonth = new Date();
 
+// ── 車両管理 ──
+let vehicles = JSON.parse(localStorage.getItem('vehicles') || '[]');
+let activeVehicleId = localStorage.getItem('activeVehicleId') || null;
+
+function getActiveVehicle() {
+  return vehicles.find(v => v.id === activeVehicleId) || vehicles[0] || null;
+}
+
+function getActiveRecords() {
+  const v = getActiveVehicle();
+  if (!v) return records;
+  return records.filter(r => (r.vehicleId || 'default') === v.id);
+}
+
+function getActiveFuelRecords() {
+  const v = getActiveVehicle();
+  if (!v) return fuelRecords;
+  return fuelRecords.filter(r => (r.vehicleId || 'default') === v.id);
+}
+
+function saveVehicles() {
+  localStorage.setItem('vehicles', JSON.stringify(vehicles));
+  localStorage.setItem('activeVehicleId', activeVehicleId || '');
+  syncToFirestore();
+}
+
+function updateVehicleSwitcher() {
+  const v = getActiveVehicle();
+  const nameEl = document.getElementById('vehicle-switcher-name');
+  if (nameEl) nameEl.textContent = v ? v.name : '車両未設定';
+}
+
+function openVehicleModal() {
+  renderVehicleList();
+  document.getElementById('vehicleModalOverlay').classList.add('show');
+}
+
+function closeVehicleModal() {
+  document.getElementById('vehicleModalOverlay').classList.remove('show');
+  hideVehicleNameInput();
+}
+
+function renderVehicleList() {
+  const list = document.getElementById('vehicle-list');
+  if (!list) return;
+  list.innerHTML = vehicles.map(v => `
+    <div class="vehicle-list-item ${v.id === activeVehicleId ? 'active' : ''}" onclick="selectVehicle('${v.id}')">
+      <span class="v-item-name">${escHtml(v.name)}</span>
+      <div class="v-item-actions" onclick="event.stopPropagation()">
+        <button onclick="renameVehicle('${v.id}')" title="名前を変更">✏️</button>
+        ${vehicles.length > 1 ? `<button onclick="deleteVehicle('${v.id}')" title="削除">🗑️</button>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectVehicle(id) {
+  activeVehicleId = id;
+  saveVehicles();
+  updateVehicleSwitcher();
+  setLastOdo();
+  renderHistory();
+  renderSummary();
+  updateInvoiceBtn();
+  closeVehicleModal();
+  toast(`${getActiveVehicle()?.name} に切り替えました`);
+}
+
+function showVehicleNameInput(existingName) {
+  const form = document.getElementById('vehicle-name-form');
+  const input = document.getElementById('vehicle-name-input');
+  form.style.display = 'block';
+  input.value = existingName || '';
+  setTimeout(() => input.focus(), 50);
+}
+
+function hideVehicleNameInput() {
+  document.getElementById('vehicle-name-form').style.display = 'none';
+  document.getElementById('vehicle-name-input').value = '';
+}
+
+function addVehicle() {
+  const name = document.getElementById('vehicle-name-input').value.trim();
+  if (!name) { toast('車両名を入力してください'); return; }
+  const id = 'v_' + Date.now();
+  vehicles.push({ id, name, createdAt: Date.now() });
+  activeVehicleId = id;
+  saveVehicles();
+  updateVehicleSwitcher();
+  hideVehicleNameInput();
+  renderVehicleList();
+  toast(`${name} を追加しました`);
+}
+
+function renameVehicle(id) {
+  const v = vehicles.find(v => v.id === id);
+  if (!v) return;
+  const name = prompt('新しい車両名を入力してください', v.name);
+  if (!name || !name.trim()) return;
+  v.name = name.trim();
+  saveVehicles();
+  updateVehicleSwitcher();
+  renderVehicleList();
+}
+
+function deleteVehicle(id) {
+  if (vehicles.length <= 1) { toast('最後の車両は削除できません'); return; }
+  const v = vehicles.find(v => v.id === id);
+  if (!confirm(`「${v?.name}」を削除しますか？\n記録データは残りますが、この車両では表示されなくなります。`)) return;
+  vehicles = vehicles.filter(v => v.id !== id);
+  if (activeVehicleId === id) activeVehicleId = vehicles[0].id;
+  saveVehicles();
+  updateVehicleSwitcher();
+  renderVehicleList();
+}
+
+function initVehicles() {
+  // 既存データの移行：vehicleIdがない記録に'default'を付与
+  if (vehicles.length === 0) {
+    const defaultVehicle = { id: 'default', name: '車両1', createdAt: Date.now() };
+    vehicles.push(defaultVehicle);
+    activeVehicleId = 'default';
+    // 既存記録にvehicleIdを付与
+    records = records.map(r => r.vehicleId ? r : { ...r, vehicleId: 'default' });
+    fuelRecords = fuelRecords.map(r => r.vehicleId ? r : { ...r, vehicleId: 'default' });
+    save();
+    saveVehicles();
+  } else if (!activeVehicleId || !vehicles.find(v => v.id === activeVehicleId)) {
+    activeVehicleId = vehicles[0].id;
+  }
+  updateVehicleSwitcher();
+}
+
 // ── 料金計算 ──
 function calcCost(km, overrideRate) {
   const r = overrideRate != null ? overrideRate : (settings.ratePerKm != null ? settings.ratePerKm : RATE);
@@ -1169,6 +1439,7 @@ window.addEventListener('DOMContentLoaded', () => {
   renderHistory();
   renderSummary();
   loadSettings();
+  initVehicles();
   ['s-rate','s-base','s-cap'].forEach(id => {
     document.getElementById(id).addEventListener('input', updateRatePreview);
   });
@@ -1182,8 +1453,15 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 function setLastOdo() {
-  if (records.length === 0) return;
-  const last = records[records.length - 1];
+  const activeRecs = getActiveRecords();
+  if (activeRecs.length === 0) {
+    const input = document.getElementById('f-odo-start');
+    input.value = '';
+    input.classList.remove('readonly-odo');
+    updatePreview();
+    return;
+  }
+  const last = activeRecs[activeRecs.length - 1];
   const input = document.getElementById('f-odo-start');
   input.value = last.odoEnd;
   input.classList.add('readonly-odo');
@@ -1264,7 +1542,8 @@ function saveRecord() {
     odoEnd: end,
     km: parseFloat(km.toFixed(1)),
     cost,
-    customRate: null
+    customRate: null,
+    vehicleId: activeVehicleId || 'default'
   };
 
   records.push(record);
@@ -1479,6 +1758,12 @@ async function syncToFirestore() {
     // settings
     await setDoc(doc(db, 'users', uid, 'meta', 'settings'), settings);
 
+    // vehicles
+    await setDoc(doc(db, 'users', uid, 'meta', 'vehicles'), {
+      list: vehicles,
+      activeVehicleId: activeVehicleId || 'default'
+    });
+
     await batch.commit();
     localStorage.removeItem('pendingSync');
     const now = new Date();
@@ -1502,14 +1787,24 @@ async function restoreFromFirestore(uid) {
 
     const cloudDrive    = drSnap.docs.map(d => d.data());
     const cloudFuel     = frSnap.docs.map(d => d.data());
-    let   cloudSettings = null;
-    setSnap.forEach(d => { if (d.id === 'settings') cloudSettings = d.data(); });
+    let cloudSettings = null;
+    let cloudVehicles = null;
+    setSnap.forEach(d => {
+      if (d.id === 'settings') cloudSettings = d.data();
+      if (d.id === 'vehicles') cloudVehicles = d.data();
+    });
 
     if (cloudDrive.length > 0 || cloudFuel.length > 0) {
       // クラウドにデータあり → クラウドを正とする（復元）
       records     = cloudDrive.sort((a, b) => a.id - b.id);
       fuelRecords = cloudFuel.sort((a, b) => a.id - b.id);
       if (cloudSettings) settings = cloudSettings;
+      if (cloudVehicles?.list) {
+        vehicles = cloudVehicles.list;
+        activeVehicleId = cloudVehicles.activeVehicleId || vehicles[0]?.id || 'default';
+        localStorage.setItem('vehicles', JSON.stringify(vehicles));
+        localStorage.setItem('activeVehicleId', activeVehicleId);
+      }
       localStorage.setItem('driveRecords',  JSON.stringify(records));
       localStorage.setItem('fuelRecords',   JSON.stringify(fuelRecords));
       localStorage.setItem('driveSettings', JSON.stringify(settings));
@@ -1539,19 +1834,20 @@ async function restoreFromFirestore(uid) {
 // ── HISTORY ──
 function renderHistory() {
   const wrap = document.getElementById('records-wrap');
-  if (records.length === 0 && fuelRecords.length === 0) {
+  const activeRecs = getActiveRecords();
+  const activeFuelRecs = getActiveFuelRecords();
+  if (activeRecs.length === 0 && activeFuelRecs.length === 0) {
     wrap.innerHTML = '<p class="empty-msg">NO RECORDS YET</p>';
     return;
   }
 
-  // 走行記録と給油記録を月ごとにまとめる
   const groups = {};
-  [...records].reverse().forEach(r => {
+  [...activeRecs].reverse().forEach(r => {
     const mk = r.date.slice(0, 7);
     if (!groups[mk]) groups[mk] = [];
     groups[mk].push({ type: 'drive', data: r });
   });
-  [...fuelRecords].reverse().forEach(f => {
+  [...activeFuelRecs].reverse().forEach(f => {
     const mk = f.date.slice(0, 7);
     if (!groups[mk]) groups[mk] = [];
     groups[mk].push({ type: 'fuel', data: f });
@@ -1628,7 +1924,9 @@ function renderSummary() {
   const key = `${y}-${String(m).padStart(2,'0')}`;
   document.getElementById('summary-month-label').textContent = `${y}年 ${m}月`;
 
-  const monthRecs = records.filter(r => r.date.startsWith(key));
+  const activeRecs = getActiveRecords();
+  const activeFuelRecs = getActiveFuelRecords();
+  const monthRecs = activeRecs.filter(r => r.date.startsWith(key));
   const cats = ['法人', '個人事業', '私用'];
   const notes = {
     '法人': '参考値（法人業務のため精算不要）',
@@ -1639,24 +1937,21 @@ function renderSummary() {
   let totalDrive = 0;
   let cardsHtml = '';
 
-  // ── 給油按分の各名義への配分計算 ──
-  // 全給油について、区間の走行距離比率で各名義の負担額を算出
-  const monthFuels = fuelRecords.filter(f => f.date.startsWith(key));
-  const fuelShare = { '法人': 0, '個人事業': 0, '私用': 0 }; // 各名義が負担すべきガソリン按分
-  const fuelPaidPersonal = { '個人事業': 0, '私用': 0 };      // 個人事業・私用名義で実際に払った給油额（按分後）
+  const monthFuels = activeFuelRecs.filter(f => f.date.startsWith(key));
+  const fuelShare = { '法人': 0, '個人事業': 0, '私用': 0 };
+  const fuelPaidPersonal = { '個人事業': 0, '私用': 0 };
 
   monthFuels.forEach(f => {
-    const sorted = [...fuelRecords].sort((a, b) => a.date.localeCompare(b.date));
+    const sorted = [...activeFuelRecs].sort((a, b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
     const prevDate = idx > 0 ? sorted[idx - 1].date : null;
-    const inRange = records.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= f.date);
+    const inRange = activeRecs.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= f.date);
     const totalKm = inRange.reduce((s, r) => s + r.km, 0);
     if (totalKm === 0) return;
     ['法人', '個人事業', '私用'].forEach(cat => {
       const catKm = inRange.filter(r => r.category === cat).reduce((s, r) => s + r.km, 0);
       fuelShare[cat] += Math.round(f.amount * catKm / totalKm);
     });
-    // 個人事業または私用名義で給油した場合のみ差し引き対象
     const fc = f.category || '私用';
     if (fc === '個人事業' || fc === '私用') {
       const alloc = calcFuelAlloc(f);
@@ -1981,10 +2276,12 @@ function closeFuelModal() {
 
 // 按分計算：前回給油日〜今回給油日の期間の走行距離比率
 function calcFuelAlloc(fuel) {
-  const sorted = [...fuelRecords].sort((a, b) => a.date.localeCompare(b.date));
+  const activeFuelRecs = getActiveFuelRecords();
+  const activeRecs = getActiveRecords();
+  const sorted = [...activeFuelRecs].sort((a, b) => a.date.localeCompare(b.date));
   const idx = sorted.findIndex(f => f.id === fuel.id);
   const prevDate = idx > 0 ? sorted[idx - 1].date : null;
-  const inRange = records.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= fuel.date);
+  const inRange = activeRecs.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= fuel.date);
   const totalKm    = inRange.reduce((s, r) => s + r.km, 0);
   const personalKm = inRange.filter(r => r.category !== '法人').reduce((s, r) => s + r.km, 0);
   if (totalKm === 0) return { personalKm: 0, totalKm: 0, ratio: 0, personalCost: 0 };

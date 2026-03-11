@@ -3504,6 +3504,9 @@ function exportInvoice() {
         document.querySelector('meta[name=viewport]').content =
           'width=device-width, initial-scale=1.0, viewport-fit=cover';
         document.getElementById('previewOverlay').classList.add('show');
+        // プレビュー表示時点で発行済みフラグを立てる
+        setInvoiceIssued(y, m);
+        updateInvoiceBtn();
 
         const doShare = async () => {
           try {

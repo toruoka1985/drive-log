@@ -1768,6 +1768,11 @@ function updateVehicleSwitcher() {
 }
 
 function openVehicleModal() {
+  // 複数台ある状態でフリープランならアップグレード誘導
+  if (!isPro() && vehicles.length > 1) {
+    openUpgradeModal('複数車両の管理はProプランの機能です。');
+    return;
+  }
   renderVehicleList();
   document.getElementById('vehicleModalOverlay').classList.add('show');
 }
@@ -2128,6 +2133,16 @@ async function handleSignOut() {
   await signOut(auth);
   currentUser = null;
   userPlan = 'free';
+  // 1台目に戻す
+  if (vehicles.length > 0) {
+    activeVehicleId = vehicles[0].id;
+    localStorage.setItem('activeVehicleId', activeVehicleId);
+    updateVehicleSwitcher();
+    setLastOdo();
+    renderHistory();
+    renderSummary();
+    loadSettings();
+  }
   updateAuthUI(null);
   toast('ログアウトしました');
 }

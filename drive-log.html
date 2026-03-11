@@ -1261,7 +1261,18 @@
     <h2>設定</h2>
   </div>
   <div class="form-wrap">
-    <div class="settings-section-label">料金設定</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="settings-section-label" style="margin:0;">料金設定</div>
+      <button class="vehicle-switcher" onclick="openVehicleModal()" id="vehicle-switcher-btn-settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="15.5" cy="17.5" r="2.5"/><circle cx="5.5" cy="17.5" r="2.5"/>
+          <path d="M15 17H8" stroke-linecap="round"/>
+        </svg>
+        <span class="v-name" id="vehicle-switcher-name-settings">---</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+    </div>
     <div class="field">
       <label>km単価（円/km）</label>
       <input type="number" id="s-rate" inputmode="numeric" placeholder="例：300">
@@ -1527,7 +1538,7 @@ function saveVehicles() {
 function updateVehicleSwitcher() {
   const v = getActiveVehicle();
   const name = v ? v.name : '車両未設定';
-  ['vehicle-switcher-name', 'vehicle-switcher-name-history', 'vehicle-switcher-name-summary'].forEach(id => {
+  ['vehicle-switcher-name', 'vehicle-switcher-name-history', 'vehicle-switcher-name-summary', 'vehicle-switcher-name-settings'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = name;
   });
@@ -1565,6 +1576,7 @@ function selectVehicle(id) {
   renderHistory();
   renderSummary();
   updateInvoiceBtn();
+  loadSettings(); // 車両別料金を再読込
   closeVehicleModal();
   toast(`${getActiveVehicle()?.name} に切り替えました`);
 }
@@ -1640,10 +1652,11 @@ function initVehicles() {
 }
 
 // ── 料金計算 ──
-function calcCost(km, overrideRate) {
-  const r = overrideRate != null ? overrideRate : (settings.ratePerKm != null ? settings.ratePerKm : RATE);
-  const base = settings.baseFixed || 0;
-  const cap = settings.capAmount || 0;
+function calcCost(km, overrideRate, vehicleId) {
+  const vrate = getVehicleRate(vehicleId || activeVehicleId);
+  const r = overrideRate != null ? overrideRate : (vrate.ratePerKm != null ? vrate.ratePerKm : RATE);
+  const base = vrate.baseFixed || 0;
+  const cap  = vrate.capAmount || 0;
   let cost = base + Math.round(km * r);
   if (cap > 0) cost = Math.min(cost, cap);
   return cost;
@@ -2697,15 +2710,33 @@ function updateInvoiceBtn() {
 }
 let settings = JSON.parse(localStorage.getItem('driveSettings') || '{}');
 
+// 車両ごとの料金設定を取得（なければグローバル設定にフォールバック）
+function getVehicleRate(vehicleId) {
+  const vid = vehicleId || activeVehicleId || 'default';
+  return settings.vehicles?.[vid] || {
+    ratePerKm: settings.ratePerKm ?? 300,
+    baseFixed: settings.baseFixed ?? 0,
+    capAmount: settings.capAmount ?? 0,
+  };
+}
+
+function setVehicleRate(vehicleId, rateObj) {
+  if (!settings.vehicles) settings.vehicles = {};
+  settings.vehicles[vehicleId] = rateObj;
+}
+
 function loadSettings() {
-  document.getElementById('s-rate').value = settings.ratePerKm != null ? settings.ratePerKm : 300;
-  document.getElementById('s-base').value = settings.baseFixed || '';
-  document.getElementById('s-cap').value = settings.capAmount || '';
-  document.getElementById('s-company').value = settings.company || '';
-  document.getElementById('s-name').value = settings.name || '';
-  document.getElementById('s-address').value = settings.address || '';
-  document.getElementById('s-bank-name').value = settings.bankName || '';
-  document.getElementById('s-bank-type').value = settings.bankType || '';
+  // 車両別料金を読み込む
+  const vrate = getVehicleRate(activeVehicleId);
+  document.getElementById('s-rate').value = vrate.ratePerKm != null ? vrate.ratePerKm : 300;
+  document.getElementById('s-base').value = vrate.baseFixed || '';
+  document.getElementById('s-cap').value  = vrate.capAmount || '';
+  // 共通設定
+  document.getElementById('s-company').value   = settings.company   || '';
+  document.getElementById('s-name').value      = settings.name      || '';
+  document.getElementById('s-address').value   = settings.address   || '';
+  document.getElementById('s-bank-name').value   = settings.bankName   || '';
+  document.getElementById('s-bank-type').value   = settings.bankType   || '';
   document.getElementById('s-bank-holder').value = settings.bankHolder || '';
   updateRatePreview();
 }
@@ -2727,18 +2758,23 @@ function updateRatePreview() {
 }
 
 function saveSettings() {
+  const vrate = {
+    ratePerKm: parseFloat(document.getElementById('s-rate').value) || 300,
+    baseFixed:  parseFloat(document.getElementById('s-base').value) || 0,
+    capAmount:  parseFloat(document.getElementById('s-cap').value)  || 0,
+  };
+  setVehicleRate(activeVehicleId || 'default', vrate);
   settings = {
-    ratePerKm:   parseFloat(document.getElementById('s-rate').value) || 300,
-    baseFixed:   parseFloat(document.getElementById('s-base').value) || 0,
-    capAmount:   parseFloat(document.getElementById('s-cap').value)  || 0,
-    company:     document.getElementById('s-company').value.trim(),
-    name:        document.getElementById('s-name').value.trim(),
-    address:     document.getElementById('s-address').value.trim(),
-    bankName:    document.getElementById('s-bank-name').value.trim(),
-    bankType:    document.getElementById('s-bank-type').value.trim(),
-    bankHolder:  document.getElementById('s-bank-holder').value.trim(),
+    ...settings,
+    company:    document.getElementById('s-company').value.trim(),
+    name:       document.getElementById('s-name').value.trim(),
+    address:    document.getElementById('s-address').value.trim(),
+    bankName:   document.getElementById('s-bank-name').value.trim(),
+    bankType:   document.getElementById('s-bank-type').value.trim(),
+    bankHolder: document.getElementById('s-bank-holder').value.trim(),
   };
   localStorage.setItem('driveSettings', JSON.stringify(settings));
+  syncToFirestore();
   toast('設定を保存しました ✓');
 }
 
@@ -3189,9 +3225,9 @@ function exportInvoice() {
 '    <div class="note-label">備考 — Notes</div>\n' +
 '    <p>\n' +
 '      法人業務分（' + monthRecs.filter(r=>r.category==='法人').length + '件）は精算不要のため本請求書には含まれません。<br>\n' +
-'      算定レート&nbsp;¥' + (settings.ratePerKm != null ? settings.ratePerKm : RATE) + '/km' +
-      (settings.baseFixed ? '&emsp;固定基本料&nbsp;¥' + settings.baseFixed.toLocaleString() : '') +
-      (settings.capAmount ? '&emsp;上限&nbsp;¥' + settings.capAmount.toLocaleString() : '') + '<br>\n' +
+'      算定レート&nbsp;¥' + (getVehicleRate(activeVehicleId).ratePerKm != null ? getVehicleRate(activeVehicleId).ratePerKm : RATE) + '/km' +
+      (getVehicleRate(activeVehicleId).baseFixed ? '&emsp;固定基本料&nbsp;¥' + getVehicleRate(activeVehicleId).baseFixed.toLocaleString() : '') +
+      (getVehicleRate(activeVehicleId).capAmount ? '&emsp;上限&nbsp;¥' + getVehicleRate(activeVehicleId).capAmount.toLocaleString() : '') + '<br>\n' +
       (footerTotal < 0 ? '今月は払い戻し超過のため次月へ繰越します。<br>\n' : '') +
 '      本請求に対する領収書は発行いたしません。\n' +
 '    </p>\n' +

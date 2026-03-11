@@ -1188,6 +1188,7 @@ function showPage(name, btn) {
   btn.classList.add('active');
   if (name === 'history') renderHistory();
   if (name === 'summary') renderSummary();
+  if (name === 'settings') updateAuthUI(currentUser);
 }
 
 // ── CATEGORY ──
@@ -1304,10 +1305,11 @@ function setAuthError(msg) {
 
 function switchAuthTab(tab) {
   authTab = tab;
-  const loginTab = document.getElementById('tab-login');
-  const regTab   = document.getElementById('tab-register');
+  const loginTab  = document.getElementById('tab-login');
+  const regTab    = document.getElementById('tab-register');
   const submitBtn = document.getElementById('auth-submit-btn');
   const resetBtn  = document.getElementById('auth-reset-btn');
+  if (!loginTab || !regTab || !submitBtn || !resetBtn) return;
   if (tab === 'login') {
     loginTab.style.background = 'var(--accent)'; loginTab.style.color = '#fff';
     regTab.style.background   = 'var(--card)';   regTab.style.color   = 'var(--text2)';
@@ -1323,18 +1325,18 @@ function switchAuthTab(tab) {
 }
 
 function updateAuthUI(user) {
-  const checking  = document.getElementById('auth-checking');
-  const loggedin  = document.getElementById('auth-loggedin');
-  const form      = document.getElementById('auth-form');
+  const checking   = document.getElementById('auth-checking');
+  const loggedin   = document.getElementById('auth-loggedin');
+  const form       = document.getElementById('auth-form');
   const statusWrap = document.getElementById('auth-status-wrap');
-  if (!checking) return;
+  if (!checking || !loggedin || !form) return; // 要素未存在時はスキップ
 
   checking.style.display = 'none';
   if (user) {
     loggedin.style.display = 'block';
     form.style.display     = 'none';
     const verified = user.emailVerified ? '✓ 認証済み' : '⚠️ メール未認証';
-    statusWrap.innerHTML = `
+    if (statusWrap) statusWrap.innerHTML = `
       <div style="font-weight:600;color:var(--text1);margin-bottom:2px;">${user.email}</div>
       <div style="font-size:11px;color:var(--text3);">${verified}</div>`;
   } else {
@@ -1409,7 +1411,8 @@ function initFirebase() {
   setPersistence(auth, browserLocalPersistence).catch(e => console.warn('persistence', e));
   onAuthStateChanged(auth, async user => {
     currentUser = user;
-    updateAuthUI(user);
+    // 設定タブが表示中の場合のみUIを即時更新、そうでなければタブ開時に反映
+    updateAuthUI(currentUser);
     if (user) {
       await restoreFromFirestore(user.uid);
       window.addEventListener('online', () => {
@@ -1498,31 +1501,6 @@ async function restoreFromFirestore(uid) {
   } catch(e) {
     console.error('restore error', e);
     setSyncStatus('復元失敗', '#e57373');
-  }
-}
-
-function updateAuthUI(user) {
-  const wrap     = document.getElementById('auth-status-wrap');
-  const loginBtn = document.getElementById('auth-btn');
-  const outBtn   = document.getElementById('signout-btn');
-  if (!wrap) return;
-  if (user) {
-    wrap.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">
-      <div style="width:36px;height:36px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:700;flex-shrink:0;">
-        ${(user.displayName||'?')[0].toUpperCase()}
-      </div>
-      <div>
-        <div style="font-weight:600;color:var(--text1);">${user.displayName||''}</div>
-        <div style="font-size:11px;color:var(--text3);">${user.email}</div>
-      </div>
-    </div>`;
-    loginBtn.style.display = 'none';
-    outBtn.style.display   = 'block';
-  } else {
-    wrap.innerHTML = `<div style="color:var(--text3);">ログインするとデータをクラウドに自動保存します。<br>Safari のデータ消去でも記録が消えません。</div>`;
-    loginBtn.style.display = 'block';
-    outBtn.style.display   = 'none';
-    setSyncStatus('', '');
   }
 }
 

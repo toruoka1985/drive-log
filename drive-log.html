@@ -645,7 +645,101 @@
     border-bottom: 1px solid var(--border);
   }
 
-  /* ── VEHICLE SWITCHER ── */
+  /* ── PLAN ── */
+  .plan-card {
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    background: var(--card);
+  }
+  .plan-card.pro {
+    border-color: var(--accent);
+    background: rgba(200,245,58,.05);
+  }
+  .plan-badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+  }
+  .plan-badge.free { background: var(--surface2); color: var(--text3); }
+  .plan-badge.pro  { background: var(--accent); color: #0f0f0f; }
+  .plan-features { font-size: 12px; color: var(--text2); line-height: 2; }
+  .plan-features .ok  { color: var(--accent); }
+  .plan-features .ng  { color: var(--text3); }
+  .upgrade-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--radius);
+    border: none;
+    background: var(--accent);
+    color: #0f0f0f;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+    margin-top: 4px;
+    letter-spacing: .04em;
+    transition: opacity .2s;
+  }
+  .upgrade-btn:active { opacity: .8; }
+  .plan-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.8);
+    z-index: 400;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .plan-modal-overlay.show { display: flex; }
+  .plan-modal {
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    width: 100%;
+    max-width: 480px;
+    padding: 28px 24px calc(env(safe-area-inset-bottom) + 24px);
+  }
+  .plan-modal-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text1);
+    margin-bottom: 6px;
+  }
+  .plan-modal-sub {
+    font-size: 13px;
+    color: var(--text3);
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+  .plan-modal-price {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .plan-modal-price .price-num {
+    font-size: 40px;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+  }
+  .plan-modal-price .price-unit {
+    font-size: 14px;
+    color: var(--text3);
+  }
+  .plan-modal-features {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 2.2;
+  }
   .vehicle-switcher {
     display: flex;
     align-items: center;
@@ -988,15 +1082,15 @@
   <div class="vehicle-modal">
     <div class="vehicle-modal-title">車両を選択</div>
     <div id="vehicle-list"></div>
-    <button class="vehicle-add-btn" onclick="showVehicleNameInput()">＋ 車両を追加</button>
+    <button class="vehicle-add-btn" onclick="isPro() || vehicles.length < 1 ? showVehicleNameInput() : (closeVehicleModal(), openUpgradeModal('複数車両の管理はProプランの機能です。'))">＋ 車両を追加</button>
     <div id="vehicle-name-form" style="display:none;margin-top:8px;">
       <input class="vehicle-name-input" id="vehicle-name-input" type="text" placeholder="例：ロードスター" maxlength="20">
-      <div style="display:flex;gap:8px;margin-top:4px;">
-        <button class="btn-cancel" onclick="hideVehicleNameInput()" style="flex:1;">キャンセル</button>
-        <button class="btn-save" onclick="addVehicle()" style="flex:1;">追加</button>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="vehicle-add-btn" onclick="hideVehicleNameInput()" style="border-color:var(--border);color:var(--text3);">キャンセル</button>
+        <button class="vehicle-add-btn" onclick="addVehicle()" style="border-style:solid;border-color:var(--accent);color:var(--accent);">追加</button>
       </div>
     </div>
-    <button class="btn-cancel" onclick="closeVehicleModal()" style="width:100%;margin-top:12px;">閉じる</button>
+    <button class="vehicle-add-btn" onclick="closeVehicleModal()" style="margin-top:8px;border-color:var(--border);">閉じる</button>
   </div>
 </div>
 
@@ -1193,6 +1287,11 @@
     <button class="settings-save-btn" onclick="saveSettings()">設定を保存</button>
 
     <!-- アカウント連携 -->
+    <div class="settings-section-label" style="margin-top:28px">プラン</div>
+    <div id="plan-section">
+      <!-- JS で描画 -->
+    </div>
+
     <div class="settings-section-label" style="margin-top:28px">クラウドバックアップ</div>
     <p id="auth-warning" style="font-size:12px;color:#e57373;margin-bottom:16px;line-height:1.6;">⚠️ 未設定の場合、Safari のデータ消去で記録がすべて消えます。アカウント登録すると記録をクラウドで保護できます。</p>
 
@@ -1245,6 +1344,29 @@
   </div>
 </div>
 
+<!-- UPGRADE MODAL -->
+<div class="plan-modal-overlay" id="upgradeModal">
+  <div class="plan-modal">
+    <div class="plan-modal-title">✨ Pro プランにアップグレード</div>
+    <div class="plan-modal-sub">データを守り、すべての機能を制限なく使えます。</div>
+    <div class="plan-modal-price">
+      <span class="price-num">¥300</span>
+      <span class="price-unit"> / 月</span>
+    </div>
+    <div class="plan-modal-features">
+      <div>☁️ クラウドバックアップ（自動同期）</div>
+      <div>📄 請求書発行 無制限</div>
+      <div>📊 CSVエクスポート</div>
+      <div>🚗 複数車両管理</div>
+      <div>🔒 データ消失リスクなし</div>
+    </div>
+    <button class="upgrade-btn" onclick="startCheckout()">月額300円で始める</button>
+    <button onclick="closeUpgradeModal()" style="width:100%;margin-top:12px;padding:12px;border:none;background:none;color:var(--text3);font-size:13px;cursor:pointer;">
+      キャンセル
+    </button>
+  </div>
+</div>
+
 <!-- NAV -->
 <nav>
   <button class="active" onclick="showPage('record', this)">
@@ -1283,7 +1405,87 @@ let deleteTargetId = null;
 let editTargetId = null;
 let summaryMonth = new Date();
 
-// ── 車両管理 ──
+// ── プラン管理 ──
+let userPlan = 'free'; // 'free' | 'pro'
+
+function isPro() { return userPlan === 'pro'; }
+
+function openUpgradeModal(reason) {
+  const sub = document.querySelector('.plan-modal-sub');
+  if (sub && reason) sub.textContent = reason;
+  document.getElementById('upgradeModal').classList.add('show');
+}
+
+function closeUpgradeModal() {
+  document.getElementById('upgradeModal').classList.remove('show');
+}
+
+function startCheckout() {
+  // Stripe実装後にCheckout URLへ遷移
+  // window.location.href = 'https://buy.stripe.com/XXXXXXXX';
+  toast('準備中です。もうしばらくお待ちください。');
+}
+
+function renderPlanSection() {
+  const el = document.getElementById('plan-section');
+  if (!el) return;
+
+  const features = [
+    { label: '走行・給油記録', free: '無制限', pro: '無制限' },
+    { label: 'クラウドバックアップ', free: '—', pro: '✓' },
+    { label: '請求書発行', free: '月1回', pro: '無制限' },
+    { label: 'CSVエクスポート', free: '—', pro: '✓' },
+    { label: '複数車両管理', free: '—', pro: '✓' },
+  ];
+
+  const rows = features.map(f => `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:9px 0;border-bottom:1px solid var(--border);align-items:center;font-size:12px;">
+      <div style="color:var(--text2);">${f.label}</div>
+      <div style="text-align:center;color:${f.free === '—' ? 'var(--text3)' : 'var(--text2)'};">${f.free}</div>
+      <div style="text-align:center;font-weight:${f.pro === '✓' || f.pro === '無制限' ? '700' : '400'};color:${f.pro === '—' ? 'var(--text3)' : 'var(--accent)'};">${f.pro}</div>
+    </div>`).join('');
+
+  const currentFree = !isPro();
+
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--border);">
+      <!-- ヘッダー -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--surface2);">
+        <div style="padding:10px 12px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:.06em;"></div>
+        <div style="padding:10px 8px;text-align:center;border-left:1px solid var(--border);">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text3);">FREE</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;">¥0</div>
+          ${currentFree ? '<div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin:4px auto 0;"></div>' : ''}
+        </div>
+        <div style="padding:10px 8px;text-align:center;border-left:1px solid var(--border);background:rgba(200,245,58,.06);">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--accent);">PRO</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px;">¥300/月</div>
+          ${!currentFree ? '<div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin:4px auto 0;"></div>' : ''}
+        </div>
+      </div>
+      <!-- 機能行 -->
+      <div style="padding:0 12px;">
+        ${rows}
+      </div>
+    </div>
+    ${currentFree
+      ? `<button class="upgrade-btn" style="margin-top:12px;" onclick="openUpgradeModal()">Pro にアップグレード — 月額 ¥300</button>`
+      : `<button onclick="handleCancelPlan()" style="width:100%;padding:11px;border:1px solid var(--border);border-radius:var(--radius);background:none;color:var(--text3);font-size:12px;cursor:pointer;margin-top:10px;">解約・プラン管理</button>`
+    }`;
+}
+
+function handleCancelPlan() {
+  // Stripe Customer Portal URLへ遷移（実装後）
+  toast('準備中です。もうしばらくお待ちください。');
+}
+
+// 請求書の月1回制限チェック
+function canIssueInvoice(y, m) {
+  if (isPro()) return true;
+  const status = getInvoiceStatus(y, m);
+  // 未発行なら可、発行済みなら不可
+  return !status?.issued;
+}
 let vehicles = JSON.parse(localStorage.getItem('vehicles') || '[]');
 let activeVehicleId = localStorage.getItem('activeVehicleId') || null;
 
@@ -1367,6 +1569,11 @@ function hideVehicleNameInput() {
 function addVehicle() {
   const name = document.getElementById('vehicle-name-input').value.trim();
   if (!name) { toast('車両名を入力してください'); return; }
+  if (!isPro() && vehicles.length >= 1) {
+    closeVehicleModal();
+    openUpgradeModal('複数車両の管理はProプランの機能です。');
+    return;
+  }
   const id = 'v_' + Date.now();
   vehicles.push({ id, name, createdAt: Date.now() });
   activeVehicleId = id;
@@ -1440,6 +1647,7 @@ window.addEventListener('DOMContentLoaded', () => {
   renderSummary();
   loadSettings();
   initVehicles();
+  renderPlanSection();
   ['s-rate','s-base','s-cap'].forEach(id => {
     document.getElementById(id).addEventListener('input', updateRatePreview);
   });
@@ -1629,7 +1837,7 @@ function updateAuthUI(user) {
   const loggedin   = document.getElementById('auth-loggedin');
   const form       = document.getElementById('auth-form');
   const statusWrap = document.getElementById('auth-status-wrap');
-  if (!checking || !loggedin || !form) return; // 要素未存在時はスキップ
+  if (!checking || !loggedin || !form) return;
 
   checking.style.display = 'none';
   const warning = document.getElementById('auth-warning');
@@ -1637,16 +1845,24 @@ function updateAuthUI(user) {
     loggedin.style.display = 'block';
     form.style.display     = 'none';
     if (warning) warning.style.display = 'none';
-    const verified = user.emailVerified ? '' : '';
-    if (statusWrap) statusWrap.innerHTML = `
-      <div style="font-weight:600;color:var(--text1);margin-bottom:2px;">${user.email}</div>
-      <div style="font-size:11px;color:var(--text3);">クラウド同期中</div>`;
+    if (statusWrap) {
+      const planLabel = isPro()
+        ? '<span style="color:var(--accent);font-size:11px;font-weight:700;">● Pro プラン</span>'
+        : '<span style="color:var(--text3);font-size:11px;">● Free プラン</span>';
+      statusWrap.innerHTML = `
+        <div style="font-weight:600;color:var(--text1);margin-bottom:4px;">${user.email}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          ${planLabel}
+          ${!isPro() ? `<button onclick="openUpgradeModal()" style="background:none;border:none;color:var(--accent);font-size:11px;font-family:'DM Mono',monospace;cursor:pointer;padding:0;letter-spacing:.04em;">UPGRADE →</button>` : ''}
+        </div>`;
+    }
   } else {
     loggedin.style.display = 'none';
     form.style.display     = 'block';
     if (warning) warning.style.display = 'block';
     switchAuthTab('login');
   }
+  renderPlanSection();
 }
 
 async function handleEmailAuth() {
@@ -1735,6 +1951,7 @@ async function syncToFirestore() {
     }
     return;
   }
+  if (!isPro()) return; // 無料プランは同期しない
   const { db, doc, setDoc, collection, getDocs, deleteDoc, writeBatch } = window._fb;
   if (isSyncing) return;
   isSyncing = true;
@@ -1763,6 +1980,9 @@ async function syncToFirestore() {
       list: vehicles,
       activeVehicleId: activeVehicleId || 'default'
     });
+
+    // plan（ローカルでは上書きしない・Firestoreが正）
+    // planはStripe Webhookで書き込むため、ここではreadのみ
 
     await batch.commit();
     localStorage.removeItem('pendingSync');
@@ -1805,6 +2025,15 @@ async function restoreFromFirestore(uid) {
         localStorage.setItem('vehicles', JSON.stringify(vehicles));
         localStorage.setItem('activeVehicleId', activeVehicleId);
       }
+      // plan をFirestoreから読み込む
+      let cloudPlan = null;
+      setSnap.forEach(d => { if (d.id === 'plan') cloudPlan = d.data(); });
+      if (cloudPlan?.value) {
+        userPlan = cloudPlan.value;
+      } else {
+        userPlan = 'free';
+      }
+      renderPlanSection();
       localStorage.setItem('driveRecords',  JSON.stringify(records));
       localStorage.setItem('fuelRecords',   JSON.stringify(fuelRecords));
       localStorage.setItem('driveSettings', JSON.stringify(settings));
@@ -2406,6 +2635,10 @@ function calcCarryover(targetY, targetM) {
 
 // ── CSV EXPORT ──
 async function exportCSV() {
+  if (!isPro()) {
+    openUpgradeModal('CSVエクスポートはProプランの機能です。');
+    return;
+  }
   if (records.length === 0 && fuelRecords.length === 0) { toast('データがありません'); return; }
 
   // ── 走行記録シート ──
@@ -2547,6 +2780,18 @@ function saveSettings() {
 function exportInvoice() {
   const y = summaryMonth.getFullYear();
   const m = summaryMonth.getMonth() + 1;
+
+  // 無料プランの月1回制限チェック
+  if (!canIssueInvoice(y, m)) {
+    openUpgradeModal(`${y}年${m}月の請求書はすでに発行済みです。\nProプランなら再発行・複数回発行が無制限です。`);
+    return;
+  }
+
+  // 無料プランは発行前に意思確認
+  if (!isPro()) {
+    if (!confirm(`フリープランでは${y}年${m}月の請求書は1回しか発行できません。\n今すぐ発行しますか？`)) return;
+  }
+
   const key = y + '-' + String(m).padStart(2,'0');
   const monthRecs = records.filter(r => r.date.startsWith(key));
   const targetRecs = monthRecs.filter(r => r.category !== '法人');

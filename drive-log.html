@@ -1306,30 +1306,16 @@
 
     <!-- 未ログイン表示 -->
     <div id="auth-form" style="display:none;">
-      <!-- モード切り替え -->
-      <div style="display:flex;background:var(--surface);border-radius:10px;padding:4px;margin-bottom:20px;border:1px solid var(--border);">
-        <button id="tab-login" onclick="switchAuthTab('login')"
-          style="flex:1;padding:9px;border-radius:7px;border:none;background:var(--accent);color:#0f0f0f;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;">ログイン</button>
-        <button id="tab-register" onclick="switchAuthTab('register')"
-          style="flex:1;padding:9px;border-radius:7px;border:none;background:transparent;color:var(--text3);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;">新規登録</button>
-      </div>
-
       <div class="field">
         <label>メールアドレス</label>
         <input type="email" id="auth-email" inputmode="email" placeholder="example@mail.com" autocomplete="email">
-      </div>
-      <div class="field" id="auth-email-confirm-wrap" style="display:none;">
-        <label>メールアドレス（確認）</label>
-        <input type="email" id="auth-email-confirm" inputmode="email" placeholder="もう一度入力してください" autocomplete="off">
       </div>
       <div class="field">
         <label>パスワード</label>
         <input type="password" id="auth-password" placeholder="6文字以上" autocomplete="current-password">
       </div>
       <div id="auth-error" style="font-size:12px;color:#e57373;margin-bottom:10px;min-height:16px;"></div>
-      <button id="auth-submit-btn" class="submit-btn" onclick="handleEmailAuth()">
-        ログイン
-      </button>
+      <button id="auth-submit-btn" class="submit-btn" onclick="handleEmailAuth()">ログイン</button>
       <button id="auth-reset-btn" onclick="handlePasswordReset()"
         style="display:block;width:100%;margin-top:12px;padding:10px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">
         パスワードを忘れた場合
@@ -1337,6 +1323,11 @@
       <p style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6;text-align:center;">
         パスワードリセットメールが届かない場合は、迷惑メールフォルダをご確認ください。
       </p>
+      <div style="margin-top:20px;padding:14px 16px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
+        <div style="font-size:12px;font-weight:700;color:var(--text1);margin-bottom:6px;">アカウントをお持ちでない方</div>
+        <div style="font-size:12px;color:var(--text3);line-height:1.7;margin-bottom:12px;">クラウドバックアップを利用するにはProプランへの登録が必要です。登録はProプランのお申し込みと同時に行います。</div>
+        <button class="upgrade-btn" onclick="openUpgradeModal()">Pro プランに登録する — 月額 ¥300</button>
+      </div>
     </div>
 
     <!-- 確認中 -->
@@ -1786,10 +1777,7 @@ function save() {
 // ── FIREBASE AUTH ──
 let currentUser = null;
 let isSyncing   = false;
-let authTab     = 'login'; // 'login' | 'register'
-
 function setSyncStatus(msg, color) {
-  // ログイン済みエリアのステータスのみ更新
   const el = document.getElementById('sync-status');
   if (el) { el.textContent = msg; el.style.color = color || 'var(--text3)'; }
 }
@@ -1797,39 +1785,6 @@ function setSyncStatus(msg, color) {
 function setAuthError(msg) {
   const el = document.getElementById('auth-error');
   if (el) el.textContent = msg;
-}
-
-function switchAuthTab(tab) {
-  authTab = tab;
-  const loginTab   = document.getElementById('tab-login');
-  const regTab     = document.getElementById('tab-register');
-  const submitBtn  = document.getElementById('auth-submit-btn');
-  const resetBtn   = document.getElementById('auth-reset-btn');
-  const confirmWrap = document.getElementById('auth-email-confirm-wrap');
-  if (!loginTab || !regTab || !submitBtn || !resetBtn) return;
-
-  if (tab === 'login') {
-    loginTab.style.background = 'var(--accent)';
-    loginTab.style.color      = '#0f0f0f';
-    loginTab.style.fontWeight = '700';
-    regTab.style.background   = 'transparent';
-    regTab.style.color        = 'var(--text3)';
-    regTab.style.fontWeight   = '500';
-    submitBtn.textContent = 'ログイン';
-    if (resetBtn) resetBtn.style.display = 'block';
-    if (confirmWrap) confirmWrap.style.display = 'none';
-  } else {
-    regTab.style.background   = 'var(--accent)';
-    regTab.style.color        = '#0f0f0f';
-    regTab.style.fontWeight   = '700';
-    loginTab.style.background = 'transparent';
-    loginTab.style.color      = 'var(--text3)';
-    loginTab.style.fontWeight = '500';
-    submitBtn.textContent = '新規登録';
-    if (resetBtn) resetBtn.style.display = 'none';
-    if (confirmWrap) confirmWrap.style.display = 'block';
-  }
-  setAuthError('');
 }
 
 function updateAuthUI(user) {
@@ -1860,49 +1815,35 @@ function updateAuthUI(user) {
     loggedin.style.display = 'none';
     form.style.display     = 'block';
     if (warning) warning.style.display = 'block';
-    switchAuthTab('login');
+    setAuthError('');
   }
   renderPlanSection();
 }
 
 async function handleEmailAuth() {
-  const { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = window._fb;
+  const { auth, signInWithEmailAndPassword } = window._fb;
   const email    = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
   setAuthError('');
 
   if (!email || !password) { setAuthError('メールアドレスとパスワードを入力してください'); return; }
-  if (password.length < 6)  { setAuthError('パスワードは6文字以上にしてください'); return; }
-
-  // 新規登録時はメールアドレス確認
-  if (authTab === 'register') {
-    const emailConfirm = document.getElementById('auth-email-confirm').value.trim();
-    if (!emailConfirm) { setAuthError('確認用メールアドレスを入力してください'); return; }
-    if (email !== emailConfirm) { setAuthError('メールアドレスが一致しません'); return; }
-  }
 
   const btn = document.getElementById('auth-submit-btn');
   btn.textContent = '処理中...'; btn.disabled = true;
 
   try {
-    if (authTab === 'login') {
-      await signInWithEmailAndPassword(auth, email, password);
-    } else {
-      await createUserWithEmailAndPassword(auth, email, password);
-      toast('登録完了しました ✓');
-    }
+    await signInWithEmailAndPassword(auth, email, password);
   } catch(e) {
     const msgs = {
-      'auth/user-not-found':       'メールアドレスが登録されていません',
-      'auth/wrong-password':       'パスワードが正しくありません',
-      'auth/email-already-in-use': 'このメールアドレスはすでに登録されています',
-      'auth/invalid-email':        'メールアドレスの形式が正しくありません',
-      'auth/too-many-requests':    'しばらく時間をおいて再試行してください',
-      'auth/invalid-credential':   'メールアドレスまたはパスワードが正しくありません',
+      'auth/user-not-found':     'メールアドレスが登録されていません',
+      'auth/wrong-password':     'パスワードが正しくありません',
+      'auth/invalid-email':      'メールアドレスの形式が正しくありません',
+      'auth/too-many-requests':  'しばらく時間をおいて再試行してください',
+      'auth/invalid-credential': 'メールアドレスまたはパスワードが正しくありません',
     };
     setAuthError(msgs[e.code] || 'エラーが発生しました: ' + e.code);
   } finally {
-    btn.textContent = authTab === 'login' ? 'ログイン' : '新規登録';
+    btn.textContent = 'ログイン';
     btn.disabled = false;
   }
 }

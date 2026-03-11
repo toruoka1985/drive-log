@@ -1183,9 +1183,20 @@
 
 <!-- PAGE: 履歴 -->
 <div class="page" id="page-history">
-  <div class="header">
-    <h1>History</h1>
-    <h2>履歴</h2>
+  <div class="header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <div>
+      <h1>History</h1>
+      <h2>履歴</h2>
+    </div>
+    <button class="vehicle-switcher" onclick="openVehicleModal()" id="vehicle-switcher-btn-history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="15.5" cy="17.5" r="2.5"/><circle cx="5.5" cy="17.5" r="2.5"/>
+        <path d="M15 17H8" stroke-linecap="round"/>
+      </svg>
+      <span class="v-name" id="vehicle-switcher-name-history">---</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
   </div>
   <div style="padding: 0 20px 0; margin-bottom: -4px;">
     <button class="fuel-add-btn" onclick="openFuelModal()">
@@ -1200,9 +1211,20 @@
 
 <!-- PAGE: 集計 -->
 <div class="page" id="page-summary">
-  <div class="header">
-    <h1>Monthly Summary</h1>
-    <h2>月次集計</h2>
+  <div class="header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <div>
+      <h1>Monthly Summary</h1>
+      <h2>月次集計</h2>
+    </div>
+    <button class="vehicle-switcher" onclick="openVehicleModal()" id="vehicle-switcher-btn-summary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="15.5" cy="17.5" r="2.5"/><circle cx="5.5" cy="17.5" r="2.5"/>
+        <path d="M15 17H8" stroke-linecap="round"/>
+      </svg>
+      <span class="v-name" id="vehicle-switcher-name-summary">---</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
   </div>
   <div class="summary-wrap">
     <div class="month-selector">
@@ -1504,8 +1526,11 @@ function saveVehicles() {
 
 function updateVehicleSwitcher() {
   const v = getActiveVehicle();
-  const nameEl = document.getElementById('vehicle-switcher-name');
-  if (nameEl) nameEl.textContent = v ? v.name : '車両未設定';
+  const name = v ? v.name : '車両未設定';
+  ['vehicle-switcher-name', 'vehicle-switcher-name-history', 'vehicle-switcher-name-summary'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = name;
+  });
 }
 
 function openVehicleModal() {
@@ -3139,6 +3164,7 @@ function exportInvoice() {
 '</div>\n' +
 
 '<div class="section-label">利用明細 — Detail</div>\n' +
+'<div style="font-size:11px;color:#888;margin:-6px 0 10px;font-family:sans-serif;">対象車両：' + (getActiveVehicle()?.name || '—') + '</div>\n' +
 '<table>\n' +
 '  <thead>\n' +
 '    <tr>\n' +

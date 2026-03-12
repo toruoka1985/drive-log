@@ -39,11 +39,13 @@
     --bg: #0f0f0f;
     --surface: #1a1a1a;
     --surface2: #242424;
+    --card: #1e1e1e;
     --border: #2e2e2e;
     --accent: #c8f53a;
     --accent2: #3af5b4;
     --accent3: #f5a23a;
     --text: #f0f0f0;
+    --text1: #f0f0f0;
     --text2: #888;
     --text3: #555;
     --corp: #3af5b4;
@@ -1205,7 +1207,7 @@
   <div class="vehicle-modal">
     <div class="vehicle-modal-title">車両を選択</div>
     <div id="vehicle-list"></div>
-    <button class="vehicle-add-btn" onclick="isPro() || vehicles.length < 1 ? showVehicleNameInput() : (closeVehicleModal(), openUpgradeModal('複数車両の管理はProプランの機能です。'))">＋ 車両を追加</button>
+    <button class="vehicle-add-btn" onclick="showVehicleNameInput()">＋ 車両を追加</button>
     <div id="vehicle-name-form" style="display:none;margin-top:8px;">
       <input class="vehicle-name-input" id="vehicle-name-input" type="text" placeholder="例：ロードスター" maxlength="20">
       <div style="display:flex;gap:8px;margin-top:8px;">
@@ -1443,13 +1445,8 @@
     <button class="settings-save-btn" onclick="saveSettings()">設定を保存</button>
 
     <!-- アカウント連携 -->
-    <div class="settings-section-label" style="margin-top:28px">プラン</div>
-    <div id="plan-section">
-      <!-- JS で描画 -->
-    </div>
-
     <div class="settings-section-label" style="margin-top:28px">クラウドバックアップ</div>
-    <p id="auth-warning" style="font-size:12px;color:#e57373;margin-bottom:16px;line-height:1.6;">⚠️ 未設定の場合、ブラウザの閲覧履歴を消去すると記録がすべて消えます。Proにアップグレードすると記録をクラウドで保護できます。</p>
+    <p id="auth-warning" style="font-size:12px;color:#e57373;margin-bottom:16px;line-height:1.6;">⚠️ 未設定の場合、ブラウザの閲覧履歴を消去すると記録がすべて消えます。ログインするとデータをクラウドで保護できます。</p>
 
     <!-- ログイン済み表示 -->
     <div id="auth-loggedin" style="display:none;">
@@ -1462,27 +1459,50 @@
 
     <!-- 未ログイン表示 -->
     <div id="auth-form" style="display:none;">
+
+      <!-- モード切替タブ -->
+      <div style="display:flex;gap:8px;margin-bottom:20px;">
+        <button id="tab-login"    onclick="switchAuthMode('login')"
+          style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:var(--accent);color:#0f0f0f;">
+          ログイン
+        </button>
+        <button id="tab-register" onclick="switchAuthMode('register')"
+          style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:var(--card);color:var(--text2);">
+          新規登録
+        </button>
+      </div>
+
+      <!-- メールアドレス -->
       <div class="field">
         <label>メールアドレス</label>
         <input type="email" id="auth-email" inputmode="email" placeholder="example@mail.com" autocomplete="email">
       </div>
+
+      <!-- メールアドレス確認（新規登録のみ表示） -->
+      <div class="field" id="auth-email-confirm-wrap" style="display:none;">
+        <label>メールアドレス（確認）</label>
+        <input type="email" id="auth-email-confirm" inputmode="email" placeholder="もう一度入力してください" autocomplete="off">
+      </div>
+
+      <!-- パスワード -->
       <div class="field">
         <label>パスワード</label>
         <input type="password" id="auth-password" placeholder="6文字以上" autocomplete="current-password">
       </div>
+
       <div id="auth-error" style="font-size:12px;color:#e57373;margin-bottom:10px;min-height:16px;"></div>
+
       <button id="auth-submit-btn" class="submit-btn" onclick="handleEmailAuth()">ログイン</button>
-      <button id="auth-reset-btn" onclick="handlePasswordReset()"
-        style="display:block;width:100%;margin-top:12px;padding:10px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">
-        パスワードを忘れた場合
-      </button>
-      <p style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6;text-align:center;">
-        パスワードリセットメールが届かない場合は、迷惑メールフォルダをご確認ください。
-      </p>
-      <div style="margin-top:20px;padding:14px 16px;background:var(--card);border-radius:12px;border:1px solid var(--border);">
-        <div style="font-size:12px;font-weight:700;color:var(--text1);margin-bottom:6px;">アカウントをお持ちでない方</div>
-        <div style="font-size:12px;color:var(--text3);line-height:1.7;margin-bottom:12px;">クラウドバックアップを利用するにはProプランへの登録が必要です。登録はProプランのお申し込みと同時に行います。</div>
-        <button class="upgrade-btn" onclick="openUpgradeModal()">Pro プランに登録する — 月額 ¥300</button>
+
+      <!-- パスワードリセット（ログインモードのみ表示） -->
+      <div id="auth-reset-wrap">
+        <button id="auth-reset-btn" onclick="handlePasswordReset()"
+          style="display:block;width:100%;margin-top:12px;padding:10px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">
+          パスワードを忘れた場合
+        </button>
+        <p style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.6;text-align:center;">
+          パスワードリセットメールが届かない場合は、迷惑メールフォルダをご確認ください。
+        </p>
       </div>
     </div>
 
@@ -1491,13 +1511,13 @@
 
     <!-- ホーム画面追加 -->
     <div class="settings-section-label" style="margin-top:28px">このアプリについて</div>
-    <button onclick="openPwaModal()" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;cursor:pointer;text-align:left;">
+    <button onclick="openPwaModal()" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;cursor:pointer;text-align:left;">
       <span style="font-size:22px;">📱</span>
       <div>
-        <div style="font-size:13px;font-weight:600;color:var(--text1);margin-bottom:2px;">ホーム画面に追加する</div>
-        <div style="font-size:11px;color:var(--text3);">アプリとしてすぐ起動できます</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;">ホーム画面に追加する</div>
+        <div style="font-size:11px;color:var(--text2);">アプリとしてすぐ起動できます</div>
       </div>
-      <span style="margin-left:auto;color:var(--text3);font-size:16px;">›</span>
+      <span style="margin-left:auto;color:var(--text2);font-size:16px;">›</span>
     </button>
   </div>
 </div>
@@ -1560,28 +1580,6 @@
 </div>
 
 <!-- UPGRADE MODAL -->
-<div class="plan-modal-overlay" id="upgradeModal">
-  <div class="plan-modal">
-    <div class="plan-modal-title">✨ Pro プランにアップグレード</div>
-    <div class="plan-modal-sub">データを守り、すべての機能を制限なく使えます。</div>
-    <div class="plan-modal-price">
-      <span class="price-num">¥300</span>
-      <span class="price-unit"> / 月</span>
-    </div>
-    <div class="plan-modal-features">
-      <div>☁️ クラウドバックアップ（自動同期）</div>
-      <div>📄 請求書発行 無制限</div>
-      <div>📊 CSVエクスポート</div>
-      <div>🚗 複数車両管理</div>
-      <div>🔒 データ消失リスクなし</div>
-    </div>
-    <button class="upgrade-btn" onclick="startCheckout()">月額300円で始める</button>
-    <button onclick="closeUpgradeModal()" style="width:100%;margin-top:12px;padding:12px;border:none;background:none;color:var(--text3);font-size:13px;cursor:pointer;">
-      キャンセル
-    </button>
-  </div>
-</div>
-
 <!-- NAV -->
 <nav>
   <button class="active" onclick="showPage('record', this)">
@@ -1653,85 +1651,33 @@ function switchPwaTab(os) {
   event.target.classList.add('active');
   document.getElementById('pwa-steps-' + os).classList.add('active');
 }
-let userPlan = 'free'; // 'free' | 'pro'
+let userPlan = 'pro'; // 全機能無償開放
 
-function isPro() { return userPlan === 'pro'; }
+function isPro() { return true; }
 
 function openUpgradeModal(reason) {
-  const sub = document.querySelector('.plan-modal-sub');
-  if (sub && reason) sub.textContent = reason;
-  document.getElementById('upgradeModal').classList.add('show');
+  // 廃止（全機能無償のため）
 }
 
 function closeUpgradeModal() {
-  document.getElementById('upgradeModal').classList.remove('show');
+  // 廃止
 }
 
 function startCheckout() {
-  // Stripe実装後にCheckout URLへ遷移
-  // window.location.href = 'https://buy.stripe.com/XXXXXXXX';
-  toast('準備中です。もうしばらくお待ちください。');
+  // 廃止
 }
 
 function renderPlanSection() {
-  const el = document.getElementById('plan-section');
-  if (!el) return;
-
-  const features = [
-    { label: '走行・給油記録', free: '無制限', pro: '無制限' },
-    { label: 'クラウドバックアップ', free: '—', pro: '✓' },
-    { label: '請求書発行', free: '月1回', pro: '無制限' },
-    { label: 'CSVエクスポート', free: '—', pro: '✓' },
-    { label: '複数車両管理', free: '—', pro: '✓' },
-  ];
-
-  const rows = features.map(f => `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:9px 0;border-bottom:1px solid var(--border);align-items:center;font-size:12px;">
-      <div style="color:var(--text2);">${f.label}</div>
-      <div style="text-align:center;color:${f.free === '—' ? 'var(--text3)' : 'var(--text2)'};">${f.free}</div>
-      <div style="text-align:center;font-weight:${f.pro === '✓' || f.pro === '無制限' ? '700' : '400'};color:${f.pro === '—' ? 'var(--text3)' : 'var(--accent)'};">${f.pro}</div>
-    </div>`).join('');
-
-  const currentFree = !isPro();
-
-  el.innerHTML = `
-    <div style="background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--border);">
-      <!-- ヘッダー -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--surface2);">
-        <div style="padding:10px 12px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:.06em;"></div>
-        <div style="padding:10px 8px;text-align:center;border-left:1px solid var(--border);">
-          <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text3);">FREE</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px;">¥0</div>
-          ${currentFree ? '<div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin:4px auto 0;"></div>' : ''}
-        </div>
-        <div style="padding:10px 8px;text-align:center;border-left:1px solid var(--border);background:rgba(200,245,58,.06);">
-          <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--accent);">PRO</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:2px;">¥300/月</div>
-          ${!currentFree ? '<div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin:4px auto 0;"></div>' : ''}
-        </div>
-      </div>
-      <!-- 機能行 -->
-      <div style="padding:0 12px;">
-        ${rows}
-      </div>
-    </div>
-    ${currentFree
-      ? `<button class="upgrade-btn" style="margin-top:12px;" onclick="openUpgradeModal()">Pro にアップグレード — 月額 ¥300</button>`
-      : `<button onclick="handleCancelPlan()" style="width:100%;padding:11px;border:1px solid var(--border);border-radius:var(--radius);background:none;color:var(--text3);font-size:12px;cursor:pointer;margin-top:10px;">解約・プラン管理</button>`
-    }`;
+  // プランセクションは廃止（全機能無償）
 }
 
 function handleCancelPlan() {
-  // Stripe Customer Portal URLへ遷移（実装後）
-  toast('準備中です。もうしばらくお待ちください。');
+  // 廃止
 }
 
-// 請求書の月1回制限チェック
+// 請求書発行チェック（制限なし）
 function canIssueInvoice(y, m) {
-  if (isPro()) return true;
-  const status = getInvoiceStatus(y, m);
-  // 未発行なら可、発行済みなら不可
-  return !status?.issued;
+  return true;
 }
 let vehicles = JSON.parse(localStorage.getItem('vehicles') || '[]');
 let activeVehicleId = localStorage.getItem('activeVehicleId') || null;
@@ -1768,11 +1714,6 @@ function updateVehicleSwitcher() {
 }
 
 function openVehicleModal() {
-  // 複数台ある状態でフリープランならアップグレード誘導
-  if (!isPro() && vehicles.length > 1) {
-    openUpgradeModal('複数車両の管理はProプランの機能です。');
-    return;
-  }
   renderVehicleList();
   document.getElementById('vehicleModalOverlay').classList.add('show');
 }
@@ -1825,11 +1766,6 @@ function hideVehicleNameInput() {
 function addVehicle() {
   const name = document.getElementById('vehicle-name-input').value.trim();
   if (!name) { toast('車両名を入力してください'); return; }
-  if (!isPro() && vehicles.length >= 1) {
-    closeVehicleModal();
-    openUpgradeModal('複数車両の管理はProプランの機能です。');
-    return;
-  }
   const id = 'v_' + Date.now();
   vehicles.push({ id, name, createdAt: Date.now() });
   activeVehicleId = id;
@@ -2068,14 +2004,10 @@ function updateAuthUI(user) {
     form.style.display     = 'none';
     if (warning) warning.style.display = 'none';
     if (statusWrap) {
-      const planLabel = isPro()
-        ? '<span style="color:var(--accent);font-size:11px;font-weight:700;">● Pro プラン</span>'
-        : '<span style="color:var(--text3);font-size:11px;">● Free プラン</span>';
       statusWrap.innerHTML = `
         <div style="font-weight:600;color:var(--text1);margin-bottom:4px;">${user.email}</div>
         <div style="display:flex;align-items:center;justify-content:space-between;">
-          ${planLabel}
-          ${!isPro() ? `<button onclick="openUpgradeModal()" style="background:none;border:none;color:var(--accent);font-size:11px;font-family:'DM Mono',monospace;cursor:pointer;padding:0;letter-spacing:.04em;">UPGRADE →</button>` : ''}
+          <span style="color:var(--accent);font-size:11px;font-weight:700;">● クラウド同期中</span>
         </div>`;
     }
   } else {
@@ -2083,35 +2015,103 @@ function updateAuthUI(user) {
     form.style.display     = 'block';
     if (warning) warning.style.display = 'block';
     setAuthError('');
+    switchAuthMode('login'); // タブをログインにリセット
   }
   renderPlanSection();
 }
 
+// ── AUTH MODE ──
+let authMode = 'login'; // 'login' | 'register'
+
+function switchAuthMode(mode) {
+  authMode = mode;
+  setAuthError('');
+
+  const tabLogin    = document.getElementById('tab-login');
+  const tabRegister = document.getElementById('tab-register');
+  const confirmWrap = document.getElementById('auth-email-confirm-wrap');
+  const confirmInput = document.getElementById('auth-email-confirm');
+  const submitBtn   = document.getElementById('auth-submit-btn');
+  const resetWrap   = document.getElementById('auth-reset-wrap');
+
+  if (mode === 'login') {
+    tabLogin.style.background    = 'var(--accent)';
+    tabLogin.style.color         = '#0f0f0f';
+    tabRegister.style.background = 'var(--card)';
+    tabRegister.style.color      = 'var(--text2)';
+    confirmWrap.style.display    = 'none';
+    confirmInput.value           = '';
+    submitBtn.textContent        = 'ログイン';
+    resetWrap.style.display      = 'block';
+  } else {
+    tabRegister.style.background = 'var(--accent)';
+    tabRegister.style.color      = '#0f0f0f';
+    tabLogin.style.background    = 'var(--card)';
+    tabLogin.style.color         = 'var(--text2)';
+    confirmWrap.style.display    = 'block';
+    submitBtn.textContent        = '新規登録';
+    resetWrap.style.display      = 'none';
+  }
+}
+
 async function handleEmailAuth() {
-  const { auth, signInWithEmailAndPassword } = window._fb;
   const email    = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
   setAuthError('');
 
-  if (!email || !password) { setAuthError('メールアドレスとパスワードを入力してください'); return; }
+  if (authMode === 'register') {
+    // ── 新規登録 ──
+    const { auth, createUserWithEmailAndPassword } = window._fb;
+    const emailConfirm = document.getElementById('auth-email-confirm').value.trim();
 
-  const btn = document.getElementById('auth-submit-btn');
-  btn.textContent = '処理中...'; btn.disabled = true;
+    if (!email || !emailConfirm || !password) {
+      setAuthError('すべての項目を入力してください'); return;
+    }
+    if (email !== emailConfirm) {
+      setAuthError('メールアドレスが一致しません'); return;
+    }
+    if (password.length < 6) {
+      setAuthError('パスワードは6文字以上で入力してください'); return;
+    }
 
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-  } catch(e) {
-    const msgs = {
-      'auth/user-not-found':     'メールアドレスが登録されていません',
-      'auth/wrong-password':     'パスワードが正しくありません',
-      'auth/invalid-email':      'メールアドレスの形式が正しくありません',
-      'auth/too-many-requests':  'しばらく時間をおいて再試行してください',
-      'auth/invalid-credential': 'メールアドレスまたはパスワードが正しくありません',
-    };
-    setAuthError(msgs[e.code] || 'エラーが発生しました: ' + e.code);
-  } finally {
-    btn.textContent = 'ログイン';
-    btn.disabled = false;
+    const btn = document.getElementById('auth-submit-btn');
+    btn.textContent = '処理中...'; btn.disabled = true;
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      toast('アカウントを作成しました');
+    } catch(e) {
+      const msgs = {
+        'auth/email-already-in-use': 'このメールアドレスはすでに登録されています',
+        'auth/invalid-email':        'メールアドレスの形式が正しくありません',
+        'auth/weak-password':        'パスワードが短すぎます（6文字以上）',
+      };
+      setAuthError(msgs[e.code] || 'エラーが発生しました: ' + e.code);
+    } finally {
+      btn.textContent = '新規登録'; btn.disabled = false;
+    }
+
+  } else {
+    // ── ログイン ──
+    const { auth, signInWithEmailAndPassword } = window._fb;
+
+    if (!email || !password) { setAuthError('メールアドレスとパスワードを入力してください'); return; }
+
+    const btn = document.getElementById('auth-submit-btn');
+    btn.textContent = '処理中...'; btn.disabled = true;
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch(e) {
+      const msgs = {
+        'auth/user-not-found':     'メールアドレスが登録されていません',
+        'auth/wrong-password':     'パスワードが正しくありません',
+        'auth/invalid-email':      'メールアドレスの形式が正しくありません',
+        'auth/too-many-requests':  'しばらく時間をおいて再試行してください',
+        'auth/invalid-credential': 'メールアドレスまたはパスワードが正しくありません',
+      };
+      setAuthError(msgs[e.code] || 'エラーが発生しました: ' + e.code);
+    } finally {
+      btn.textContent = 'ログイン'; btn.disabled = false;
+    }
   }
 }
 
@@ -2132,7 +2132,7 @@ async function handleSignOut() {
   const { auth, signOut } = window._fb;
   await signOut(auth);
   currentUser = null;
-  userPlan = 'free';
+  // userPlan は常に 'pro'（全機能無償）
   // 1台目に戻す
   if (vehicles.length > 0) {
     activeVehicleId = vehicles[0].id;
@@ -2158,7 +2158,7 @@ function initFirebase() {
         if (localStorage.getItem('pendingSync')) syncToFirestore();
       });
     } else {
-      userPlan = 'free';
+      // userPlan は常に 'pro'（全機能無償）
     }
     updateAuthUI(currentUser);
   });
@@ -2171,7 +2171,7 @@ async function syncToFirestore() {
     }
     return;
   }
-  if (!isPro()) return; // 無料プランは同期しない
+  if (!currentUser) return; // 未ログインは同期しない
   const { db, doc, setDoc, collection, getDocs, deleteDoc, writeBatch } = window._fb;
   if (isSyncing) return;
   isSyncing = true;
@@ -2249,9 +2249,9 @@ async function restoreFromFirestore(uid) {
       let cloudPlan = null;
       setSnap.forEach(d => { if (d.id === 'plan') cloudPlan = d.data(); });
       if (cloudPlan?.value) {
-        userPlan = cloudPlan.value;
+        // userPlan は常に 'pro'（全機能無償）
       } else {
-        userPlan = 'free';
+        // userPlan は常に 'pro'（全機能無償）
       }
       renderPlanSection();
       localStorage.setItem('driveRecords',  JSON.stringify(records));
@@ -2855,10 +2855,6 @@ function calcCarryover(targetY, targetM) {
 
 // ── CSV EXPORT ──
 async function exportCSV() {
-  if (!isPro()) {
-    openUpgradeModal('CSVエクスポートはProプランの機能です。');
-    return;
-  }
   if (records.length === 0 && fuelRecords.length === 0) { toast('データがありません'); return; }
 
   // ── 走行記録シート ──
@@ -3023,17 +3019,6 @@ function saveSettings() {
 function exportInvoice() {
   const y = summaryMonth.getFullYear();
   const m = summaryMonth.getMonth() + 1;
-
-  // 無料プランの月1回制限チェック
-  if (!canIssueInvoice(y, m)) {
-    openUpgradeModal(`${y}年${m}月の請求書はすでに発行済みです。\nProプランなら再発行・複数回発行が無制限です。`);
-    return;
-  }
-
-  // 無料プランは発行前に意思確認
-  if (!isPro()) {
-    if (!confirm(`フリープランでは${y}年${m}月の請求書は1回しか発行できません。\n今すぐ発行しますか？`)) return;
-  }
 
   const key = y + '-' + String(m).padStart(2,'0');
   const monthRecs = records.filter(r => r.date.startsWith(key));

@@ -1884,18 +1884,40 @@ window.addEventListener('DOMContentLoaded', () => {
   tryInitFirebase();
 });
 
+function getLastOdoValue() {
+  // 日付順でソートし、最新日付の中でodoEndが最大の値を返す
+  // （日付編集・給油記録挿入・クラウド復元後も正しく動作する）
+  const activeRecs = getActiveRecords().filter(r => r.odoEnd != null && !isNaN(r.odoEnd));
+  if (activeRecs.length === 0) return null;
+
+  // 日付降順ソート、同日ならodoEnd降順
+  const sorted = [...activeRecs].sort((a, b) => {
+    const dateDiff = b.date.localeCompare(a.date);
+    if (dateDiff !== 0) return dateDiff;
+    return b.odoEnd - a.odoEnd;
+  });
+
+  const latestDate = sorted[0].date;
+  // 最新日付のレコードの中で最大のodoEnd
+  const latestRecs = sorted.filter(r => r.date === latestDate);
+  const maxOdoEnd = Math.max(...latestRecs.map(r => r.odoEnd));
+
+  // 念のため全体の最大値とも比較（日付が将来に編集されたデータへの保険）
+  const globalMax = Math.max(...activeRecs.map(r => r.odoEnd));
+
+  return Math.max(maxOdoEnd, globalMax);
+}
+
 function setLastOdo() {
-  const activeRecs = getActiveRecords();
-  if (activeRecs.length === 0) {
-    const input = document.getElementById('f-odo-start');
+  const input = document.getElementById('f-odo-start');
+  const lastOdo = getLastOdoValue();
+  if (lastOdo === null) {
     input.value = '';
     input.classList.remove('readonly-odo');
     updatePreview();
     return;
   }
-  const last = activeRecs[activeRecs.length - 1];
-  const input = document.getElementById('f-odo-start');
-  input.value = last.odoEnd;
+  input.value = lastOdo;
   input.classList.add('readonly-odo');
   updatePreview();
 }
@@ -2667,14 +2689,72 @@ function saveEdit() {
     customRate: hasCustom ? true : null
   };
 
-  records = records.map(r => r.id === editTargetId ? updated : r);
+  // 編集前の元レコードを取得
+  const orig = records.find(r => r.id === editTargetId);
+
+  // 同車両の記録を日付順にソート
+  const vehicleId = orig?.vehicleId || 'default';
+  const sameVehicle = records
+    .filter(r => (r.vehicleId || 'default') === vehicleId)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
+  const idx = sameVehicle.findIndex(r => r.id === editTargetId);
+
+  // 変更前後の値
+  const oldStart = orig?.odoStart;
+  const oldEnd   = orig?.odoEnd;
+
+  // 更新を適用
+  records = records.map(r => r.id === editTargetId ? { ...r, ...updated } : r);
+
+  const warnings = [];
+
+  // ── end を変更した場合：直後レコードのstartが旧endと一致していれば自動更新 ──
+  if (!isNaN(oldEnd) && end !== oldEnd && idx >= 0 && idx < sameVehicle.length - 1) {
+    const nextRec = sameVehicle[idx + 1];
+    if (nextRec.odoStart === oldEnd) {
+      // 連動していたと判断 → 自動更新
+      records = records.map(r => {
+        if (r.id !== nextRec.id) return r;
+        const newKm = parseFloat((r.odoEnd - end).toFixed(1));
+        const newCost = r.customRate ? r.cost : calcCost(newKm, null);
+        return { ...r, odoStart: end, km: newKm, cost: newCost };
+      });
+    } else {
+      // ギャップあり → 警告のみ
+      warnings.push(`直後の記録（${nextRec.date}）の開始値（${nextRec.odoStart}km）と終了値（${end}km）が一致しません`);
+    }
+  }
+
+  // ── start を変更した場合：直前レコードのendが旧startと一致していれば自動更新 ──
+  if (!isNaN(oldStart) && start !== oldStart && idx > 0) {
+    const prevRec = sameVehicle[idx - 1];
+    if (prevRec.odoEnd === oldStart) {
+      // 連動していたと判断 → 自動更新
+      records = records.map(r => {
+        if (r.id !== prevRec.id) return r;
+        const newKm = parseFloat((start - r.odoStart).toFixed(1));
+        const newCost = r.customRate ? r.cost : calcCost(newKm, null);
+        return { ...r, odoEnd: start, km: newKm, cost: newCost };
+      });
+    } else {
+      // ギャップあり → 警告のみ
+      warnings.push(`直前の記録（${prevRec.date}）の終了値（${prevRec.odoEnd}km）と開始値（${start}km）が一致しません`);
+    }
+  }
+
   save();
   const ey = new Date(updated.date).getFullYear();
   const em = new Date(updated.date).getMonth() + 1;
   markDirtyIfChanged(ey, em);
   closeEditModal();
   renderHistory();
-  toast('更新しました ✓');
+
+  if (warnings.length > 0) {
+    setTimeout(() => alert('⚠️ オドメーターの不整合\n\n' + warnings.join('\n\n') + '\n\n手動で確認・修正してください。'), 200);
+    toast('更新しました（不整合あり）');
+  } else {
+    toast('更新しました ✓');
+  }
 }
 
 // ── DELETE ──

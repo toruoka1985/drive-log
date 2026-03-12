@@ -1224,6 +1224,23 @@
         <span id="e-cost-lock" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);">AUTO</span>
       </div>
       <div id="e-cost-hint" style="font-size:10px;color:var(--text3);margin-top:6px;font-family:'DM Mono',monospace;"></div>
+      <!-- レートスナップショット表示 -->
+      <div id="e-rate-info" style="margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);font-size:11px;font-family:'DM Mono',monospace;display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div>
+            <span style="color:var(--text3);">記録時レート：</span>
+            <span id="e-rate-snapshot-label" style="color:var(--text2);"></span>
+          </div>
+          <div id="e-rate-current-wrap" style="display:none;">
+            <span style="color:var(--text3);">現在のレート：</span>
+            <span id="e-rate-current-label" style="color:var(--accent3);"></span>
+          </div>
+        </div>
+        <div id="e-rate-switch-wrap" style="margin-top:8px;display:none;">
+          <button type="button" id="e-rate-use-current" onclick="applyCurrentRate()" style="background:none;border:1px solid var(--accent3);color:var(--accent3);font-size:10px;font-family:'DM Mono',monospace;border-radius:6px;padding:4px 10px;cursor:pointer;">現在のレートを適用</button>
+          <button type="button" id="e-rate-use-snapshot" onclick="applySnapshotRate()" style="background:none;border:1px solid var(--text3);color:var(--text3);font-size:10px;font-family:'DM Mono',monospace;border-radius:6px;padding:4px 10px;cursor:pointer;display:none;">記録時レートに戻す</button>
+        </div>
+      </div>
     </div>
 
     <div class="edit-modal-btns">
@@ -2108,6 +2125,12 @@ async function saveRecord() {
   pushUndo('記録追加：' + date + ' ' + purpose);
 
   const km = end - start;
+  const vrate = getVehicleRate(activeVehicleId);
+  const rateSnapshot = {
+    ratePerKm: vrate.ratePerKm ?? 300,
+    baseFixed: vrate.baseFixed || 0,
+    capAmount: vrate.capAmount || 0,
+  };
   const cost = calcCost(km, null);
   const record = {
     id: Date.now(),
@@ -2118,6 +2141,7 @@ async function saveRecord() {
     km: parseFloat(km.toFixed(1)),
     cost,
     customRate: null,
+    rateSnapshot,
     vehicleId: activeVehicleId || 'default'
   };
 
@@ -2731,6 +2755,56 @@ function openEditModal(id) {
     b.classList.toggle('active', b.dataset.v === r.category);
   });
 
+  // rateSnapshot表示
+  const rateInfo = document.getElementById('e-rate-info');
+  const snapshotLabel = document.getElementById('e-rate-snapshot-label');
+  const currentLabel = document.getElementById('e-rate-current-label');
+  const currentWrap = document.getElementById('e-rate-current-wrap');
+  const switchWrap = document.getElementById('e-rate-switch-wrap');
+  const useCurrent = document.getElementById('e-rate-use-current');
+  const useSnapshot = document.getElementById('e-rate-use-snapshot');
+
+  if (!r.customRate) {
+    rateInfo.style.display = 'block';
+    const snap = r.rateSnapshot;
+    const curr = getVehicleRate(r.vehicleId || activeVehicleId);
+
+    const fmtRate = (rt) => {
+      let s = '¥' + (rt.ratePerKm ?? 300) + '/km';
+      if (rt.baseFixed) s = '¥' + rt.baseFixed + ' + ' + s;
+      if (rt.capAmount) s += ' (上限¥' + rt.capAmount + ')';
+      return s;
+    };
+
+    if (snap) {
+      snapshotLabel.textContent = fmtRate(snap);
+      // 現在レートと差異があれば表示
+      const isDiff = snap.ratePerKm !== curr.ratePerKm ||
+                     snap.baseFixed !== curr.baseFixed ||
+                     snap.capAmount !== curr.capAmount;
+      if (isDiff) {
+        currentLabel.textContent = fmtRate(curr);
+        currentWrap.style.display = 'block';
+        switchWrap.style.display = 'block';
+        useCurrent.style.display = '';
+        useSnapshot.style.display = 'none';
+      } else {
+        currentWrap.style.display = 'none';
+        switchWrap.style.display = 'none';
+      }
+    } else {
+      // 古いデータ（rateSnapshot未保存）
+      snapshotLabel.textContent = '記録時レート不明';
+      currentLabel.textContent = fmtRate(curr);
+      currentWrap.style.display = 'block';
+      switchWrap.style.display = 'block';
+      useCurrent.style.display = '';
+      useSnapshot.style.display = 'none';
+    }
+  } else {
+    rateInfo.style.display = 'none';
+  }
+
   updateEditPreview();
   document.getElementById('editModalOverlay').classList.add('show');
 }
@@ -2738,6 +2812,7 @@ function openEditModal(id) {
 function closeEditModal() {
   document.getElementById('editModalOverlay').classList.remove('show');
   editTargetId = null;
+  window._editUseCurrentRate = false;
 }
 
 function selectEditCat(btn) {
@@ -2754,14 +2829,37 @@ function updateEditPreview() {
   if (!isNaN(start) && !isNaN(end) && end > start) {
     const km = end - start;
     el.textContent = km.toFixed(1) + ' km';
-    const autoCost = calcCost(km, null);
     if (costInput.value === '') {
+      // rateSnapshotがあればそちらで計算、なければ現在設定
+      const r = editTargetId ? records.find(r => r.id === editTargetId) : null;
+      const useSnap = r?.rateSnapshot && !window._editUseCurrentRate;
+      const snap = useSnap ? r.rateSnapshot : null;
+      const rate = snap ? (snap.ratePerKm ?? 300) : null;
+      const autoCost = snap
+        ? (() => { const base = snap.baseFixed||0; const cap = snap.capAmount||0; let c = base + Math.round(km*(snap.ratePerKm??300)); if(cap>0) c=Math.min(c,cap); return c; })()
+        : calcCost(km, null);
       hint.textContent = '自動計算：¥' + autoCost.toLocaleString();
     }
   } else {
     el.textContent = '— km';
     hint.textContent = '';
   }
+}
+
+// 現在レートに切り替え
+function applyCurrentRate() {
+  window._editUseCurrentRate = true;
+  document.getElementById('e-rate-use-current').style.display = 'none';
+  document.getElementById('e-rate-use-snapshot').style.display = '';
+  updateEditPreview();
+}
+
+// 記録時レートに戻す
+function applySnapshotRate() {
+  window._editUseCurrentRate = false;
+  document.getElementById('e-rate-use-snapshot').style.display = 'none';
+  document.getElementById('e-rate-use-current').style.display = '';
+  updateEditPreview();
 }
 
 function onEditCostInput() {
@@ -2801,13 +2899,42 @@ async function saveEdit() {
   const km = end - start;
   const customCostVal = document.getElementById('e-custom-cost').value.trim();
   const hasCustom = customCostVal !== '' && !isNaN(Number(customCostVal));
-  const cost = hasCustom ? Math.round(Number(customCostVal)) : calcCost(km, null);
+
+  // コスト計算：カスタム指定 > 現在レート選択 > rateSnapshot（デフォルト）
+  let cost, newRateSnapshot;
+  if (hasCustom) {
+    cost = Math.round(Number(customCostVal));
+    newRateSnapshot = origForCheck?.rateSnapshot || null;
+  } else if (window._editUseCurrentRate) {
+    // 現在のレートを明示的に選択した場合
+    const currRate = getVehicleRate(origForCheck?.vehicleId || activeVehicleId);
+    const base = currRate.baseFixed || 0;
+    const cap  = currRate.capAmount || 0;
+    cost = base + Math.round(km * (currRate.ratePerKm ?? 300));
+    if (cap > 0) cost = Math.min(cost, cap);
+    newRateSnapshot = { ratePerKm: currRate.ratePerKm, baseFixed: currRate.baseFixed||0, capAmount: currRate.capAmount||0 };
+  } else {
+    // デフォルト：記録時のrateSnapshotで再計算
+    const snap = origForCheck?.rateSnapshot;
+    if (snap) {
+      const base = snap.baseFixed || 0;
+      const cap  = snap.capAmount || 0;
+      cost = base + Math.round(km * (snap.ratePerKm ?? 300));
+      if (cap > 0) cost = Math.min(cost, cap);
+    } else {
+      cost = calcCost(km, null);
+    }
+    newRateSnapshot = snap || null;
+  }
+
   const updated = {
     id: editTargetId, date, purpose, category: cat,
     odoStart: start, odoEnd: end,
     km: parseFloat(km.toFixed(1)),
     cost,
-    customRate: hasCustom ? true : null
+    customRate: hasCustom ? true : null,
+    rateSnapshot: newRateSnapshot,
+    vehicleId: origForCheck?.vehicleId || activeVehicleId || 'default'
   };
 
   // オドメーター整合チェック（自分自身を除外して前後と照合）

@@ -1348,6 +1348,14 @@
       </div>
       <div id="fuel-cat-hint" style="font-size:10px;color:var(--text3);margin-top:8px;font-family:'DM Mono',monospace;line-height:1.6;"></div>
     </div>
+    <div class="field">
+      <label>給油タイミング</label>
+      <div class="seg-wrap">
+        <button class="seg-btn fuel-timing-seg active" data-v="before" onclick="selectFuelTiming(this)">走行前に給油</button>
+        <button class="seg-btn fuel-timing-seg" data-v="after" onclick="selectFuelTiming(this)">走行後に給油</button>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:8px;font-family:'DM Mono',monospace;line-height:1.6;" id="fuel-timing-hint">この日の走行も按分対象に含めます</div>
+    </div>
     <div class="edit-modal-btns">
       <button class="btn-cancel" onclick="closeFuelModal()">キャンセル</button>
       <button class="btn-save" onclick="saveFuel()">記録する</button>
@@ -2534,7 +2542,11 @@ function renderHistory() {
         const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
         const fidx = sorted.findIndex(r => r.id === f.id);
         const fprev = fidx > 0 ? sorted[fidx-1].date : null;
-        const finRange = records.filter(r => (fprev ? r.date > fprev : true) && r.date <= f.date);
+        const isAfterFin = f.timing === 'after';
+        const finRange = records.filter(r =>
+          (fprev ? r.date > fprev : true) &&
+          (isAfterFin ? r.date < f.date : r.date <= f.date)
+        );
         const fTotalKm = finRange.reduce((s,r) => s+r.km, 0);
         const fHojinKm = finRange.filter(r => r.category==='法人').reduce((s,r) => s+r.km, 0);
         const hojinRatioText = fTotalKm === 0
@@ -2591,7 +2603,11 @@ function renderSummary() {
     const sorted = [...activeFuelRecs].sort((a, b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
     const prevDate = idx > 0 ? sorted[idx - 1].date : null;
-    const inRange = activeRecs.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= f.date);
+    const isAfterF = f.timing === 'after';
+    const inRange = activeRecs.filter(r =>
+      (prevDate ? r.date > prevDate : true) &&
+      (isAfterF ? r.date < f.date : r.date <= f.date)
+    );
     const totalKm = inRange.reduce((s, r) => s + r.km, 0);
     if (totalKm === 0) return;
     ['法人', '個人事業', '私用'].forEach(cat => {
@@ -2637,7 +2653,11 @@ function renderSummary() {
       const sortedF = [...fuelRecords].sort((a, b) => a.date.localeCompare(b.date));
       const idxF = sortedF.findIndex(r => r.id === f.id);
       const prevDateF = idxF > 0 ? sortedF[idxF - 1].date : null;
-      const inRangeF = records.filter(r => (prevDateF ? r.date > prevDateF : true) && r.date <= f.date);
+      const isAfterFF = f.timing === 'after';
+      const inRangeF = records.filter(r =>
+        (prevDateF ? r.date > prevDateF : true) &&
+        (isAfterFF ? r.date < f.date : r.date <= f.date)
+      );
       const totalKmF = inRangeF.reduce((s, r) => s + r.km, 0);
       const hojinKmF = inRangeF.filter(r => r.category === '法人').reduce((s, r) => s + r.km, 0);
       const hojinCost = totalKmF > 0 ? Math.round(f.amount * hojinKmF / totalKmF) : 0;
@@ -2668,7 +2688,11 @@ function renderSummary() {
     const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
     const prevDate = idx > 0 ? sorted[idx-1].date : null;
-    const inRange = records.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= f.date);
+    const isAfterAdj = f.timing === 'after';
+    const inRange = records.filter(r =>
+      (prevDate ? r.date > prevDate : true) &&
+      (isAfterAdj ? r.date < f.date : r.date <= f.date)
+    );
     const totalKm = inRange.reduce((s,r) => s+r.km, 0);
     if (totalKm === 0) return;
     const fc = f.category || '私用';
@@ -3064,6 +3088,24 @@ function updateFuelHint() {
 
 let editingFuelId = null;
 
+function selectFuelTiming(btn) {
+  document.querySelectorAll('.fuel-timing-seg').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const hint = document.getElementById('fuel-timing-hint');
+  if (btn.dataset.v === 'before') {
+    hint.textContent = 'この日の走行も按分対象に含めます';
+  } else {
+    hint.textContent = 'この日の走行は按分対象外（翌日以降から対象）';
+    hint.style.color = 'var(--accent3)';
+    setTimeout(() => { hint.style.color = ''; }, 2000);
+  }
+}
+
+function getFuelTiming() {
+  const btn = document.querySelector('.fuel-timing-seg.active');
+  return btn ? btn.dataset.v : 'before';
+}
+
 function openFuelModal(id) {
   editingFuelId = id || null;
   if (editingFuelId) {
@@ -3074,6 +3116,8 @@ function openFuelModal(id) {
     document.getElementById('fuel-date').value = f.date;
     document.getElementById('fuel-amount').value = f.amount;
     document.querySelectorAll('.fuel-seg').forEach(b => b.classList.toggle('active', b.dataset.v === (f.category || '私用')));
+    document.querySelectorAll('.fuel-timing-seg').forEach(b => b.classList.toggle('active', b.dataset.v === (f.timing || 'before')));
+    selectFuelTiming(document.querySelector('.fuel-timing-seg.active'));
   } else {
     // 新規モード
     document.getElementById('fuelModalTitle').textContent = '給油を記録';
@@ -3084,6 +3128,8 @@ function openFuelModal(id) {
     document.getElementById('fuel-date').value = `${yy}-${mm}-${dd}`;
     document.getElementById('fuel-amount').value = '';
     document.querySelectorAll('.fuel-seg').forEach(b => b.classList.toggle('active', b.dataset.v === '私用'));
+    document.querySelectorAll('.fuel-timing-seg').forEach(b => b.classList.toggle('active', b.dataset.v === 'before'));
+    selectFuelTiming(document.querySelector('.fuel-timing-seg.active'));
   }
   updateFuelHint();
   document.getElementById('fuelModalOverlay').classList.add('show');
@@ -3100,7 +3146,11 @@ function calcFuelAlloc(fuel) {
   const sorted = [...activeFuelRecs].sort((a, b) => a.date.localeCompare(b.date));
   const idx = sorted.findIndex(f => f.id === fuel.id);
   const prevDate = idx > 0 ? sorted[idx - 1].date : null;
-  const inRange = activeRecs.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= fuel.date);
+  const isAfter = fuel.timing === 'after';
+  const inRange = activeRecs.filter(r =>
+    (prevDate ? r.date > prevDate : true) &&
+    (isAfter ? r.date < fuel.date : r.date <= fuel.date)
+  );
   const totalKm    = inRange.reduce((s, r) => s + r.km, 0);
   const personalKm = inRange.filter(r => r.category !== '法人').reduce((s, r) => s + r.km, 0);
   if (totalKm === 0) return { personalKm: 0, totalKm: 0, ratio: 0, personalCost: 0 };
@@ -3126,7 +3176,8 @@ function saveFuel() {
       const oldFuel = fuelRecords[idx];
       // 旧日付の月も dirty チェック
       const oldY = parseInt(oldFuel.date.slice(0,4)), oldM = parseInt(oldFuel.date.slice(5,7));
-      fuelRecords[idx] = { id: editingFuelId, date, amount, category: cat };
+      const timing = getFuelTiming();
+      fuelRecords[idx] = { id: editingFuelId, date, amount, category: cat, timing };
       save();
       markDirtyIfChanged(oldY, oldM);
       const newY = parseInt(date.slice(0,4)), newM = parseInt(date.slice(5,7));
@@ -3139,7 +3190,8 @@ function saveFuel() {
     }
   } else {
     // 新規モード
-    const fuel = { id: Date.now(), date, amount, category: cat };
+    const timing = getFuelTiming();
+    const fuel = { id: Date.now(), date, amount, category: cat, timing };
     fuelRecords.push(fuel);
     save();
     const fy = parseInt(date.slice(0,4)), fm = parseInt(date.slice(5,7));
@@ -3204,7 +3256,11 @@ function calcCarryover(targetY, targetM) {
       const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
       const idx = sorted.findIndex(r => r.id === f.id);
       const prevDate = idx > 0 ? sorted[idx-1].date : null;
-      const inRange = records.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= f.date);
+      const isAfterM = f.timing === 'after';
+      const inRange = records.filter(r =>
+        (prevDate ? r.date > prevDate : true) &&
+        (isAfterM ? r.date < f.date : r.date <= f.date)
+      );
       const totalKm = inRange.reduce((s,r) => s + r.km, 0);
       if (totalKm === 0) return;
       const fc = f.category || '私用';
@@ -3432,7 +3488,11 @@ function exportInvoice() {
     const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
     const prevDate = idx > 0 ? sorted[idx-1].date : null;
-    const inRange = records.filter(r => (prevDate ? r.date > prevDate : true) && r.date <= f.date);
+    const isAfterInv = f.timing === 'after';
+    const inRange = records.filter(r =>
+      (prevDate ? r.date > prevDate : true) &&
+      (isAfterInv ? r.date < f.date : r.date <= f.date)
+    );
     const totalKm = inRange.reduce((s,r) => s+r.km, 0);
     if (totalKm === 0) return;
     // 名義別カード表示用（全給油で按分）

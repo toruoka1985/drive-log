@@ -1351,10 +1351,10 @@
     <div class="field">
       <label>給油タイミング</label>
       <div class="seg-wrap">
-        <button class="seg-btn fuel-timing-seg active" data-v="before" onclick="selectFuelTiming(this)">走行前に給油</button>
-        <button class="seg-btn fuel-timing-seg" data-v="after" onclick="selectFuelTiming(this)">走行後に給油</button>
+        <button class="seg-btn fuel-timing-seg" data-v="before" onclick="selectFuelTiming(this)">走行前に給油</button>
+        <button class="seg-btn fuel-timing-seg active" data-v="after" onclick="selectFuelTiming(this)">走行後に給油</button>
       </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:8px;font-family:'DM Mono',monospace;line-height:1.6;" id="fuel-timing-hint">この日の走行も按分対象に含めます</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:8px;font-family:'DM Mono',monospace;line-height:1.6;" id="fuel-timing-hint">当日の走行を按分に含めます（使った分を補充）</div>
     </div>
     <div class="edit-modal-btns">
       <button class="btn-cancel" onclick="closeFuelModal()">キャンセル</button>
@@ -2542,10 +2542,10 @@ function renderHistory() {
         const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
         const fidx = sorted.findIndex(r => r.id === f.id);
         const fprev = fidx > 0 ? sorted[fidx-1].date : null;
-        const isAfterFin = f.timing === 'after';
+        const inclSameDayFin = f.timing === 'after' || !f.timing;
         const finRange = records.filter(r =>
           (fprev ? r.date > fprev : true) &&
-          (isAfterFin ? r.date < f.date : r.date <= f.date)
+          (inclSameDayFin ? r.date <= f.date : r.date < f.date)
         );
         const fTotalKm = finRange.reduce((s,r) => s+r.km, 0);
         const fHojinKm = finRange.filter(r => r.category==='法人').reduce((s,r) => s+r.km, 0);
@@ -2603,10 +2603,10 @@ function renderSummary() {
     const sorted = [...activeFuelRecs].sort((a, b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
     const prevDate = idx > 0 ? sorted[idx - 1].date : null;
-    const isAfterF = f.timing === 'after';
+    const inclSameDayF = f.timing === 'after' || !f.timing;
     const inRange = activeRecs.filter(r =>
       (prevDate ? r.date > prevDate : true) &&
-      (isAfterF ? r.date < f.date : r.date <= f.date)
+      (inclSameDayF ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s, r) => s + r.km, 0);
     if (totalKm === 0) return;
@@ -2653,10 +2653,10 @@ function renderSummary() {
       const sortedF = [...fuelRecords].sort((a, b) => a.date.localeCompare(b.date));
       const idxF = sortedF.findIndex(r => r.id === f.id);
       const prevDateF = idxF > 0 ? sortedF[idxF - 1].date : null;
-      const isAfterFF = f.timing === 'after';
+      const inclSameDayFF = f.timing === 'after' || !f.timing;
       const inRangeF = records.filter(r =>
         (prevDateF ? r.date > prevDateF : true) &&
-        (isAfterFF ? r.date < f.date : r.date <= f.date)
+        (inclSameDayFF ? r.date <= f.date : r.date < f.date)
       );
       const totalKmF = inRangeF.reduce((s, r) => s + r.km, 0);
       const hojinKmF = inRangeF.filter(r => r.category === '法人').reduce((s, r) => s + r.km, 0);
@@ -2688,10 +2688,10 @@ function renderSummary() {
     const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
     const prevDate = idx > 0 ? sorted[idx-1].date : null;
-    const isAfterAdj = f.timing === 'after';
+    const inclSameDayAdj = f.timing === 'after' || !f.timing;
     const inRange = records.filter(r =>
       (prevDate ? r.date > prevDate : true) &&
-      (isAfterAdj ? r.date < f.date : r.date <= f.date)
+      (inclSameDayAdj ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s,r) => s+r.km, 0);
     if (totalKm === 0) return;
@@ -3089,15 +3089,17 @@ function updateFuelHint() {
 let editingFuelId = null;
 
 function selectFuelTiming(btn) {
+  if (!btn) return;
   document.querySelectorAll('.fuel-timing-seg').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   const hint = document.getElementById('fuel-timing-hint');
-  if (btn.dataset.v === 'before') {
-    hint.textContent = 'この日の走行も按分対象に含めます';
+  if (!hint) return;
+  if (btn.dataset.v === 'after') {
+    hint.textContent = '当日の走行を按分に含めます（走行分を補充）';
+    hint.style.color = 'var(--text3)';
   } else {
-    hint.textContent = 'この日の走行は按分対象外（翌日以降から対象）';
+    hint.textContent = '当日の走行は按分対象外（今日の走行は次回給油で按分）';
     hint.style.color = 'var(--accent3)';
-    setTimeout(() => { hint.style.color = ''; }, 2000);
   }
 }
 
@@ -3116,8 +3118,10 @@ function openFuelModal(id) {
     document.getElementById('fuel-date').value = f.date;
     document.getElementById('fuel-amount').value = f.amount;
     document.querySelectorAll('.fuel-seg').forEach(b => b.classList.toggle('active', b.dataset.v === (f.category || '私用')));
-    document.querySelectorAll('.fuel-timing-seg').forEach(b => b.classList.toggle('active', b.dataset.v === (f.timing || 'before')));
-    selectFuelTiming(document.querySelector('.fuel-timing-seg.active'));
+    const timingVal = f.timing || 'before';
+    const timingBtns = document.querySelectorAll('.fuel-timing-seg');
+    timingBtns.forEach(b => b.classList.toggle('active', b.dataset.v === timingVal));
+    selectFuelTiming([...timingBtns].find(b => b.dataset.v === timingVal));
   } else {
     // 新規モード
     document.getElementById('fuelModalTitle').textContent = '給油を記録';
@@ -3128,8 +3132,9 @@ function openFuelModal(id) {
     document.getElementById('fuel-date').value = `${yy}-${mm}-${dd}`;
     document.getElementById('fuel-amount').value = '';
     document.querySelectorAll('.fuel-seg').forEach(b => b.classList.toggle('active', b.dataset.v === '私用'));
-    document.querySelectorAll('.fuel-timing-seg').forEach(b => b.classList.toggle('active', b.dataset.v === 'before'));
-    selectFuelTiming(document.querySelector('.fuel-timing-seg.active'));
+    const newTimingBtns = document.querySelectorAll('.fuel-timing-seg');
+    newTimingBtns.forEach(b => b.classList.toggle('active', b.dataset.v === 'after'));
+    selectFuelTiming([...newTimingBtns].find(b => b.dataset.v === 'after'));
   }
   updateFuelHint();
   document.getElementById('fuelModalOverlay').classList.add('show');
@@ -3146,10 +3151,10 @@ function calcFuelAlloc(fuel) {
   const sorted = [...activeFuelRecs].sort((a, b) => a.date.localeCompare(b.date));
   const idx = sorted.findIndex(f => f.id === fuel.id);
   const prevDate = idx > 0 ? sorted[idx - 1].date : null;
-  const isAfter = fuel.timing === 'after';
+  const includeSameDay = fuel.timing === 'after' || !fuel.timing;
   const inRange = activeRecs.filter(r =>
     (prevDate ? r.date > prevDate : true) &&
-    (isAfter ? r.date < fuel.date : r.date <= fuel.date)
+    (includeSameDay ? r.date <= fuel.date : r.date < fuel.date)
   );
   const totalKm    = inRange.reduce((s, r) => s + r.km, 0);
   const personalKm = inRange.filter(r => r.category !== '法人').reduce((s, r) => s + r.km, 0);
@@ -3256,10 +3261,10 @@ function calcCarryover(targetY, targetM) {
       const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
       const idx = sorted.findIndex(r => r.id === f.id);
       const prevDate = idx > 0 ? sorted[idx-1].date : null;
-      const isAfterM = f.timing === 'after';
+      const inclSameDayM = f.timing === 'after' || !f.timing;
       const inRange = records.filter(r =>
         (prevDate ? r.date > prevDate : true) &&
-        (isAfterM ? r.date < f.date : r.date <= f.date)
+        (inclSameDayM ? r.date <= f.date : r.date < f.date)
       );
       const totalKm = inRange.reduce((s,r) => s + r.km, 0);
       if (totalKm === 0) return;
@@ -3488,10 +3493,10 @@ function exportInvoice() {
     const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
     const prevDate = idx > 0 ? sorted[idx-1].date : null;
-    const isAfterInv = f.timing === 'after';
+    const inclSameDayInv = f.timing === 'after' || !f.timing;
     const inRange = records.filter(r =>
       (prevDate ? r.date > prevDate : true) &&
-      (isAfterInv ? r.date < f.date : r.date <= f.date)
+      (inclSameDayInv ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s,r) => s+r.km, 0);
     if (totalKm === 0) return;

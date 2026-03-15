@@ -1253,6 +1253,18 @@
 
 <!-- CONFIRM MODAL -->
 <!-- ODO 整合警告モーダル -->
+<!-- 汎用 Confirm モーダル（confirm()の代替） -->
+<div class="modal-overlay" id="confirmModalOverlay" style="display:none;z-index:1100;">
+  <div class="modal">
+    <h3 id="confirmModalTitle" style="margin-bottom:8px;"></h3>
+    <p id="confirmModalMsg" style="font-size:13px;line-height:1.8;color:var(--text2);white-space:pre-wrap;"></p>
+    <div class="modal-btns" style="margin-top:20px;">
+      <button class="btn-cancel" id="confirmModalCancel">キャンセル</button>
+      <button class="btn-delete" id="confirmModalOk" style="background:var(--accent);color:#0f0f0f;"></button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="odoWarnOverlay" style="display:none;z-index:1100;">
   <div class="modal">
     <h3 style="color:var(--accent3);">⚠️ オドメーター不整合</h3>
@@ -1788,6 +1800,26 @@ let records = JSON.parse(localStorage.getItem('driveRecords') || '[]');
 let fuelRecords = JSON.parse(localStorage.getItem('fuelRecords') || '[]');
 
 // ── カスタム確認ダイアログ（confirm()の代替） ──
+// ── 汎用 Confirm モーダル（confirm()の代替） ──
+let _confirmResolve = null;
+
+function showConfirm({ title = '', msg = '', ok = 'OK', cancel = 'キャンセル' } = {}) {
+  return new Promise(resolve => {
+    _confirmResolve = resolve;
+    document.getElementById('confirmModalTitle').textContent = title;
+    document.getElementById('confirmModalMsg').textContent   = msg;
+    document.getElementById('confirmModalOk').textContent    = ok;
+    document.getElementById('confirmModalCancel').textContent = cancel;
+    document.getElementById('confirmModalOk').onclick     = () => _confirmDismiss(true);
+    document.getElementById('confirmModalCancel').onclick = () => _confirmDismiss(false);
+    document.getElementById('confirmModalOverlay').style.display = 'flex';
+  });
+}
+function _confirmDismiss(result) {
+  document.getElementById('confirmModalOverlay').style.display = 'none';
+  if (_confirmResolve) { _confirmResolve(result); _confirmResolve = null; }
+}
+
 let _odoWarnResolve = null;
 function showOdoWarning(warnings) {
   return new Promise(resolve => {
@@ -2443,10 +2475,16 @@ function renameVehicle(id) {
   renderVehicleList();
 }
 
-function deleteVehicle(id) {
+async function deleteVehicle(id) {
   if (vehicles.length <= 1) { toast('最後の車両は削除できません'); return; }
   const v = vehicles.find(v => v.id === id);
-  if (!confirm(`「${v?.name}」を削除しますか？\n記録データは残りますが、この車両では表示されなくなります。`)) return;
+  const ok = await showConfirm({
+    title:  `「${v?.name}」を削除しますか？`,
+    msg:    '記録データは残りますが、この車両では表示されなくなります。',
+    ok:     '削除する',
+    cancel: 'キャンセル',
+  });
+  if (!ok) return;
   vehicles = vehicles.filter(v => v.id !== id);
   if (activeVehicleId === id) activeVehicleId = vehicles[0].id;
   saveVehicles();
@@ -3952,20 +3990,31 @@ function saveSettings() {
 }
 
 // ── INVOICE ──
-function exportInvoice() {
+async function exportInvoice() {
   const y = summaryMonth.getFullYear();
   const m = summaryMonth.getMonth() + 1;
 
   // フリープラン：月1回制限チェック
   if (!canIssueInvoice(y, m)) {
-    if (!confirm(`フリープランは月に1回まで請求書を発行できます。\n${y}年${m}月はすでに発行済みです。\n\nPROプランにアップグレードすると制限なく発行できます。\n\nアップグレードのご案内を見ますか？`)) return;
-    openUpgradeModal('invoice');
+    const go = await showConfirm({
+      title:  '発行済みです',
+      msg:    `${y}年${m}月の請求書はすでに発行済みです。\nフリープランは月に1回まで発行できます。\n\nPROプランにアップグレードすると\n制限なく発行できます。`,
+      ok:     'プランを見る',
+      cancel: '閉じる',
+    });
+    if (go) openUpgradeModal('invoice');
     return;
   }
 
   // フリープランで未発行：確認ダイアログ
   if (!isPro()) {
-    if (!confirm(`フリープランは月に1回まで請求書を発行できます。\n${y}年${m}月の請求書を発行しますか？\n\n発行すると今月の残り発行回数は0になります。`)) return;
+    const ok = await showConfirm({
+      title:  '請求書を発行しますか？',
+      msg:    `フリープランは月に1回まで発行できます。\n発行すると ${y}年${m}月の残り回数は0になります。`,
+      ok:     '発行する',
+      cancel: 'キャンセル',
+    });
+    if (!ok) return;
   }
 
   const key = y + '-' + String(m).padStart(2,'0');

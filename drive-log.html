@@ -1627,9 +1627,8 @@
     <div id="plan-section"></div>
 
     <div class="settings-section-label" style="margin-top:28px">クラウドバックアップ</div>
-    <p id="auth-warning" style="font-size:12px;color:#e57373;margin-bottom:16px;line-height:1.6;">⚠️ 未設定の場合、ブラウザの閲覧履歴を消去すると記録がすべて消えます。ログインするとデータをクラウドで保護できます。</p>
 
-    <!-- ログイン済み表示 -->
+    <!-- ① PRO・ログイン済み -->
     <div id="auth-loggedin" style="display:none;">
       <div id="auth-status-wrap" style="margin-bottom:12px;padding:14px 16px;background:var(--card);border-radius:12px;font-size:13px;color:var(--text2);"></div>
       <div id="sync-status" style="margin-bottom:10px;font-size:12px;color:var(--text3);text-align:center;min-height:18px;"></div>
@@ -1638,11 +1637,43 @@
       </button>
     </div>
 
-    <!-- 未ログイン表示 -->
+    <!-- ② FREE・ログイン済み（バックアップ不可、アップグレード誘導） -->
+    <div id="auth-free-loggedin" style="display:none;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:4px;" id="auth-free-email"></div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:14px;line-height:1.6;">
+          🔒 クラウドバックアップはPROプランの機能です。<br>アップグレードするとデータを自動保護できます。
+        </div>
+        <button class="settings-save-btn" onclick="openUpgradeModal('backup')" style="font-size:13px;margin-bottom:8px;">
+          PROプランにアップグレード
+        </button>
+        <button class="settings-save-btn" onclick="handleSignOut()" style="background:var(--card);color:var(--text3);font-size:12px;">
+          ログアウト
+        </button>
+      </div>
+    </div>
+
+    <!-- ③ 未ログイン（新規登録のみ表示・有料誘導） -->
     <div id="auth-form" style="display:none;">
 
-      <!-- モード切替タブ -->
-      <div style="display:flex;gap:8px;margin-bottom:20px;">
+      <!-- 未ログイン時の誘導カード -->
+      <div id="auth-unlogged-banner" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:6px;">アカウント登録でデータを保護</div>
+        <div style="font-size:12px;color:var(--text3);line-height:1.7;margin-bottom:14px;">
+          ブラウザのキャッシュ削除でデータが消えるのを防げます。<br>
+          30日間の無料体験でクラウドバックアップが使えます。
+        </div>
+        <button class="settings-save-btn" onclick="switchAuthMode('register')" style="font-size:13px;margin-bottom:8px;">
+          無料体験を始める（アカウント作成）
+        </button>
+        <button onclick="switchAuthMode('login')"
+          style="display:block;width:100%;padding:10px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">
+          すでにアカウントをお持ちの方
+        </button>
+      </div>
+
+      <!-- モード切替タブ（ログイン選択時のみ表示） -->
+      <div id="auth-tabs" style="display:none;gap:8px;margin-bottom:20px;">
         <button id="tab-login"    onclick="switchAuthMode('login')"
           style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:var(--accent);color:#0f0f0f;">
           ログイン
@@ -2763,34 +2794,52 @@ function setAuthError(msg) {
 }
 
 function updateAuthUI(user) {
-  const checking   = document.getElementById('auth-checking');
-  const loggedin   = document.getElementById('auth-loggedin');
-  const form       = document.getElementById('auth-form');
-  const statusWrap = document.getElementById('auth-status-wrap');
-  if (!checking || !loggedin || !form) return;
+  const checking        = document.getElementById('auth-checking');
+  const loggedinEl      = document.getElementById('auth-loggedin');       // PRO+ログイン済み
+  const freeLoggedinEl  = document.getElementById('auth-free-loggedin');  // FREE+ログイン済み
+  const form            = document.getElementById('auth-form');            // 未ログイン
+  const statusWrap      = document.getElementById('auth-status-wrap');
+  if (!checking || !loggedinEl || !form) return;
 
   checking.style.display = 'none';
-  const warning = document.getElementById('auth-warning');
+
   if (user) {
-    loggedin.style.display = 'block';
-    form.style.display     = 'none';
-    if (warning) warning.style.display = 'none';
-    if (statusWrap) {
-      const syncLabel = isPro()
-        ? '<span style="color:var(--accent);font-size:11px;font-weight:700;">● クラウド同期中</span>'
-        : '<span style="color:var(--text3);font-size:11px;">クラウドバックアップは PROプランの機能です</span>';
-      statusWrap.innerHTML = `
-        <div style="font-weight:600;color:var(--text1);margin-bottom:4px;">${user.email}</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          ${syncLabel}
-        </div>`;
+    // ── ログイン済み ──
+    form.style.display = 'none';
+
+    if (isPro()) {
+      // PRO: 同期ステータス＋ログアウト
+      loggedinEl.style.display     = 'block';
+      if (freeLoggedinEl) freeLoggedinEl.style.display = 'none';
+      if (statusWrap) {
+        statusWrap.innerHTML = `
+          <div style="font-weight:600;color:var(--text1);margin-bottom:4px;">${user.email}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="color:var(--accent);font-size:11px;font-weight:700;">● クラウド同期中</span>
+          </div>`;
+      }
+    } else {
+      // FREE: アップグレード誘導
+      loggedinEl.style.display = 'none';
+      if (freeLoggedinEl) {
+        freeLoggedinEl.style.display = 'block';
+        const emailEl = document.getElementById('auth-free-email');
+        if (emailEl) emailEl.textContent = user.email;
+      }
     }
   } else {
-    loggedin.style.display = 'none';
-    form.style.display     = 'block';
-    if (warning) warning.style.display = 'block';
+    // ── 未ログイン: 新規登録を前面に出す ──
+    loggedinEl.style.display = 'none';
+    if (freeLoggedinEl) freeLoggedinEl.style.display = 'none';
+    form.style.display = 'block';
     setAuthError('');
-    switchAuthMode('login'); // タブをログインにリセット
+    // 未ログイン時はバナーを表示し、タブは非表示にしてアカウント作成を促す
+    const banner = document.getElementById('auth-unlogged-banner');
+    const tabs   = document.getElementById('auth-tabs');
+    if (banner) banner.style.display = 'block';
+    if (tabs)   tabs.style.display   = 'none';
+    // フォームは新規登録モードで準備しておく
+    switchAuthMode('register');
   }
   renderPlanSection();
 }
@@ -2808,24 +2857,32 @@ function switchAuthMode(mode) {
   const confirmInput = document.getElementById('auth-email-confirm');
   const submitBtn   = document.getElementById('auth-submit-btn');
   const resetWrap   = document.getElementById('auth-reset-wrap');
+  const banner      = document.getElementById('auth-unlogged-banner');
+  const tabs        = document.getElementById('auth-tabs');
+
+  // ログインを選んだ場合はバナーを隠してタブを表示
+  if (mode === 'login' && banner && tabs) {
+    banner.style.display = 'none';
+    tabs.style.display   = 'flex';
+  }
+  // 新規登録の場合もタブを表示（戻ってきたとき用）
+  if (mode === 'register' && tabs) {
+    tabs.style.display = 'flex';
+  }
 
   if (mode === 'login') {
-    tabLogin.style.background    = 'var(--accent)';
-    tabLogin.style.color         = '#0f0f0f';
-    tabRegister.style.background = 'var(--card)';
-    tabRegister.style.color      = 'var(--text2)';
-    confirmWrap.style.display    = 'none';
-    confirmInput.value           = '';
-    submitBtn.textContent        = 'ログイン';
-    resetWrap.style.display      = 'block';
+    if (tabLogin)    { tabLogin.style.background = 'var(--accent)'; tabLogin.style.color = '#0f0f0f'; }
+    if (tabRegister) { tabRegister.style.background = 'var(--card)'; tabRegister.style.color = 'var(--text2)'; }
+    if (confirmWrap) confirmWrap.style.display = 'none';
+    if (confirmInput) confirmInput.value = '';
+    if (submitBtn)   submitBtn.textContent = 'ログイン';
+    if (resetWrap)   resetWrap.style.display = 'block';
   } else {
-    tabRegister.style.background = 'var(--accent)';
-    tabRegister.style.color      = '#0f0f0f';
-    tabLogin.style.background    = 'var(--card)';
-    tabLogin.style.color         = 'var(--text2)';
-    confirmWrap.style.display    = 'block';
-    submitBtn.textContent        = '新規登録';
-    resetWrap.style.display      = 'none';
+    if (tabRegister) { tabRegister.style.background = 'var(--accent)'; tabRegister.style.color = '#0f0f0f'; }
+    if (tabLogin)    { tabLogin.style.background = 'var(--card)'; tabLogin.style.color = 'var(--text2)'; }
+    if (confirmWrap) confirmWrap.style.display = 'block';
+    if (submitBtn)   submitBtn.textContent = '新規登録';
+    if (resetWrap)   resetWrap.style.display = 'none';
   }
 }
 

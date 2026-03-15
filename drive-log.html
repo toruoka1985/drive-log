@@ -337,30 +337,24 @@
     inset: 0;
     background: rgba(0,0,0,.75);
     z-index: 200;
-    align-items: flex-end;
-    justify-content: center;
-    padding: 0;
-    /* iOS Safari: コンテンツが多いときに上から押し出されないようにする */
+    /* オーバーレイ全体をスクロール可能にしてモーダルを上から表示 */
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
-  .edit-modal-overlay.show { display: flex; }
+  .edit-modal-overlay.show { display: block; }
   .edit-modal {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 20px 20px 0 0;
-    padding: 24px 20px calc(env(safe-area-inset-bottom) + 24px);
+    padding: 24px 20px calc(env(safe-area-inset-bottom) + 32px);
     width: 100%;
     max-width: 480px;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: 14px;
-    /* 画面に収まらない場合にスクロールできるようにする */
-    max-height: 92svh;
-    overflow-y: auto;
-    /* スクロール位置をオーバーレイに伝播させない */
-    overscroll-behavior: contain;
-    /* align-items:flex-end との組み合わせで上端を確保 */
-    margin-top: auto;
+    min-height: 100%;
+    box-sizing: border-box;
   }
   .edit-modal-title {
     font-family: 'DM Mono', monospace;
@@ -1705,6 +1699,20 @@
       <span style="margin-left:auto;color:var(--text2);font-size:16px;">›</span>
     </button>
 
+  <!-- テスト用プラン切り替え（開発時のみ） -->
+  <div id="dev-plan-toggle" style="margin-top:32px;padding:14px 16px;background:var(--card);border-radius:12px;border:1px dashed var(--border);">
+    <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:.1em;margin-bottom:10px;">DEV · プランテスト</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button onclick="devSetPlan('pro')"
+        style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;"
+        id="dev-btn-pro">PRO に切り替え</button>
+      <button onclick="devSetPlan('free')"
+        style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;"
+        id="dev-btn-free">FREE に切り替え</button>
+    </div>
+    <div id="dev-plan-status" style="margin-top:8px;font-size:11px;color:var(--text3);text-align:center;font-family:'DM Mono',monospace;"></div>
+  </div>
+
   <!-- 法的ページリンク -->
   <div style="margin-top:40px;padding:0 4px 8px;text-align:center;display:flex;justify-content:center;gap:20px;flex-wrap:wrap;">
     <button onclick="showLegalPage('terms')"   style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">利用規約</button>
@@ -2128,6 +2136,22 @@ function showLegalPage(type) {
 
 function closeLegalPage() {
   document.getElementById('legalModalOverlay').style.display = 'none';
+}
+
+// ── DEV: テスト用プラン切り替え ──
+function devSetPlan(tier) {
+  if (tier === 'pro') {
+    const future = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    window._userPlan = { tier: 'pro', trialStartedAt: null, trialEndsAt: null, expiresAt: future };
+  } else {
+    window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
+  }
+  renderPlanSection();
+  updateTrialBanner();
+  updateAuthUI(currentUser);
+  const status = document.getElementById('dev-plan-status');
+  if (status) status.textContent = '現在: ' + tier.toUpperCase() + ' (' + new Date().toLocaleTimeString() + ')';
+  toast('プランを ' + tier.toUpperCase() + ' に切り替えました（テスト用）');
 }
 
 // ── PLAN ──

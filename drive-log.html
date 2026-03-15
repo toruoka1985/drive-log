@@ -3771,9 +3771,7 @@ function saveFuel() {
       if (newY !== oldY || newM !== oldM) markDirtyIfChanged(newY, newM);
       const alloc = calcFuelAlloc(fuelRecords[idx]);
       const sign = fuelSign(cat) > 0 ? '+' : '-';
-      toast(alloc.totalKm === 0
-        ? '給油を更新しました（走行記録なし）✓'
-        : `給油を更新しました ✓　精算：${sign}¥${alloc.personalCost.toLocaleString()}`);
+      toast('給油を更新しました ✓');
     }
   } else {
     // 新規モード

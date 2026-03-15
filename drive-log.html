@@ -1684,6 +1684,13 @@
       <span style="margin-left:auto;color:var(--text2);font-size:16px;">›</span>
     </button>
 
+  <!-- 法的ページリンク -->
+  <div style="margin-top:40px;padding:0 4px 8px;text-align:center;display:flex;justify-content:center;gap:20px;flex-wrap:wrap;">
+    <button onclick="showLegalPage('terms')"   style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">利用規約</button>
+    <button onclick="showLegalPage('privacy')" style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">プライバシーポリシー</button>
+    <button onclick="showLegalPage('refund')"  style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">返金ポリシー</button>
+  </div>
+
   </div>
 </div>
 
@@ -1907,6 +1914,181 @@ function switchPwaTab(os) {
   event.target.classList.add('active');
   document.getElementById('pwa-steps-' + os).classList.add('active');
 }
+// ── 法的ページ ──
+const LEGAL_PAGES = {
+  terms: {
+    title: '利用規約 / Terms of Service',
+    body: `
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">第1条（適用）</h3>
+<p>本規約は、Drive Log（以下「当サービス」）の利用に関する条件を定めるものです。ユーザーは本規約に同意のうえ当サービスをご利用ください。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">第2条（利用登録）</h3>
+<p>利用希望者が所定の方法で登録申請を行い、当サービスが承認した時点で利用登録が完了します。当サービスは、登録申請者が以下に該当する場合、承認しないことがあります。</p>
+<ul style="padding-left:18px;margin:8px 0;">
+  <li>虚偽の情報を申告した場合</li>
+  <li>過去に本規約に違反したことがある場合</li>
+  <li>その他当サービスが不適切と判断した場合</li>
+</ul>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">第3条（料金・決済）</h3>
+<p>当サービスのPROプランは有料です。料金は以下のとおりです。</p>
+<ul style="padding-left:18px;margin:8px 0;">
+  <li>月額プラン：¥400（税込）/ 月</li>
+  <li>年額プラン：¥3,600（税込）/ 年</li>
+</ul>
+<p>決済はPaddle.com Market Limited（以下「Paddle」）が代行します。Paddleの利用規約およびプライバシーポリシーが別途適用されます。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">第4条（無料体験）</h3>
+<p>新規登録ユーザーは登録日から30日間、PROプランの全機能を無料でご利用いただけます。無料体験期間終了後は自動的にフリープランに移行します。自動課金は発生しません。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">第5条（禁止事項）</h3>
+<p>ユーザーは当サービスの利用にあたり、以下の行為を行ってはなりません。</p>
+<ul style="padding-left:18px;margin:8px 0;">
+  <li>法令または公序良俗に違反する行為</li>
+  <li>当サービスの運営を妨害する行為</li>
+  <li>他のユーザーまたは第三者の権利を侵害する行為</li>
+  <li>当サービスのリバースエンジニアリング</li>
+</ul>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">第6条（免責事項）</h3>
+<p>当サービスは、当サービスに起因してユーザーに生じたいかなる損害についても、当サービスの故意または重大な過失による場合を除き、責任を負いません。当サービスは現状有姿で提供されており、特定目的への適合性を保証するものではありません。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">第7条（サービスの変更・終了）</h3>
+<p>当サービスは、ユーザーへの事前通知なしに当サービスの内容を変更または提供を終了することがあります。これによりユーザーに生じた損害について当サービスは責任を負いません。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">第8条（規約の変更）</h3>
+<p>当サービスは必要に応じて本規約を変更できます。変更後の規約はアプリ内または当サービスウェブサイトに掲示した時点で効力を生じます。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">第9条（準拠法・管轄）</h3>
+<p>本規約は日本法に準拠します。当サービスに関する紛争については、名古屋地方裁判所を第一審の専属的合意管轄裁判所とします。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">お問い合わせ</h3>
+<p>本規約に関するお問い合わせは、下記サポート窓口までご連絡ください。<br><span class="support-mail-wrap"></span></p>
+<p style="margin-top:24px;color:var(--text3);font-size:11px;">制定日：2026年3月<br>Drive Log</p>
+`
+  },
+
+  privacy: {
+    title: 'プライバシーポリシー / Privacy Policy',
+    body: `
+<p>Drive Log（以下「当サービス」）は、ユーザーの個人情報の取扱いについて、以下のとおりプライバシーポリシーを定めます。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">1. 収集する情報</h3>
+<p>当サービスでは以下の情報を収集します。</p>
+<ul style="padding-left:18px;margin:8px 0;">
+  <li><strong>アカウント情報：</strong>メールアドレス（Firebase Authenticationにより管理）</li>
+  <li><strong>利用データ：</strong>走行記録、燃料記録、車両設定（Firestore に保存）</li>
+  <li><strong>決済情報：</strong>氏名・カード情報（Paddleが直接収集・管理、当サービスは保持しません）</li>
+</ul>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">2. 情報の利用目的</h3>
+<ul style="padding-left:18px;margin:8px 0;">
+  <li>当サービスの提供・運営</li>
+  <li>ユーザーサポート対応</li>
+  <li>サービスの改善・新機能開発</li>
+  <li>利用規約違反への対応</li>
+</ul>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">3. 第三者提供</h3>
+<p>当サービスは以下の場合を除き、収集した個人情報を第三者に提供しません。</p>
+<ul style="padding-left:18px;margin:8px 0;">
+  <li>ユーザーの同意がある場合</li>
+  <li>法令に基づく場合</li>
+</ul>
+<p>当サービスは以下の第三者サービスを利用しており、各社のプライバシーポリシーが適用されます。</p>
+<ul style="padding-left:18px;margin:8px 0;">
+  <li>Google Firebase（認証・データ保存）</li>
+  <li>Paddle.com Market Limited（決済処理）</li>
+</ul>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">4. データの保管・セキュリティ</h3>
+<p>ユーザーデータはGoogle Cloud（Firebase）のサーバーに暗号化して保管されます。当サービスは適切な技術的・組織的措置を講じてデータを保護します。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">5. データの削除</h3>
+<p>ユーザーはいつでもアカウントを削除でき、それに伴い関連するデータはすべて削除されます。削除のご依頼はアプリ内設定またはサポートメールにてお申し付けください。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">6. Cookieおよびローカルストレージ</h3>
+<p>当サービスはブラウザのLocalStorageを使用してアプリの設定・走行記録を端末に保存します。これは当サービスの機能提供のためにのみ使用され、広告目的では使用されません。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">7. お問い合わせ</h3>
+<p>プライバシーポリシーに関するお問い合わせは、下記サポート窓口までご連絡ください。<br><span class="support-mail-wrap"></span></p>
+
+<p style="margin-top:24px;color:var(--text3);font-size:11px;">制定日：2026年3月<br>Drive Log</p>
+`
+  },
+
+  refund: {
+    title: '返金ポリシー / Refund Policy',
+    body: `
+<p>Drive Log（以下「当サービス」）のPROプランに関する返金については、以下のポリシーを定めます。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">返金の条件</h3>
+<p>以下の場合に限り、返金の申請を受け付けます。</p>
+<ul style="padding-left:18px;margin:8px 0;">
+  <li>決済日から<strong>14日以内</strong>にご申請いただいた場合</li>
+  <li>サービスに重大な障害があり、当サービスがその事実を確認できた場合</li>
+</ul>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">返金対象外</h3>
+<ul style="padding-left:18px;margin:8px 0;">
+  <li>決済日から14日を超えた場合</li>
+  <li>無料体験期間中（無料体験は費用が発生しないため返金は不要です）</li>
+  <li>既に解約済みのサブスクリプション期間の残余分</li>
+  <li>お客様の都合によるサービス未利用</li>
+</ul>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">返金の手続き</h3>
+<p>返金をご希望の場合は、以下の情報をサポートメールまでお送りください。</p>
+<ul style="padding-left:18px;margin:8px 0;">
+  <li>登録メールアドレス</li>
+  <li>決済日・金額</li>
+  <li>返金理由</li>
+</ul>
+<p>Paddleを通じて決済された場合、Paddleのカスタマーサポート（paddle.com）に直接ご申請いただくことも可能です。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">サブスクリプションの解約</h3>
+<p>サブスクリプションはいつでも解約できます。解約後も現在の契約期間終了まで引き続きPROプランをご利用いただけます。解約はPaddleの顧客ポータルから行えます。</p>
+
+<h3 style="font-size:14px;font-weight:700;color:var(--text1);margin:20px 0 8px;">お問い合わせ</h3>
+<p>返金に関するご質問は下記サポート窓口までご連絡ください。通常2営業日以内にご回答します。<br><span class="support-mail-wrap"></span></p>
+
+<p style="margin-top:24px;color:var(--text3);font-size:11px;">制定日：2026年3月<br>Drive Log</p>
+`
+  }
+};
+
+// ── サポートメール（スパムbot対策：JSで動的生成） ──
+// アドレスを分割して静的クローラーに読ませない
+const _m = ['toruoka1985llc', '@', 'gmail', '.', 'com'].join('');
+
+function _renderSupportMail() {
+  document.querySelectorAll('.support-mail-wrap').forEach(el => {
+    const a = document.createElement('a');
+    a.href = 'mailto:' + _m;
+    a.textContent = _m;
+    a.style.cssText = 'color:var(--accent);text-decoration:none;user-select:all;';
+    // コピー防止ではなく、あえてuser-select:allにして普通にコピーできるようにする
+    // （ユーザビリティ優先）
+    el.appendChild(a);
+  });
+}
+
+function showLegalPage(type) {
+  const page = LEGAL_PAGES[type];
+  if (!page) return;
+  document.getElementById('legal-modal-title').textContent = page.title;
+  document.getElementById('legal-modal-body').innerHTML  = page.body;
+  const overlay = document.getElementById('legalModalOverlay');
+  overlay.style.display = 'block';
+  overlay.scrollTop = 0;
+  // innerHTML設置後にメールリンクを動的注入（botクローラー対策）
+  _renderSupportMail();
+}
+
+function closeLegalPage() {
+  document.getElementById('legalModalOverlay').style.display = 'none';
+}
+
 // ── PLAN ──
 // window._userPlan = {
 //   tier: 'free' | 'trial' | 'trial_ended' | 'pro',
@@ -4363,6 +4545,17 @@ function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 </script>
+
+<!-- ── 法的ページ モーダル ── -->
+<div id="legalModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;overflow-y:auto;">
+  <div style="max-width:600px;margin:0 auto;min-height:100%;background:var(--surface);padding:0 0 40px;">
+    <div style="position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;z-index:10;">
+      <span id="legal-modal-title" style="font-size:15px;font-weight:700;color:var(--text1);"></span>
+      <button onclick="closeLegalPage()" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;line-height:1;padding:4px;">✕</button>
+    </div>
+    <div id="legal-modal-body" style="padding:24px 20px;font-size:13px;color:var(--text2);line-height:1.9;"></div>
+  </div>
+</div>
 
 <!-- ── アップグレードモーダル ── -->
 <div class="plan-modal-overlay" id="upgradeModalOverlay" onclick="if(event.target===this)closeUpgradeModal()">

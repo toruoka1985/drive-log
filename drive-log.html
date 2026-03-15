@@ -3489,6 +3489,10 @@ async function saveEdit() {
     newRateSnapshot = snap || null;
   }
 
+  // オドメーター整合チェック（自分自身を除外して前後と照合）
+  const origForCheck = records.find(r => r.id === editTargetId);
+  const vidForCheck = origForCheck?.vehicleId || 'default';
+
   const updated = {
     id: editTargetId, date, purpose, category: cat,
     odoStart: start, odoEnd: end,
@@ -3498,10 +3502,6 @@ async function saveEdit() {
     rateSnapshot: newRateSnapshot,
     vehicleId: origForCheck?.vehicleId || activeVehicleId || 'default'
   };
-
-  // オドメーター整合チェック（自分自身を除外して前後と照合）
-  const origForCheck = records.find(r => r.id === editTargetId);
-  const vidForCheck = origForCheck?.vehicleId || 'default';
   const odoCheck = checkOdoConsistency(vidForCheck, date, start, end, editTargetId);
   if (!odoCheck.ok) {
     const proceed = await showOdoWarning(odoCheck.warnings);
@@ -3510,19 +3510,16 @@ async function saveEdit() {
 
   pushUndo('編集：' + (origForCheck?.date || '') + ' ' + (origForCheck?.purpose || ''));
 
-  // 編集前の元レコードを取得
-  const orig = records.find(r => r.id === editTargetId);
-
   // 同車両の記録を日付順にソート
-  const vehicleId = orig?.vehicleId || 'default';
+  const vehicleId = origForCheck?.vehicleId || 'default';
   const sameVehicle = records
     .filter(r => (r.vehicleId || 'default') === vehicleId)
     .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
   const idx = sameVehicle.findIndex(r => r.id === editTargetId);
 
   // 変更前後の値
-  const oldStart = orig?.odoStart;
-  const oldEnd   = orig?.odoEnd;
+  const oldStart = origForCheck?.odoStart;
+  const oldEnd   = origForCheck?.odoEnd;
 
   // 更新を適用
   records = records.map(r => r.id === editTargetId ? { ...r, ...updated } : r);
@@ -3571,7 +3568,7 @@ async function saveEdit() {
   renderHistory();
 
   if (warnings.length > 0) {
-    setTimeout(() => alert('⚠️ オドメーターの不整合\n\n' + warnings.join('\n\n') + '\n\n手動で確認・修正してください。'), 200);
+    setTimeout(() => showConfirm({ title: '⚠️ オドメーターの不整合', msg: warnings.join('\n\n') + '\n\n手動で確認・修正してください。', ok: '確認', cancel: '閉じる' }), 200);
     toast('更新しました（不整合あり）');
   } else {
     toast('更新しました ✓');

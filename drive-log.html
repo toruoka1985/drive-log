@@ -1898,29 +1898,34 @@ function checkOdoConsistency(vehicleId, newDate, newStart, newEnd, excludeId) {
 
   const warnings = [];
 
-  // 挿入日付の直前・直後レコードを特定
-  const before = [...sameVehicle].reverse().find(r => r.date <= newDate);
-  const after  = sameVehicle.find(r => r.date > newDate);
-  // 同日付のものは開始値で順序判断
-  const sameDayBefore = [...sameVehicle].reverse().find(r => r.date === newDate && r.odoEnd <= newStart);
-  const sameDayAfter  = sameVehicle.find(r => r.date === newDate && r.odoStart >= newEnd);
+  // ── 直前レコードの特定 ──
+  // 同日内でodoEndが新開始値より小さい（厳密に小さい）もの → 同日の直前
+  // それがなければ日付が前のレコードの最後
+  const sameDayBefore = [...sameVehicle]
+    .filter(r => r.date === newDate && r.odoEnd < newStart)
+    .pop(); // odoEnd昇順でソート済みなので最後が直前
+  const prevByDate = [...sameVehicle]
+    .filter(r => r.date < newDate)
+    .pop(); // 日付昇順で最後が直前
+  const prevRec = sameDayBefore || prevByDate;
 
-  const prevRec = sameDayBefore || before;
-  const nextRec = sameDayAfter  || after;
+  // ── 直後レコードの特定 ──
+  // 同日内でodoStartが新終了値より大きい（厳密に大きい）もの → 同日の直後
+  // それがなければ日付が後のレコードの最初
+  const sameDayAfter = sameVehicle
+    .find(r => r.date === newDate && r.odoStart > newEnd);
+  const nextByDate = sameVehicle
+    .find(r => r.date > newDate);
+  const nextRec = sameDayAfter || nextByDate;
 
+  // ── 判定：前後と矛盾しないか ──
+  // prevRec.odoEnd === newStart は正常（連続走行）なので警告しない
   if (prevRec && newStart < prevRec.odoEnd) {
     warnings.push(`直前の記録（${prevRec.date}、終了 ${prevRec.odoEnd}km）より開始値（${newStart}km）が小さいです`);
   }
+  // nextRec.odoStart === newEnd は正常なので警告しない
   if (nextRec && newEnd > nextRec.odoStart) {
     warnings.push(`直後の記録（${nextRec.date}、開始 ${nextRec.odoStart}km）より終了値（${newEnd}km）が大きいです`);
-  }
-  // 全体の最大値チェック：過去日付なのに最大値を超える場合
-  if (sameVehicle.length > 0) {
-    const globalMax = Math.max(...sameVehicle.map(r => r.odoEnd));
-    const latestDate = sameVehicle[sameVehicle.length - 1].date;
-    if (newDate < latestDate && newEnd > globalMax) {
-      warnings.push(`過去日付（${newDate}）なのに、現在の最大オドメーター値（${globalMax}km）を超えています（${newEnd}km）`);
-    }
   }
 
   return warnings.length === 0 ? { ok: true } : { ok: false, warnings };

@@ -814,6 +814,95 @@
     transition: opacity .2s;
   }
   .upgrade-btn:active { opacity: .8; }
+
+  /* ── トライアルバナー ── */
+  .trial-banner {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 200;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .trial-banner.warning {
+    background: rgba(245,162,58,.15);
+    border-bottom: 1px solid rgba(245,162,58,.4);
+    color: var(--self);
+  }
+  .trial-banner.danger {
+    background: rgba(245,90,58,.15);
+    border-bottom: 1px solid rgba(245,90,58,.5);
+    color: #f55a3a;
+  }
+  .trial-banner-btn {
+    background: none;
+    border: 1px solid currentColor;
+    border-radius: 8px;
+    color: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ── プラン選択ボタン（月額・年額） ── */
+  .plan-choice-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .plan-choice-btn {
+    border-radius: 14px;
+    border: 2px solid var(--border);
+    background: var(--card);
+    padding: 14px 10px;
+    cursor: pointer;
+    text-align: center;
+    transition: all .2s;
+    position: relative;
+  }
+  .plan-choice-btn.recommended {
+    border-color: var(--accent);
+    background: rgba(200,245,58,.07);
+  }
+  .plan-choice-btn .badge-rec {
+    position: absolute;
+    top: -10px; left: 50%; transform: translateX(-50%);
+    background: var(--accent);
+    color: #0f0f0f;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    letter-spacing: .05em;
+  }
+  .plan-choice-btn .price-main {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text1);
+  }
+  .plan-choice-btn .price-sub {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 2px;
+    line-height: 1.5;
+  }
+  .plan-choice-btn .price-save {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-top: 4px;
+  }
+
   .plan-modal-overlay {
     display: none;
     position: fixed;
@@ -1134,6 +1223,12 @@
 </script>
 </head>
 <body>
+
+<!-- トライアル残日数バナー -->
+<div id="trial-banner" class="trial-banner" style="display:none;">
+  <span id="trial-banner-msg"></span>
+  <button class="trial-banner-btn" onclick="openUpgradeModal('trial')">プランを見る</button>
+</div>
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
@@ -1510,6 +1605,10 @@
     <button class="settings-save-btn" onclick="saveSettings()">設定を保存</button>
 
     <!-- アカウント連携 -->
+    <!-- プランセクション -->
+    <div class="settings-section-label" style="margin-top:28px">プラン</div>
+    <div id="plan-section"></div>
+
     <div class="settings-section-label" style="margin-top:28px">クラウドバックアップ</div>
     <p id="auth-warning" style="font-size:12px;color:#e57373;margin-bottom:16px;line-height:1.6;">⚠️ 未設定の場合、ブラウザの閲覧履歴を消去すると記録がすべて消えます。ログインするとデータをクラウドで保護できます。</p>
 
@@ -1808,33 +1907,235 @@ function switchPwaTab(os) {
   event.target.classList.add('active');
   document.getElementById('pwa-steps-' + os).classList.add('active');
 }
-let userPlan = 'pro'; // 全機能無償開放
+// ── PLAN ──
+// window._userPlan = {
+//   tier: 'free' | 'trial' | 'trial_ended' | 'pro',
+//   trialStartedAt: Timestamp | null,
+//   trialEndsAt:    Timestamp | null,
+//   expiresAt:      Timestamp | null,  // PRO課金の有効期限
+// }
+window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
 
-function isPro() { return true; }
+// ── Paddle 商品ID（審査通過後に本番IDへ差し替え） ──
+const PADDLE_CONFIG = {
+  // vendor: 12345,       // TODO: PaddleベンダーID
+  // sandbox: true,       // 開発中はコメントを外す
+  monthly: 'pri_XXXXXXXX_monthly',  // TODO: Paddle月額商品ID
+  yearly:  'pri_XXXXXXXX_yearly',   // TODO: Paddle年額商品ID
+};
+
+// Firestore Timestamp / plain object / Date 文字列 → Date に統一
+function _toDate(v) {
+  if (!v) return null;
+  if (v.toDate) return v.toDate();
+  if (v.seconds) return new Date(v.seconds * 1000);
+  return new Date(v);
+}
+
+// トライアル残日数（整数）。trialでなければ null
+function getTrialDaysLeft() {
+  const p = window._userPlan;
+  if (p.tier !== 'trial') return null;
+  const end = _toDate(p.trialEndsAt);
+  if (!end) return null;
+  return Math.ceil((end - new Date()) / (1000 * 60 * 60 * 24));
+}
+
+function isPro() {
+  const p = window._userPlan;
+  if (!p) return false;
+  if (p.tier === 'pro') {
+    const exp = _toDate(p.expiresAt);
+    return !exp || exp > new Date();
+  }
+  if (p.tier === 'trial') {
+    const days = getTrialDaysLeft();
+    return days === null || days > 0;
+  }
+  return false;
+}
+
+// ── トライアル開始（新規登録時に呼ぶ） ──
+async function startTrial(uid) {
+  const { db, doc, setDoc } = window._fb;
+  const now = new Date();
+  const trialEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const planData = {
+    tier: 'trial',
+    trialStartedAt: now,
+    trialEndsAt:    trialEndsAt,
+    expiresAt:      null,
+  };
+  window._userPlan = planData;
+  await setDoc(doc(db, 'users', uid, 'meta', 'plan'), planData);
+  renderPlanSection();
+  updateTrialBanner();
+  toast('🎉 30日間の無料体験を開始しました');
+}
+
+// ── トライアル終了チェック（ログイン後に呼ぶ） ──
+function checkTrialExpiry() {
+  const p = window._userPlan;
+  if (p.tier !== 'trial') return;
+  const days = getTrialDaysLeft();
+  if (days !== null && days <= 0) {
+    window._userPlan.tier = 'trial_ended';
+    if (window._fb && currentUser) {
+      const { db, doc, setDoc } = window._fb;
+      setDoc(doc(db, 'users', currentUser.uid, 'meta', 'plan'),
+        { ...window._userPlan, tier: 'trial_ended' });
+    }
+    const today = new Date().toDateString();
+    if (localStorage.getItem('trialEndedShown') !== today) {
+      localStorage.setItem('trialEndedShown', today);
+      setTimeout(() => showTrialEndedModal(), 600);
+    }
+  }
+}
+
+// ── トライアルバナー更新 ──
+function updateTrialBanner() {
+  const banner = document.getElementById('trial-banner');
+  const msg    = document.getElementById('trial-banner-msg');
+  if (!banner || !msg) return;
+
+  const p = window._userPlan;
+  if (p.tier !== 'trial') { banner.style.display = 'none'; return; }
+
+  const days = getTrialDaysLeft();
+  if (days === null || days <= 0) { banner.style.display = 'none'; return; }
+
+  if (days <= 1) {
+    banner.className = 'trial-banner danger';
+    msg.textContent  = '⚠️ 無料体験は本日で終了します';
+    banner.style.display = 'flex';
+  } else if (days <= 3) {
+    banner.className = 'trial-banner warning';
+    msg.textContent  = `⏳ 無料体験終了まであと ${days} 日です`;
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function showTrialEndedModal() {
+  const el = document.getElementById('trialEndedModalOverlay');
+  if (el) el.classList.add('show');
+}
+
+function closeTrialEndedModal() {
+  const el = document.getElementById('trialEndedModalOverlay');
+  if (el) el.classList.remove('show');
+  renderPlanSection();
+  updateAuthUI(currentUser);
+}
+
+// ── Paddle チェックアウト ──
+function startCheckout(planType) {
+  const priceId = PADDLE_CONFIG[planType];
+  if (!priceId || priceId.includes('XXXXXXXX')) {
+    toast('決済機能は準備中です。しばらくお待ちください🙏');
+    return;
+  }
+  // Paddle.js 実装例（審査通過・Paddle.js埋め込み後に有効化）:
+  // Paddle.Checkout.open({
+  //   items: [{ priceId, quantity: 1 }],
+  //   customer: { email: currentUser?.email },
+  //   successUrl: location.href + '?checkout=success',
+  // });
+}
 
 function openUpgradeModal(reason) {
-  // 廃止（全機能無償のため）
+  const el = document.getElementById('upgradeModalOverlay');
+  if (!el) return;
+  const msg = document.getElementById('upgrade-reason-msg');
+  if (msg) {
+    const msgs = {
+      vehicle: '複数台の車両管理は PROプランの機能です。',
+      invoice: '請求書の追加発行は PROプランの機能です。\nフリープランは月に1回まで発行できます。',
+      backup:  'クラウドバックアップは PROプランの機能です。',
+      csv:     '全履歴のCSV出力は PROプランの機能です。',
+      trial:   '無料体験中はすべての機能をご利用いただけます。\n体験終了後はPROプランへのアップグレードをご検討ください。',
+    };
+    msg.textContent = msgs[reason] || 'この機能は PROプランでご利用いただけます。';
+  }
+  el.classList.add('show');
 }
 
 function closeUpgradeModal() {
-  // 廃止
-}
-
-function startCheckout() {
-  // 廃止
+  const el = document.getElementById('upgradeModalOverlay');
+  if (el) el.classList.remove('show');
 }
 
 function renderPlanSection() {
-  // プランセクションは廃止（全機能無償）
+  const el = document.getElementById('plan-section');
+  if (!el) return;
+  const p   = window._userPlan;
+  const pro = isPro();
+
+  let tierLabel, tierSub, badgeClass;
+  if (p.tier === 'trial') {
+    const days = getTrialDaysLeft();
+    tierLabel = '無料体験中';
+    tierSub   = days > 0 ? `残り ${days} 日` : '本日終了';
+    badgeClass = 'pro';
+  } else if (p.tier === 'pro') {
+    tierLabel  = 'PRO プラン';
+    tierSub    = '全機能をご利用いただけます';
+    badgeClass = 'pro';
+  } else if (p.tier === 'trial_ended') {
+    tierLabel  = 'フリープラン';
+    tierSub    = '無料体験終了';
+    badgeClass = 'free';
+  } else {
+    tierLabel  = 'フリープラン';
+    tierSub    = '基本機能を無料でご利用いただけます';
+    badgeClass = 'free';
+  }
+
+  const ok = `<span class="ok">✓</span>`;
+  const ng = `<span class="ng">✗</span>`;
+
+  el.innerHTML = `
+    <div class="plan-card${pro ? ' pro' : ''}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--text1);">${tierLabel}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px;">${tierSub}</div>
+        </div>
+        <span class="plan-badge ${badgeClass}">${badgeClass === 'pro' ? 'PRO' : 'FREE'}</span>
+      </div>
+      <div class="plan-features">
+        <div>${ok} 走行記録・集計</div>
+        <div>${ok} 請求書発行${pro ? '' : '（月1回まで）'}</div>
+        <div>${pro ? ok : ng} 全履歴のCSV出力</div>
+        <div>${pro ? ok : ng} 複数台の車両管理</div>
+        <div>${pro ? ok : ng} クラウドバックアップ</div>
+      </div>
+      ${pro && p.tier !== 'trial' ? '' : `
+      <button class="upgrade-btn" onclick="openUpgradeModal('backup')"
+        style="width:100%;padding:14px;border-radius:12px;background:var(--accent);color:#0f0f0f;font-weight:700;font-size:14px;border:none;cursor:pointer;margin-top:12px;">
+        ${p.tier === 'trial' ? 'PROプランを見る' : 'PROプランにアップグレード'}
+        <span style="font-size:12px;font-weight:400;"> ¥400/月〜</span>
+      </button>`}
+    </div>
+  `;
 }
 
 function handleCancelPlan() {
-  // 廃止
+  // 将来実装
 }
 
-// 請求書発行チェック（制限なし）
+// 請求書発行チェック：フリープランは当月1回まで（既存のgetInvoiceStatusを活用）
 function canIssueInvoice(y, m) {
-  return true;
+  if (isPro()) return true;
+  const status = getInvoiceStatus(y, m);
+  return !(status && status.issued);
+}
+
+function markInvoiceIssued(y, m) {
+  // setInvoiceIssued() が既存のフラグ管理を担うため、ここでは何もしない
+  // exportInvoice内でsetInvoiceIssuedが呼ばれる
 }
 let vehicles = JSON.parse(localStorage.getItem('vehicles') || '[]');
 let activeVehicleId = localStorage.getItem('activeVehicleId') || null;
@@ -1932,6 +2233,11 @@ function hideVehicleNameInput() {
 }
 
 function addVehicle() {
+  if (!isPro() && vehicles.length >= 1) {
+    closeVehicleModal();
+    openUpgradeModal('vehicle');
+    return;
+  }
   const name = document.getElementById('vehicle-name-input').value.trim();
   if (!name) { toast('車両名を入力してください'); return; }
   const id = 'v_' + Date.now();
@@ -2210,10 +2516,13 @@ function updateAuthUI(user) {
     form.style.display     = 'none';
     if (warning) warning.style.display = 'none';
     if (statusWrap) {
+      const syncLabel = isPro()
+        ? '<span style="color:var(--accent);font-size:11px;font-weight:700;">● クラウド同期中</span>'
+        : '<span style="color:var(--text3);font-size:11px;">クラウドバックアップは PROプランの機能です</span>';
       statusWrap.innerHTML = `
         <div style="font-weight:600;color:var(--text1);margin-bottom:4px;">${user.email}</div>
         <div style="display:flex;align-items:center;justify-content:space-between;">
-          <span style="color:var(--accent);font-size:11px;font-weight:700;">● クラウド同期中</span>
+          ${syncLabel}
         </div>`;
     }
   } else {
@@ -2283,8 +2592,8 @@ async function handleEmailAuth() {
     const btn = document.getElementById('auth-submit-btn');
     btn.textContent = '処理中...'; btn.disabled = true;
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      toast('アカウントを作成しました');
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await startTrial(cred.user.uid);
     } catch(e) {
       const msgs = {
         'auth/email-already-in-use': 'このメールアドレスはすでに登録されています',
@@ -2360,11 +2669,14 @@ function initFirebase() {
     currentUser = user;
     if (user) {
       await restoreFromFirestore(user.uid);
+      checkTrialExpiry();
+      updateTrialBanner();
       window.addEventListener('online', () => {
         if (localStorage.getItem('pendingSync')) syncToFirestore();
       });
     } else {
-      // userPlan は常に 'pro'（全機能無償）
+      window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
+      updateTrialBanner();
     }
     updateAuthUI(currentUser);
   });
@@ -2378,6 +2690,12 @@ async function syncToFirestore() {
     return;
   }
   if (!currentUser) return; // 未ログインは同期しない
+
+  // フリープランはクラウドバックアップ不可
+  if (!isPro()) {
+    setSyncStatus('クラウドバックアップはPROプランの機能です', '#888');
+    return;
+  }
   const { db, doc, setDoc, collection, getDocs, deleteDoc, writeBatch } = window._fb;
   if (isSyncing) return;
   isSyncing = true;
@@ -2435,10 +2753,16 @@ async function restoreFromFirestore(uid) {
     const cloudFuel     = frSnap.docs.map(d => d.data());
     let cloudSettings = null;
     let cloudVehicles = null;
+    let cloudPlan     = null;
     setSnap.forEach(d => {
       if (d.id === 'settings') cloudSettings = d.data();
       if (d.id === 'vehicles') cloudVehicles = d.data();
+      if (d.id === 'plan')     cloudPlan     = d.data();
     });
+
+    // plan は常に Firestore の値を優先して反映（全ケース共通）
+    window._userPlan = cloudPlan || { tier: 'free', expiresAt: null };
+    renderPlanSection();
 
     if (cloudDrive.length > 0 || cloudFuel.length > 0) {
       // クラウドにデータあり → クラウドを正とする（復元）
@@ -2451,14 +2775,7 @@ async function restoreFromFirestore(uid) {
         localStorage.setItem('vehicles', JSON.stringify(vehicles));
         localStorage.setItem('activeVehicleId', activeVehicleId);
       }
-      // plan をFirestoreから読み込む
-      let cloudPlan = null;
-      setSnap.forEach(d => { if (d.id === 'plan') cloudPlan = d.data(); });
-      if (cloudPlan?.value) {
-        // userPlan は常に 'pro'（全機能無償）
-      } else {
-        // userPlan は常に 'pro'（全機能無償）
-      }
+      // plan は上部で読み込み済み
       renderPlanSection();
       localStorage.setItem('driveRecords',  JSON.stringify(records));
       localStorage.setItem('fuelRecords',   JSON.stringify(fuelRecords));
@@ -3288,6 +3605,10 @@ function calcCarryover(targetY, targetM) {
 
 // ── CSV EXPORT ──
 async function exportCSV() {
+  if (!isPro()) {
+    openUpgradeModal('csv');
+    return;
+  }
   if (records.length === 0 && fuelRecords.length === 0) { toast('データがありません'); return; }
 
   // ── 走行記録シート ──
@@ -3452,6 +3773,18 @@ function saveSettings() {
 function exportInvoice() {
   const y = summaryMonth.getFullYear();
   const m = summaryMonth.getMonth() + 1;
+
+  // フリープラン：月1回制限チェック
+  if (!canIssueInvoice(y, m)) {
+    if (!confirm(`フリープランは月に1回まで請求書を発行できます。\n${y}年${m}月はすでに発行済みです。\n\nPROプランにアップグレードすると制限なく発行できます。\n\nアップグレードのご案内を見ますか？`)) return;
+    openUpgradeModal('invoice');
+    return;
+  }
+
+  // フリープランで未発行：確認ダイアログ
+  if (!isPro()) {
+    if (!confirm(`フリープランは月に1回まで請求書を発行できます。\n${y}年${m}月の請求書を発行しますか？\n\n発行すると今月の残り発行回数は0になります。`)) return;
+  }
 
   const key = y + '-' + String(m).padStart(2,'0');
   const monthRecs = records.filter(r => r.date.startsWith(key));
@@ -4030,5 +4363,66 @@ function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 </script>
+
+<!-- ── アップグレードモーダル ── -->
+<div class="plan-modal-overlay" id="upgradeModalOverlay" onclick="if(event.target===this)closeUpgradeModal()">
+  <div class="plan-modal">
+    <div class="plan-modal-title">🔒 PROプラン</div>
+    <div class="plan-modal-sub" id="upgrade-reason-msg">この機能はPROプランでご利用いただけます。</div>
+    <div class="plan-modal-features" style="margin-bottom:18px;">
+      <div><span style="color:var(--accent)">✓</span> 複数台の車両管理</div>
+      <div><span style="color:var(--accent)">✓</span> 請求書を何度でも発行</div>
+      <div><span style="color:var(--accent)">✓</span> 全履歴のCSV出力</div>
+      <div><span style="color:var(--accent)">✓</span> クラウドバックアップ</div>
+      <div><span style="color:var(--accent)">✓</span> 今後追加される全機能</div>
+    </div>
+    <!-- 月額・年額 選択 -->
+    <div class="plan-choice-wrap">
+      <button class="plan-choice-btn" onclick="startCheckout('monthly')">
+        <div class="price-main">¥400</div>
+        <div class="price-sub">月額</div>
+      </button>
+      <button class="plan-choice-btn recommended" onclick="startCheckout('yearly')">
+        <div class="badge-rec">3ヶ月分お得</div>
+        <div class="price-main">¥3,600</div>
+        <div class="price-sub">年額</div>
+        <div class="price-save">¥300/月</div>
+      </button>
+    </div>
+    <button onclick="closeUpgradeModal()" style="width:100%;padding:12px;border-radius:12px;background:var(--surface2);color:var(--text2);font-size:14px;border:1px solid var(--border);cursor:pointer;">
+      閉じる
+    </button>
+  </div>
+</div>
+
+<!-- ── トライアル終了モーダル ── -->
+<div class="plan-modal-overlay" id="trialEndedModalOverlay">
+  <div class="plan-modal">
+    <div class="plan-modal-title">⏰ 無料体験が終了しました</div>
+    <div class="plan-modal-sub">引き続きすべての機能をご利用いただくには、PROプランへのアップグレードをお願いします。</div>
+    <div class="plan-modal-features" style="margin-bottom:18px;">
+      <div><span style="color:var(--accent)">✓</span> 複数台の車両管理</div>
+      <div><span style="color:var(--accent)">✓</span> 請求書を何度でも発行</div>
+      <div><span style="color:var(--accent)">✓</span> 全履歴のCSV出力</div>
+      <div><span style="color:var(--accent)">✓</span> クラウドバックアップ</div>
+    </div>
+    <div class="plan-choice-wrap">
+      <button class="plan-choice-btn" onclick="startCheckout('monthly')">
+        <div class="price-main">¥400</div>
+        <div class="price-sub">月額</div>
+      </button>
+      <button class="plan-choice-btn recommended" onclick="startCheckout('yearly')">
+        <div class="badge-rec">3ヶ月分お得</div>
+        <div class="price-main">¥3,600</div>
+        <div class="price-sub">年額</div>
+        <div class="price-save">¥300/月</div>
+      </button>
+    </div>
+    <button onclick="closeTrialEndedModal()" style="width:100%;padding:12px;border-radius:12px;background:var(--surface2);color:var(--text2);font-size:14px;border:1px solid var(--border);cursor:pointer;">
+      フリープランで続ける
+    </button>
+  </div>
+</div>
+
 </body>
 </html>

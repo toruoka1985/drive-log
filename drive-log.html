@@ -340,18 +340,27 @@
     align-items: flex-end;
     justify-content: center;
     padding: 0;
+    /* iOS Safari: コンテンツが多いときに上から押し出されないようにする */
+    overflow-y: auto;
   }
   .edit-modal-overlay.show { display: flex; }
   .edit-modal {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 20px 20px 0 0;
-    padding: 24px 20px 40px;
+    padding: 24px 20px calc(env(safe-area-inset-bottom) + 24px);
     width: 100%;
     max-width: 480px;
     display: flex;
     flex-direction: column;
     gap: 14px;
+    /* 画面に収まらない場合にスクロールできるようにする */
+    max-height: 92svh;
+    overflow-y: auto;
+    /* スクロール位置をオーバーレイに伝播させない */
+    overscroll-behavior: contain;
+    /* align-items:flex-end との組み合わせで上端を確保 */
+    margin-top: auto;
   }
   .edit-modal-title {
     font-family: 'DM Mono', monospace;
@@ -3368,7 +3377,10 @@ function openEditModal(id) {
   }
 
   updateEditPreview();
-  document.getElementById('editModalOverlay').classList.add('show');
+  const _emo = document.getElementById('editModalOverlay');
+  _emo.classList.add('show');
+  // 開いた瞬間に先頭へスクロール（コンテンツが多くても上から表示）
+  requestAnimationFrame(() => { _emo.scrollTop = 0; });
 }
 
 function closeEditModal() {

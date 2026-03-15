@@ -3460,35 +3460,37 @@ function resetEditCost() {
 }
 
 async function saveEdit() {
-  const date = document.getElementById('e-date').value;
+  const date    = document.getElementById('e-date').value;
   const purpose = document.getElementById('e-purpose').value.trim();
-  const cat = document.querySelector('.edit-seg.active')?.dataset.v;
-  const start = parseFloat(document.getElementById('e-odo-start').value);
-  const end = parseFloat(document.getElementById('e-odo-end').value);
+  const cat     = document.querySelector('.edit-seg.active')?.dataset.v;
+  const start   = parseFloat(document.getElementById('e-odo-start').value);
+  const end     = parseFloat(document.getElementById('e-odo-end').value);
 
   if (!date || !purpose || !cat) { toast('日付・目的・費用区分を入力してください'); return; }
-  if (isNaN(start) || isNaN(end)) { toast('オドメーターを入力してください'); return; }
-  if (end <= start) { toast('終了値は開始値より大きくしてください'); return; }
+  if (isNaN(start) || isNaN(end))  { toast('オドメーターを入力してください'); return; }
+  if (end <= start)                 { toast('終了値は開始値より大きくしてください'); return; }
 
   const km = end - start;
-  const customCostVal = document.getElementById('e-custom-cost').value.trim();
-  const hasCustom = customCostVal !== '' && !isNaN(Number(customCostVal));
 
-  // コスト計算：カスタム指定 > 現在レート選択 > rateSnapshot（デフォルト）
+  // ── 元レコードを最初に取得（以降すべてここを参照） ──
+  const origForCheck = records.find(r => r.id === editTargetId);
+
+  // ── コスト計算 ──
+  const customCostVal = document.getElementById('e-custom-cost').value.trim();
+  const hasCustom     = customCostVal !== '' && !isNaN(Number(customCostVal));
   let cost, newRateSnapshot;
+
   if (hasCustom) {
-    cost = Math.round(Number(customCostVal));
-    newRateSnapshot = origForCheck?.rateSnapshot || null;
+    cost             = Math.round(Number(customCostVal));
+    newRateSnapshot  = origForCheck?.rateSnapshot || null;
   } else if (window._editUseCurrentRate) {
-    // 現在のレートを明示的に選択した場合
-    const currRate = getVehicleRate(origForCheck?.vehicleId || activeVehicleId);
-    const base = currRate.baseFixed || 0;
-    const cap  = currRate.capAmount || 0;
-    cost = base + Math.round(km * (currRate.ratePerKm ?? 300));
+    const currRate   = getVehicleRate(origForCheck?.vehicleId || activeVehicleId);
+    const base       = currRate.baseFixed || 0;
+    const cap        = currRate.capAmount || 0;
+    cost             = base + Math.round(km * (currRate.ratePerKm ?? 300));
     if (cap > 0) cost = Math.min(cost, cap);
-    newRateSnapshot = { ratePerKm: currRate.ratePerKm, baseFixed: currRate.baseFixed||0, capAmount: currRate.capAmount||0 };
+    newRateSnapshot  = { ratePerKm: currRate.ratePerKm, baseFixed: currRate.baseFixed||0, capAmount: currRate.capAmount||0 };
   } else {
-    // デフォルト：記録時のrateSnapshotで再計算
     const snap = origForCheck?.rateSnapshot;
     if (snap) {
       const base = snap.baseFixed || 0;
@@ -3501,73 +3503,70 @@ async function saveEdit() {
     newRateSnapshot = snap || null;
   }
 
-  // オドメーター整合チェック（自分自身を除外して前後と照合）
-  const origForCheck = records.find(r => r.id === editTargetId);
+  // ── オドメーター整合チェック ──
   const vidForCheck = origForCheck?.vehicleId || 'default';
-
-  const updated = {
-    id: editTargetId, date, purpose, category: cat,
-    odoStart: start, odoEnd: end,
-    km: parseFloat(km.toFixed(1)),
-    cost,
-    customRate: hasCustom ? true : null,
-    rateSnapshot: newRateSnapshot,
-    vehicleId: origForCheck?.vehicleId || activeVehicleId || 'default'
-  };
-  const odoCheck = checkOdoConsistency(vidForCheck, date, start, end, editTargetId);
+  const odoCheck    = checkOdoConsistency(vidForCheck, date, start, end, editTargetId);
   if (!odoCheck.ok) {
     const proceed = await showOdoWarning(odoCheck.warnings);
     if (!proceed) return;
   }
 
+  // ── 更新オブジェクト生成 ──
+  const updated = {
+    id:           editTargetId,
+    date, purpose,
+    category:     cat,
+    odoStart:     start,
+    odoEnd:       end,
+    km:           parseFloat(km.toFixed(1)),
+    cost,
+    customRate:   hasCustom ? true : null,
+    rateSnapshot: newRateSnapshot,
+    vehicleId:    origForCheck?.vehicleId || activeVehicleId || 'default',
+  };
+
   pushUndo('編集：' + (origForCheck?.date || '') + ' ' + (origForCheck?.purpose || ''));
 
-  // 同車両の記録を日付順にソート
-  const vehicleId = origForCheck?.vehicleId || 'default';
+  // ── 隣接レコードの自動連動更新 ──
+  const vehicleId  = origForCheck?.vehicleId || 'default';
   const sameVehicle = records
     .filter(r => (r.vehicleId || 'default') === vehicleId)
     .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
-  const idx = sameVehicle.findIndex(r => r.id === editTargetId);
-
-  // 変更前後の値
+  const idx      = sameVehicle.findIndex(r => r.id === editTargetId);
   const oldStart = origForCheck?.odoStart;
   const oldEnd   = origForCheck?.odoEnd;
 
-  // 更新を適用
+  // まず対象レコードを更新
   records = records.map(r => r.id === editTargetId ? { ...r, ...updated } : r);
 
   const warnings = [];
 
-  // ── end を変更した場合：直後レコードのstartが旧endと一致していれば自動更新 ──
+  // 終了値を変更 → 直後レコードのstartが旧endと一致していれば自動更新
   if (!isNaN(oldEnd) && end !== oldEnd && idx >= 0 && idx < sameVehicle.length - 1) {
     const nextRec = sameVehicle[idx + 1];
     if (nextRec.odoStart === oldEnd) {
-      // 連動していたと判断 → 自動更新
       records = records.map(r => {
         if (r.id !== nextRec.id) return r;
-        const newKm = parseFloat((r.odoEnd - end).toFixed(1));
+        const newKm   = parseFloat((r.odoEnd - end).toFixed(1));
         const newCost = r.customRate ? r.cost : calcCost(newKm, null);
         return { ...r, odoStart: end, km: newKm, cost: newCost };
       });
     } else {
-      // ギャップあり → 警告のみ
       warnings.push(`直後の記録（${nextRec.date}）の開始値（${nextRec.odoStart}km）と終了値（${end}km）が一致しません`);
     }
   }
 
-  // ── start を変更した場合：直前レコードのendが旧startと一致していれば自動更新 ──
+  // 開始値を変更 → 直前レコードのendが旧startと一致していれば自動更新
   if (!isNaN(oldStart) && start !== oldStart && idx > 0) {
     const prevRec = sameVehicle[idx - 1];
     if (prevRec.odoEnd === oldStart) {
-      // 連動していたと判断 → 自動更新
       records = records.map(r => {
         if (r.id !== prevRec.id) return r;
-        const newKm = parseFloat((start - r.odoStart).toFixed(1));
+        const newKm   = parseFloat((start - r.odoStart).toFixed(1));
         const newCost = r.customRate ? r.cost : calcCost(newKm, null);
         return { ...r, odoEnd: start, km: newKm, cost: newCost };
       });
     } else {
-      // ギャップあり → 警告のみ
       warnings.push(`直前の記録（${prevRec.date}）の終了値（${prevRec.odoEnd}km）と開始値（${start}km）が一致しません`);
     }
   }
@@ -3580,7 +3579,12 @@ async function saveEdit() {
   renderHistory();
 
   if (warnings.length > 0) {
-    setTimeout(() => showConfirm({ title: '⚠️ オドメーターの不整合', msg: warnings.join('\n\n') + '\n\n手動で確認・修正してください。', ok: '確認', cancel: '閉じる' }), 200);
+    setTimeout(() => showConfirm({
+      title:  '⚠️ オドメーターの不整合',
+      msg:    warnings.join('\n\n') + '\n\n手動で確認・修正してください。',
+      ok:     '確認',
+      cancel: '閉じる',
+    }), 200);
     toast('更新しました（不整合あり）');
   } else {
     toast('更新しました ✓');

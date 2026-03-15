@@ -134,11 +134,11 @@
     animation: fadeUp .6s ease both;
   }
   .hero-title {
-    font-family: 'Syne', sans-serif;
-    font-size: clamp(42px, 10vw, 80px);
-    font-weight: 800;
-    line-height: 1.05;
-    letter-spacing: -.02em;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: clamp(38px, 9vw, 72px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -.01em;
     margin-bottom: 20px;
     animation: fadeUp .6s .1s ease both;
   }
@@ -243,9 +243,16 @@
   .phone-screen {
     padding: 0;
     background: #111;
-    aspect-ratio: 9/17;
+    aspect-ratio: 9/19.5;
     overflow: hidden;
     position: relative;
+  }
+  .phone-screen img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    display: block;
   }
 
   /* スクリーン内のダミーUI */
@@ -332,11 +339,11 @@
     margin-bottom: 12px;
   }
   .section-title {
-    font-family: 'Syne', sans-serif;
-    font-size: clamp(28px, 5vw, 44px);
-    font-weight: 800;
-    line-height: 1.15;
-    letter-spacing: -.02em;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: clamp(26px, 4.5vw, 40px);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -.01em;
     margin-bottom: 16px;
   }
   .section-sub {
@@ -483,8 +490,8 @@
     border: 1px solid var(--border);
   }
   .plan-name {
-    font-family: 'Syne', sans-serif;
-    font-size: 22px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 20px;
     font-weight: 700;
     margin-bottom: 6px;
   }
@@ -677,90 +684,15 @@
     <div class="phone-frame">
       <div class="phone-notch"><div class="phone-notch-bar"></div></div>
       <div class="phone-screen">
-        <div class="screen-header">
-          <span class="screen-title">HISTORY</span>
-          <span class="screen-date">2026.03</span>
-        </div>
-        <div class="screen-record" style="margin-top:10px;">
-          <div class="record-purpose">営業訪問（A社）</div>
-          <div class="record-row">
-            <span class="record-label">法人</span>
-            <span class="record-val">+24.3 km</span>
-          </div>
-          <div class="record-km-cost">¥7,290</div>
-        </div>
-        <div class="screen-record corp" style="margin-top:6px;">
-          <div class="record-purpose">取材・現地確認</div>
-          <div class="record-row">
-            <span class="record-label">個人事業</span>
-            <span class="record-val">+18.0 km</span>
-          </div>
-          <div class="record-km-cost">¥5,400</div>
-        </div>
-        <div class="screen-record priv" style="margin-top:6px;">
-          <div class="record-purpose">私用</div>
-          <div class="record-row">
-            <span class="record-label">私用</span>
-            <span class="record-val">+8.2 km</span>
-          </div>
-          <div class="record-km-cost">¥2,460</div>
-        </div>
-        <div class="screen-nav">
-          <span class="nav-icon">＋</span>
-          <span class="nav-icon active">☰</span>
-          <span class="nav-icon">📊</span>
-          <span class="nav-icon">⚙</span>
-        </div>
+        <img src="ss_record.png" alt="走行記録入力画面">
       </div>
     </div>
 
-    <!-- 集計画面（中央・メイン） -->
+    <!-- 履歴画面（中央・メイン） -->
     <div class="phone-frame">
       <div class="phone-notch"><div class="phone-notch-bar"></div></div>
       <div class="phone-screen">
-        <div class="screen-header">
-          <span class="screen-title">SUMMARY</span>
-          <span class="screen-date">2026.03</span>
-        </div>
-        <div class="screen-summary" style="margin-top:10px;">
-          <div class="summary-row">
-            <span class="summary-label">法人 走行距離</span>
-            <span class="summary-val accent">312.4 km</span>
-          </div>
-          <div class="summary-row">
-            <span class="summary-label">法人 請求額</span>
-            <span class="summary-val accent">¥93,720</span>
-          </div>
-          <div style="height:1px;background:#242424;margin:6px 0;"></div>
-          <div class="summary-row">
-            <span class="summary-label">個人事業</span>
-            <span class="summary-val">¥42,300</span>
-          </div>
-          <div class="summary-row">
-            <span class="summary-label">私用</span>
-            <span class="summary-val">¥18,600</span>
-          </div>
-          <div style="height:1px;background:#242424;margin:6px 0;"></div>
-          <div class="summary-row">
-            <span class="summary-label">合計走行</span>
-            <span class="summary-val">521.0 km</span>
-          </div>
-        </div>
-        <div style="margin:8px 10px 0;background:#1e1e1e;border-radius:8px;padding:8px 10px;">
-          <div style="font-size:8px;color:#555;margin-bottom:4px;">燃料費 按分</div>
-          <div style="display:flex;gap:4px;margin-bottom:4px;">
-            <div style="flex:3;background:#c8f53a;border-radius:3px;height:6px;opacity:.8;"></div>
-            <div style="flex:2;background:#3a8ff5;border-radius:3px;height:6px;opacity:.8;"></div>
-            <div style="flex:1;background:#555;border-radius:3px;height:6px;"></div>
-          </div>
-          <div style="font-size:8px;color:#555;">法人 59% / 個人 29% / 私用 12%</div>
-        </div>
-        <div class="screen-nav">
-          <span class="nav-icon">＋</span>
-          <span class="nav-icon">☰</span>
-          <span class="nav-icon active">📊</span>
-          <span class="nav-icon">⚙</span>
-        </div>
+        <img src="ss_history.png" alt="走行履歴画面">
       </div>
     </div>
 
@@ -768,53 +700,11 @@
     <div class="phone-frame">
       <div class="phone-notch"><div class="phone-notch-bar"></div></div>
       <div class="phone-screen">
-        <div class="screen-header">
-          <span class="screen-title">INVOICE</span>
-          <span class="screen-date">2026.03</span>
-        </div>
-        <div class="screen-invoice" style="margin-top:10px;">
-          <div style="font-size:9px;font-weight:700;color:#888;margin-bottom:8px;font-family:'DM Mono',monospace;">INVOICE #2603</div>
-          <div class="inv-row">
-            <span class="inv-label">請求先</span>
-            <span class="inv-val">○○株式会社</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-label">走行距離</span>
-            <span class="inv-val">312.4 km</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-label">単価</span>
-            <span class="inv-val">¥300/km</span>
-          </div>
-          <div class="inv-total">
-            <span class="inv-total-label">請求金額</span>
-            <span class="inv-total-val">¥93,720</span>
-          </div>
-        </div>
-        <div style="margin:8px 10px 0;">
-          <div class="inv-btn">📄 PDF出力・共有</div>
-        </div>
-        <div style="margin:6px 10px 0;background:#1a1a1a;border-radius:8px;padding:8px 10px;">
-          <div style="font-size:8px;color:#555;margin-bottom:4px;">燃料費 按分</div>
-          <div class="inv-row">
-            <span class="inv-label">法人負担</span>
-            <span class="inv-val" style="color:#c8f53a;">¥8,420</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-label">個人事業負担</span>
-            <span class="inv-val">¥3,890</span>
-          </div>
-        </div>
-        <div class="screen-nav">
-          <span class="nav-icon">＋</span>
-          <span class="nav-icon">☰</span>
-          <span class="nav-icon">📊</span>
-          <span class="nav-icon active">⚙</span>
-        </div>
+        <img src="ss_invoice.png" alt="請求書プレビュー画面">
       </div>
     </div>
 
-  </div>
+    </div>
 </section>
 
 <!-- FEATURES -->

@@ -2039,17 +2039,21 @@ function closeLegalPage() {
 }
 
 // ── DEV: テスト用プラン切り替え ──
+let _devPlanOverride = false; // DEVモード中はFirestoreのplanで上書きしない
+
 function devSetPlan(tier) {
   if (tier === 'pro') {
     const future = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     window._userPlan = { tier: 'pro', trialStartedAt: null, trialEndsAt: null, expiresAt: future };
+    _devPlanOverride = true;
   } else {
     window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
+    _devPlanOverride = false;
   }
   renderPlanSection();
   updateTrialBanner();
   updateAuthUI(currentUser);
-  // DEVテスト: PRO昇格時はFirestoreから復元を試みる
+  // DEVテスト: PRO昇格時はFirestoreから復元を試みる（planは上書きしない）
   if (tier === 'pro' && currentUser) {
     restoreFromFirestore(currentUser.uid);
   }
@@ -2994,8 +2998,10 @@ async function restoreFromFirestore(uid) {
       if (d.id === 'plan')     cloudPlan     = d.data();
     });
 
-    // plan を反映（全ケース共通）
-    window._userPlan = cloudPlan || { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
+    // plan を反映（DEVモード中はFirestoreのplanで上書きしない）
+    if (!_devPlanOverride) {
+      window._userPlan = cloudPlan || { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
+    }
     renderPlanSection();
 
     // ── フリープランはFirestoreのデータに一切触れない ──

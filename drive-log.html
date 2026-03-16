@@ -4708,15 +4708,16 @@ fuelTableSection +
 
       toast('DEBUG: PNG生成完了 toBlob呼び出し中');
       canvas.toBlob((blob) => {
+        try {
         toast('DEBUG: toBlob コールバック開始 blob=' + (blob ? blob.size : 'null'));
         const fname = `${y}${String(m).padStart(2,'0')}_${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'}.png`;
         const file = new File([blob], fname, { type: 'image/png' });
         const imgUrl = URL.createObjectURL(blob);
         const previewImg = document.getElementById('preview-img');
-        previewImg.src = imgUrl;
+        if (previewImg) previewImg.src = imgUrl;
         // プレビュー中はピンチズームを許可
-        document.querySelector('meta[name=viewport]').content =
-          'width=device-width, initial-scale=1.0, viewport-fit=cover';
+        const vp = document.querySelector('meta[name=viewport]');
+        if (vp) vp.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
         document.getElementById('previewOverlay').classList.add('show');
         // プレビュー表示時点で発行済みフラグを立てる
         setInvoiceIssued(y, m);
@@ -4765,6 +4766,9 @@ fuelTableSection +
           toast('DEBUG: onclickセット完了');
         } else {
           toast('DEBUG: ボタンが見つかりません');
+        }
+        } catch(e2) {
+          toast('DEBUG: toBlob内エラー: ' + e2.message);
         }
       }, 'image/png');
     } catch(e) {

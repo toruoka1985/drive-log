@@ -3450,9 +3450,11 @@ function renderSummary() {
             fuelAdjust -= f.amount;
           }
         } else if (fc === '法人') {
+          // 法人払い → 個人分上乗せ
           const personalKm = (prev.catKm['個人事業'] || 0) + (prev.catKm['私用'] || 0);
           fuelAdjust += Math.round(f.amount * personalKm / prev.totalKm);
         } else {
+          // 個人払い → 法人分差し引き
           fuelAdjust -= Math.round(f.amount * (prev.catKm['法人'] || 0) / prev.totalKm);
         }
       } else {
@@ -3502,9 +3504,10 @@ function renderSummary() {
     </div>` : '';
 
   // 振込額の内訳メモ
-  let totalBreakdown = `走行（法人）：¥${personalDrive.toLocaleString()}`;
+  const _driveLabel = _isPersonalVehicleSummary ? '走行（法人）' : '走行（個人）';
+  let totalBreakdown = `${_driveLabel}：¥${personalDrive.toLocaleString()}`;
   if (fuelAdjust > 0) totalBreakdown += `　ガソリン消費分：+¥${fuelAdjust.toLocaleString()}`;
-  if (fuelAdjust < 0) totalBreakdown += `　ガソリン消費分：-¥${Math.abs(fuelAdjust).toLocaleString()}`;
+  if (fuelAdjust < 0) totalBreakdown += `　ガソリン立替：-¥${Math.abs(fuelAdjust).toLocaleString()}`;
   if (carry < 0)      totalBreakdown += `　前月繰越：-¥${Math.abs(carry).toLocaleString()}`;
 
   const grandLabel = grandTotal >= 0 ? `¥${grandTotal.toLocaleString()}` : `-¥${Math.abs(grandTotal).toLocaleString()}`;
@@ -3863,9 +3866,11 @@ function calcCarryover(targetY, targetM) {
               fuelAdjustM -= f.amount;
             }
           } else if (fc === '法人') {
+            // 法人払い → 個人分上乗せ
             const personalKm = (prev.catKm['個人事業']||0) + (prev.catKm['私用']||0);
             fuelAdjustM += Math.round(f.amount * personalKm / prev.totalKm);
           } else {
+            // 個人払い → 法人分差し引き
             fuelAdjustM -= Math.round(f.amount * (prev.catKm['法人']||0) / prev.totalKm);
           }
         } else {
@@ -4229,8 +4234,15 @@ async function exportInvoice() {
           ['個人事業','私用'].forEach(cat => {
             fuelShareInv[cat] = (fuelShareInv[cat] || 0) + Math.round(f.amount * (prev.catKm[cat]||0) / prev.totalKm);
           });
+          const fcInv1 = f.category || '私用';
           const personalKm = (prev.catKm['個人事業']||0) + (prev.catKm['私用']||0);
-          fuelAdjustInv += Math.round(f.amount * personalKm / prev.totalKm);
+          if (fcInv1 === '法人') {
+            // 法人払い → 個人分上乗せ
+            fuelAdjustInv += Math.round(f.amount * personalKm / prev.totalKm);
+          } else {
+            // 個人払い → 法人分差し引き
+            fuelAdjustInv -= Math.round(f.amount * (prev.catKm['法人']||0) / prev.totalKm);
+          }
         }
       } else {
         const defCat = getVehicleDefaultCat();
@@ -4240,7 +4252,11 @@ async function exportInvoice() {
           if (fcInvDef !== '法人') { if (defCat === '法人') fuelAdjustInv += f.amount; }
           else { fuelAdjustInv -= f.amount; }
         }
-        else if (!isPersonalVehicle && defCat !== '法人') fuelAdjustInv += f.amount;
+        else if (!isPersonalVehicle) {
+          const fcInvDef2 = f.category || '私用';
+          if (fcInvDef2 === '法人') { if (defCat !== '法人') fuelAdjustInv += f.amount; }
+          else { if (defCat === '法人') fuelAdjustInv -= f.amount; }
+        }
       }
     } else if (isPersonalVehicle) {
       // 個人名義車：法人走行分のガソリン按分を計算
@@ -4360,15 +4376,11 @@ async function exportInvoice() {
       '<td colspan="4">ガソリン代精算（法人払い立替分）</td>' +
       '<td class="r">−¥' + Math.abs(fuelAdjustInv).toLocaleString() + '</td></tr>';
   } else {
-    // 法人名義車：マイナスは「ガソリン代立替（法人消費分）」
-    if (fuelAdjustInv < 0) detailRows +=
+    // 法人名義車
+    if (fuelAdjustInv !== 0) detailRows +=
       '<tr class="adj">' +
-      '<td colspan="4">ガソリン代立替（法人消費分）</td>' +
-      '<td class="r">−¥' + Math.abs(fuelAdjustInv).toLocaleString() + '</td></tr>';
-    if (fuelAdjustInv > 0) detailRows +=
-      '<tr class="adj">' +
-      '<td colspan="4">ガソリン消費分（私用および個人事業）</td>' +
-      '<td class="r">+¥' + Math.abs(fuelAdjustInv).toLocaleString() + '</td></tr>';
+      '<td colspan="4">ガソリン代立替（個人払い分）</td>' +
+      '<td class="r">' + (fuelAdjustInv < 0 ? '−¥' + Math.abs(fuelAdjustInv).toLocaleString() : '+¥' + fuelAdjustInv.toLocaleString()) + '</td></tr>';
   }
   if (carryInv < 0) detailRows +=
     '<tr class="adj">' +

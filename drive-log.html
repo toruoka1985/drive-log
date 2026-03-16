@@ -3703,16 +3703,20 @@ async function exportCSV() {
   }
   if (records.length === 0 && fuelRecords.length === 0) { toast('データがありません'); return; }
 
-  // ── 走行記録シート ──
+  // ── 走行記録シート（アクティブ車両のみ） ──
+  const activeV = getActiveVehicle();
+  const csvDriveRecs = records.filter(r => (r.vehicleId || 'default') === (activeV?.id || 'default'));
+  const csvFuelRecs  = fuelRecords.filter(f => (f.vehicleId || 'default') === (activeV?.id || 'default'));
+
   const driveHeader = '種別,日付,目的,費用区分,開始オドメーター,終了オドメーター,走行距離(km),金額(円)';
-  const driveRows = [...records].sort((a,b) => a.date.localeCompare(b.date)).map(r =>
+  const driveRows = [...csvDriveRecs].sort((a,b) => a.date.localeCompare(b.date)).map(r =>
     `走行,${r.date},${r.purpose},${r.category},${r.odoStart},${r.odoEnd},${r.km},${r.cost}`
   );
 
   // ── 給油記録シート ──
-  const fuelHeader = '種別,日付,給油名義,合計金額(円)';
-  const fuelRows = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date)).map(f =>
-    `給油,${f.date},${f.category || ''},${f.amount}`
+  const fuelHeader = '種別,日付,給油名義,タイミング,合計金額(円)';
+  const fuelRows = [...csvFuelRecs].sort((a,b) => a.date.localeCompare(b.date)).map(f =>
+    `給油,${f.date},${f.category || ''},${f.timing === 'before' ? '走行前' : '走行後'},${f.amount}`
   );
 
   // ── 統合（走行 → 空行 → 給油） ──
@@ -4053,7 +4057,29 @@ async function exportInvoice() {
     '      <tr style="border-top:2px solid #222;font-weight:700;"><td style="padding:6px 8px;">合計</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">' + totalKmAll.toFixed(1) + ' km</td><td style="text-align:right;padding:6px 8px;">100%</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">¥' + (corpCost+selfCost+privCost).toLocaleString() + '</td></tr>\n' +
     '    </tbody></table>\n' +
     '  </div>\n' +
+    '</div>\n' +
+  (monthFuelsInv.length > 0 ? (
+    '<div class="note-section" style="margin-top:0;">\n' +
+    '  <div class="note-block" style="width:100%">\n' +
+    '    <div class="note-label">給油記録（参考） — Fuel Records</div>\n' +
+    '    <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;">\n' +
+    '    <thead><tr style="border-bottom:1px solid #ccc;">\n' +
+    '      <th style="text-align:left;padding:4px 8px;color:#888;">日付</th>\n' +
+    '      <th style="text-align:left;padding:4px 8px;color:#888;">名義</th>\n' +
+    '      <th style="text-align:left;padding:4px 8px;color:#888;">タイミング</th>\n' +
+    '      <th style="text-align:right;padding:4px 8px;color:#888;">金額</th>\n' +
+    '    </tr></thead>\n' +
+    '    <tbody>\n' +
+    monthFuelsInv.map(f => {
+      const fd = new Date(f.date + 'T00:00:00');
+      const fdate = (fd.getMonth()+1) + '/' + String(fd.getDate()).padStart(2,'0') + '(' + ['日','月','火','水','木','金','土'][fd.getDay()] + ')';
+      const ftiming = f.timing === 'before' ? '走行前' : '走行後';
+      return '      <tr><td style="padding:6px 8px;">' + fdate + '</td><td style="padding:6px 8px;">' + escHtml(f.category || '') + '</td><td style="padding:6px 8px;font-size:11px;color:#888;">' + ftiming + '</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">¥' + f.amount.toLocaleString() + '</td></tr>\n';
+    }).join('') +
+    '    </tbody></table>\n' +
+    '  </div>\n' +
     '</div>\n'
+  ) : '')
   ) : '';
 
   const html = '<!DOCTYPE html>\n' +

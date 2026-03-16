@@ -4684,22 +4684,40 @@ fuelTableSection +
         updateInvoiceBtn();
 
         const doShare = async () => {
-          try {
-            if (navigator.share && navigator.canShare({ files: [file] })) {
-              await navigator.share({ files: [file], title: `${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'} ${y}年${m}月` });
-            } else {
-              const a = document.createElement('a');
-              a.href = imgUrl;
-              a.download = `${y}${String(m).padStart(2,'0')}_${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'}.png`;
-              a.click();
+          const title = `${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'} ${y}年${m}月`;
+          const fname = `${y}${String(m).padStart(2,'0')}_${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'}.png`;
+          // ① ファイル共有（iOS15+/Android Chrome）
+          if (navigator.share) {
+            try {
+              // canShareが使えるなら確認、使えなければそのままtry
+              const canTry = !navigator.canShare || navigator.canShare({ files: [file] });
+              if (canTry) {
+                await navigator.share({ files: [file], title });
+                setInvoiceIssued(y, m);
+                updateInvoiceBtn();
+                closePreview();
+                toast((isInvoice ? '請求書' : '計算書') + 'を共有しました ✓');
+                return;
+              }
+            } catch(e) {
+              if (e.name === 'AbortError') return; // ユーザーがキャンセル
+              // ファイル共有失敗 → フォールバックへ
             }
-            setInvoiceIssued(y, m);
-            updateInvoiceBtn();
-            closePreview();
-            toast((isInvoice ? '請求書' : '計算書') + 'を共有しました ✓');
-          } catch(e) {
-            if (e.name !== 'AbortError') toast('共有に失敗しました');
           }
+          // ② 画像を新しいタブで開く（iOS Safariで長押し保存・共有が可能）
+          const newTab = window.open(imgUrl, '_blank');
+          if (newTab) {
+            toast('画像を開きました。長押しで保存・共有できます');
+          } else {
+            // ③ ダウンロード（デスクトップ・Android）
+            const a = document.createElement('a');
+            a.href = imgUrl;
+            a.download = fname;
+            a.click();
+            toast((isInvoice ? '請求書' : '計算書') + 'をダウンロードしました ✓');
+          }
+          setInvoiceIssued(y, m);
+          updateInvoiceBtn();
         };
         document.getElementById('preview-reshare-btn').onclick = doShare;
       }, 'image/png');

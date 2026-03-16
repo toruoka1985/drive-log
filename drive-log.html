@@ -4293,22 +4293,12 @@ async function exportInvoice() {
     '<div class="note-section" style="margin-top:0;">\n' +
     '  <div class="note-block" style="width:100%">\n' +
     '    <div class="note-label">給油記録（参考） — Fuel Records</div>\n' +
-    '    <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;table-layout:fixed;">\n' +
-    '    <colgroup>\n' +
-    '      <col style="width:18%">\n' +
-    '      <col style="width:18%">\n' +
-    '      <col style="width:18%">\n' +
-    '      <col style="width:15%">\n' +
-    '      <col style="width:16%">\n' +
-    '      <col style="width:15%">\n' +
-    '    </colgroup>\n' +
+    '    <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;">\n' +
     '    <thead><tr style="border-bottom:1px solid #ccc;">\n' +
     '      <th style="text-align:left;padding:4px 6px;color:#888;white-space:nowrap;">日付</th>\n' +
     '      <th style="text-align:left;padding:4px 6px;color:#888;white-space:nowrap;">支払名義</th>\n' +
     '      <th style="text-align:right;padding:4px 6px;color:#888;white-space:nowrap;">金額</th>\n' +
-    '      <th style="text-align:right;padding:4px 6px;color:#888;white-space:nowrap;font-size:10px;">法人</th>\n' +
-    '      <th style="text-align:right;padding:4px 6px;color:#888;white-space:nowrap;font-size:10px;">個人事業</th>\n' +
-    '      <th style="text-align:right;padding:4px 6px;color:#888;white-space:nowrap;font-size:10px;">私用</th>\n' +
+    '      <th style="text-align:right;padding:4px 6px;color:#888;white-space:nowrap;font-size:10px;">（法人　個人事業　私用）</th>\n' +
     '    </tr></thead>\n' +
     '    <tbody>\n' +
     monthFuelsInv.map(f => {
@@ -4341,13 +4331,12 @@ async function exportInvoice() {
         });
       }
       const fmt = v => v > 0 ? '¥' + v.toLocaleString() : '<span style="color:#bbb;">—</span>';
+      const breakdown = '（' + fmt(catAmounts['法人']) + '　' + fmt(catAmounts['個人事業']) + '　' + fmt(catAmounts['私用']) + '）';
       return '      <tr>' +
         '<td style="padding:5px 6px;white-space:nowrap;">' + fdate + '</td>' +
         '<td style="padding:5px 6px;white-space:nowrap;">' + escHtml(f.category || '') + '</td>' +
         '<td style="text-align:right;padding:5px 6px;font-family:monospace;white-space:nowrap;">¥' + f.amount.toLocaleString() + '</td>' +
-        '<td style="text-align:right;padding:5px 6px;font-family:monospace;font-size:10px;white-space:nowrap;color:#555;">' + fmt(catAmounts['法人']) + '</td>' +
-        '<td style="text-align:right;padding:5px 6px;font-family:monospace;font-size:10px;white-space:nowrap;color:#555;">' + fmt(catAmounts['個人事業']) + '</td>' +
-        '<td style="text-align:right;padding:5px 6px;font-family:monospace;font-size:10px;white-space:nowrap;color:#555;">' + fmt(catAmounts['私用']) + '</td>' +
+        '<td style="text-align:right;padding:5px 6px;font-family:monospace;font-size:10px;color:#777;white-space:nowrap;">' + breakdown + '</td>' +
         '</tr>\n';
     }).join('') +
     '    </tbody></table>\n' +
@@ -4785,7 +4774,9 @@ function handlePreviewShare(btn) {
   const title  = btn.dataset.title;
   const file   = window._previewFile;
 
-  if (!imgUrl) {
+  // imgUrlが未設定の場合はpreview-imgのsrcから取得（フォールバック）
+  const resolvedUrl = imgUrl || document.getElementById('preview-img')?.src;
+  if (!resolvedUrl || resolvedUrl === window.location.href) {
     toast('画像の準備ができていません');
     return;
   }
@@ -4796,11 +4787,10 @@ function handlePreviewShare(btn) {
       .then(() => toast('共有しました ✓'))
       .catch(e => {
         if (e.name !== 'AbortError') {
-          // ファイル共有に失敗した場合はURLで共有
           if (navigator.share) {
-            navigator.share({ url: imgUrl, title }).catch(() => _fallbackDownload(imgUrl, fname));
+            navigator.share({ url: resolvedUrl, title }).catch(() => _fallbackDownload(resolvedUrl, fname));
           } else {
-            _fallbackDownload(imgUrl, fname);
+            _fallbackDownload(resolvedUrl, fname);
           }
         }
       });
@@ -4809,14 +4799,14 @@ function handlePreviewShare(btn) {
 
   // navigator.share があるがcanShareが効かない場合（一部Android等）
   if (navigator.share) {
-    navigator.share({ url: imgUrl, title })
+    navigator.share({ url: resolvedUrl, title })
       .then(() => toast('共有しました ✓'))
-      .catch(e => { if (e.name !== 'AbortError') _fallbackDownload(imgUrl, fname); });
+      .catch(e => { if (e.name !== 'AbortError') _fallbackDownload(resolvedUrl, fname); });
     return;
   }
 
   // フォールバック: ダウンロード
-  _fallbackDownload(imgUrl, fname);
+  _fallbackDownload(resolvedUrl, fname);
 }
 
 function _fallbackDownload(imgUrl, fname) {

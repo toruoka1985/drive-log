@@ -1711,27 +1711,37 @@
         </button>
       </div>
 
+      <!-- formタグで囲むことでiOSパスワードアプリが認識できるようにする -->
+      <form id="auth-form-inner" onsubmit="handleEmailAuth();return false;" autocomplete="on">
+
       <!-- メールアドレス -->
       <div class="field">
         <label>メールアドレス</label>
-        <input type="email" id="auth-email" inputmode="email" placeholder="example@mail.com" autocomplete="email">
+        <input type="email" id="auth-email" name="email"
+          inputmode="email" placeholder="example@mail.com"
+          autocomplete="email" autocapitalize="none" autocorrect="off">
       </div>
 
       <!-- メールアドレス確認（新規登録のみ表示） -->
       <div class="field" id="auth-email-confirm-wrap" style="display:none;">
         <label>メールアドレス（確認）</label>
-        <input type="email" id="auth-email-confirm" inputmode="email" placeholder="もう一度入力してください" autocomplete="off">
+        <input type="email" id="auth-email-confirm" name="email-confirm"
+          inputmode="email" placeholder="もう一度入力してください"
+          autocomplete="off" autocapitalize="none" autocorrect="off">
       </div>
 
       <!-- パスワード -->
       <div class="field">
         <label>パスワード</label>
-        <input type="password" id="auth-password" placeholder="6文字以上" autocomplete="current-password">
+        <input type="password" id="auth-password" name="password"
+          placeholder="6文字以上" autocomplete="current-password">
       </div>
 
       <div id="auth-error" style="font-size:12px;color:#e57373;margin-bottom:10px;min-height:16px;"></div>
 
-      <button id="auth-submit-btn" class="submit-btn" onclick="handleEmailAuth()">ログイン</button>
+      <button type="submit" id="auth-submit-btn" class="submit-btn">ログイン</button>
+
+      </form>
 
       <!-- パスワードリセット（ログインモードのみ表示） -->
       <div id="auth-reset-wrap">
@@ -2897,6 +2907,7 @@ function switchAuthMode(mode) {
     tabs.style.display = 'flex';
   }
 
+  const pwInput = document.getElementById('auth-password');
   if (mode === 'login') {
     if (tabLogin)    { tabLogin.style.background = 'var(--accent)'; tabLogin.style.color = '#0f0f0f'; }
     if (tabRegister) { tabRegister.style.background = 'var(--card)'; tabRegister.style.color = 'var(--text2)'; }
@@ -2904,12 +2915,16 @@ function switchAuthMode(mode) {
     if (confirmInput) confirmInput.value = '';
     if (submitBtn)   submitBtn.textContent = 'ログイン';
     if (resetWrap)   resetWrap.style.display = 'block';
+    // パスワードマネージャー：ログイン時は current-password
+    if (pwInput) pwInput.setAttribute('autocomplete', 'current-password');
   } else {
     if (tabRegister) { tabRegister.style.background = 'var(--accent)'; tabRegister.style.color = '#0f0f0f'; }
     if (tabLogin)    { tabLogin.style.background = 'var(--card)'; tabLogin.style.color = 'var(--text2)'; }
     if (confirmWrap) confirmWrap.style.display = 'block';
     if (submitBtn)   submitBtn.textContent = '新規登録';
     if (resetWrap)   resetWrap.style.display = 'none';
+    // パスワードマネージャー：新規登録時は new-password（強いパスワードを提案させる）
+    if (pwInput) pwInput.setAttribute('autocomplete', 'new-password');
   }
 }
 

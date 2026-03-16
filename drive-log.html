@@ -1374,7 +1374,7 @@
     <div id="vehicle-list"></div>
     <button class="vehicle-add-btn" onclick="showVehicleNameInput()">＋ 車両を追加</button>
     <div id="vehicle-name-form" style="display:none;margin-top:8px;">
-      <input class="vehicle-name-input" id="vehicle-name-input" type="text" placeholder="例：ロードスター" maxlength="20">
+      <input class="vehicle-name-input" id="vehicle-name-input" type="text" placeholder="例：プロボックス" maxlength="20">
       <div style="margin-top:10px;">
         <div style="font-size:11px;color:var(--text3);margin-bottom:6px;letter-spacing:.04em;">車両名義</div>
         <div style="display:flex;gap:6px;">
@@ -1600,20 +1600,14 @@
     </div>
     <div class="rate-preview" id="rate-preview"></div>
 
-    <div class="settings-section-label" style="margin-top:20px" >会社名・法人名</div>
+    <div class="settings-section-label" style="margin-top:20px">請求書の名称</div>
     <div class="field">
       <label>会社名・法人名</label>
       <input type="text" id="s-company" placeholder="例：株式会社〇〇">
     </div>
-
-    <div class="settings-section-label" style="margin-top:20px" >氏名・個人名</div>
     <div class="field">
       <label>氏名・個人名</label>
       <input type="text" id="s-name" placeholder="例：山田 太郎">
-    </div>
-    <div class="field">
-      <label>住所</label>
-      <input type="text" id="s-address" placeholder="例：東京都渋谷区〇〇1-2-3">
     </div>
 
 
@@ -4099,7 +4093,6 @@ function loadSettings() {
   // 共通設定
   document.getElementById('s-company').value   = settings.company   || '';
   document.getElementById('s-name').value      = settings.name      || '';
-  document.getElementById('s-address').value   = settings.address   || '';
 
   updateRatePreview();
 }
@@ -4133,7 +4126,6 @@ function saveSettings() {
     ...settings,
     company:    document.getElementById('s-company').value.trim(),
     name:       document.getElementById('s-name').value.trim(),
-    address:    document.getElementById('s-address').value.trim(),
 
   };
   localStorage.setItem('driveSettings', JSON.stringify(settings));
@@ -4189,15 +4181,11 @@ async function exportInvoice() {
 
   const company = settings.company || '（会社名未設定）';
   const name    = settings.name    || '（氏名未設定）';
-  const address = settings.address || '';
-  const addressHtml = address ? '<div class="party-address">' + escHtml(address) + '</div>' : '';
-  
   // 名義に応じて発行者・宛先を決定
   // 法人名義：発行者=法人(company)、宛先=個人(name)
   // 個人名義：発行者=個人(name)、宛先=法人(company)
-  const billToName    = isPersonalVehicle ? company : (name + ' 様');
-  const billToAddress = isPersonalVehicle ? '' : addressHtml;
-  const issuedByName  = isPersonalVehicle ? name : company;
+  const billToName   = isPersonalVehicle ? company : (name + ' 様');
+  const issuedByName = isPersonalVehicle ? name : company;
   const invoiceNo = '' + y + String(m).padStart(2,'0');
   const t = new Date();
   const issueDate = t.getFullYear() + '年' + (t.getMonth()+1) + '月' + t.getDate() + '日';
@@ -4564,7 +4552,6 @@ async function exportInvoice() {
 '  <div class="party">\n' +
 '    <div class="party-label">Bill To</div>\n' +
 '    <div class="party-name">' + escHtml(billToName) + '</div>\n' +
-'    ' + billToAddress + '\n' +
 '  </div>\n' +
 '  <div class="party">\n' +
 '    <div class="party-label">Issued By</div>\n' +

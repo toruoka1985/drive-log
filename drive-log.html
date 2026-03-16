@@ -198,6 +198,9 @@
   .seg-btn[data-v="個人事業"].active { background: rgba(245,162,58,.12); border-color: var(--self); color: var(--self); }
   .seg-btn[data-v="私用"].active  { background: rgba(136,136,136,.12); border-color: var(--priv); color: var(--priv); }
   .seg-btn[data-v="before"].active, .seg-btn[data-v="after"].active { background: rgba(200,245,58,.12); border-color: var(--accent); color: var(--accent); }
+  /* 車両名義ボタン */
+  .vehicle-ownership-btn { transition: all .15s; }
+  .vehicle-ownership-btn.active { background: rgba(200,245,58,.15); border-color: var(--accent); color: var(--accent); font-weight: 700; }
 
   /* distance preview */
   .dist-preview {
@@ -1597,15 +1600,15 @@
     </div>
     <div class="rate-preview" id="rate-preview"></div>
 
-    <div class="settings-section-label" style="margin-top:20px" id="invoice-issuer-label">請求書の発行者</div>
+    <div class="settings-section-label" style="margin-top:20px" >会社名・法人名</div>
     <div class="field">
-      <label>会社名</label>
+      <label>会社名・法人名</label>
       <input type="text" id="s-company" placeholder="例：株式会社〇〇">
     </div>
 
-    <div class="settings-section-label" style="margin-top:20px" id="invoice-billto-label">請求書の宛名</div>
+    <div class="settings-section-label" style="margin-top:20px" >氏名・個人名</div>
     <div class="field">
-      <label>氏名</label>
+      <label>氏名・個人名</label>
       <input type="text" id="s-name" placeholder="例：山田 太郎">
     </div>
     <div class="field">
@@ -1613,19 +1616,7 @@
       <input type="text" id="s-address" placeholder="例：東京都渋谷区〇〇1-2-3">
     </div>
 
-    <div class="settings-section-label" style="margin-top:20px">振込先口座</div>
-    <div class="field">
-      <label>銀行名・支店名</label>
-      <input type="text" id="s-bank-name" placeholder="例：〇〇銀行 〇〇支店">
-    </div>
-    <div class="field">
-      <label>口座種別・番号</label>
-      <input type="text" id="s-bank-type" placeholder="例：普通 1234567">
-    </div>
-    <div class="field">
-      <label>口座名義</label>
-      <input type="text" id="s-bank-holder" placeholder="例：カブシキガイシャ〇〇">
-    </div>
+
 
     <button class="settings-save-btn" onclick="saveSettings()">設定を保存</button>
 
@@ -4109,28 +4100,11 @@ function loadSettings() {
   document.getElementById('s-company').value   = settings.company   || '';
   document.getElementById('s-name').value      = settings.name      || '';
   document.getElementById('s-address').value   = settings.address   || '';
-  document.getElementById('s-bank-name').value   = settings.bankName   || '';
-  document.getElementById('s-bank-type').value   = settings.bankType   || '';
-  document.getElementById('s-bank-holder').value = settings.bankHolder || '';
+
   updateRatePreview();
-  updateInvoiceLabels();
 }
 
-// 車両名義に応じて設定ページの請求書ラベルを更新
-function updateInvoiceLabels() {
-  const v = getActiveVehicle();
-  const ownership = v?.ownership || '法人';
-  const issuerLabel = document.getElementById('invoice-issuer-label');
-  const billtoLabel = document.getElementById('invoice-billto-label');
-  if (!issuerLabel || !billtoLabel) return;
-  if (ownership === '法人') {
-    issuerLabel.textContent = '請求書の発行者（法人）';
-    billtoLabel.textContent = '請求書の宛名（個人）';
-  } else {
-    issuerLabel.textContent = '請求書の発行者（個人）';
-    billtoLabel.textContent = '請求書の宛名（法人）';
-  }
-}
+
 
 function updateRatePreview() {
   const rate = parseFloat(document.getElementById('s-rate').value) || 0;
@@ -4160,9 +4134,7 @@ function saveSettings() {
     company:    document.getElementById('s-company').value.trim(),
     name:       document.getElementById('s-name').value.trim(),
     address:    document.getElementById('s-address').value.trim(),
-    bankName:   document.getElementById('s-bank-name').value.trim(),
-    bankType:   document.getElementById('s-bank-type').value.trim(),
-    bankHolder: document.getElementById('s-bank-holder').value.trim(),
+
   };
   localStorage.setItem('driveSettings', JSON.stringify(settings));
   syncToFirestore();
@@ -4219,22 +4191,13 @@ async function exportInvoice() {
   const name    = settings.name    || '（氏名未設定）';
   const address = settings.address || '';
   const addressHtml = address ? '<div class="party-address">' + escHtml(address) + '</div>' : '';
-  const bankName   = settings.bankName   || '';
-  const bankType   = settings.bankType   || '';
-  const bankHolder = settings.bankHolder || '';
-
+  
   // 名義に応じて発行者・宛先を決定
   // 法人名義：発行者=法人(company)、宛先=個人(name)
   // 個人名義：発行者=個人(name)、宛先=法人(company)
-  const billToName    = isPersonalVehicle ? (company) : (name + ' 様');
+  const billToName    = isPersonalVehicle ? company : (name + ' 様');
   const billToAddress = isPersonalVehicle ? '' : addressHtml;
-  const issuedByName  = isPersonalVehicle ? (name) : (company);
-  const bankHtml = (bankName || bankType || bankHolder)
-    ? '  <strong>振込先口座</strong><br>\n' +
-      (bankName   ? '  ' + escHtml(bankName)   + '<br>\n' : '') +
-      (bankType   ? '  ' + escHtml(bankType)   + '<br>\n' : '') +
-      (bankHolder ? '  名義：' + escHtml(bankHolder) : '')
-    : '（口座情報は設定画面で入力してください）';
+  const issuedByName  = isPersonalVehicle ? name : company;
   const invoiceNo = '' + y + String(m).padStart(2,'0');
   const t = new Date();
   const issueDate = t.getFullYear() + '年' + (t.getMonth()+1) + '月' + t.getDate() + '日';
@@ -4650,10 +4613,7 @@ async function exportInvoice() {
 '      本請求に対する領収書は発行いたしません。\n' +
 '    </p>\n' +
 '  </div>\n' +
-'  <div class="note-block">\n' +
-'    <div class="note-label">振込先 — Bank</div>\n' +
-'    <div class="bank-info">' + bankHtml + '</div>\n' +
-'  </div>\n' +
+
 '</div>\n' +
 
 '<div class="footer-line">Generated by 社有車走行記録 &nbsp;·&nbsp; ' + issueDate + ' &nbsp;·&nbsp; INV-' + invoiceNo + '</div>\n' +

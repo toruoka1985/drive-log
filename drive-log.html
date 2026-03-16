@@ -630,20 +630,7 @@
   .export-btn:active { opacity: .7; transform: scale(.98); }
   .export-btn svg { width: 22px; height: 22px; color: var(--accent); flex-shrink: 0; }
   .export-btn .export-sub { color: var(--text3); font-size: 10px; font-family: 'DM Mono', monospace; letter-spacing: .1em; margin-left: 4px; }
-  .export-btn.issued {
-    background: rgba(200,245,58,.08);
-    border-color: var(--accent);
-  }
-  .export-btn.issued svg { color: var(--accent); }
-  .export-btn.issued #invoice-btn-label { color: var(--accent); }
-  .export-btn.issued #invoice-btn-sub { color: var(--accent); opacity: .6; }
-  .export-btn.needs-reissue {
-    background: rgba(245,100,58,.08);
-    border-color: #f5643a;
-  }
-  .export-btn.needs-reissue svg { color: #f5643a; }
-  .export-btn.needs-reissue #invoice-btn-label { color: #f5643a; }
-  .export-btn.needs-reissue #invoice-btn-sub { color: #f5643a; opacity: .6; }
+
 
   .detail-title {
     font-family: 'DM Mono', monospace;
@@ -2665,7 +2652,6 @@ async function saveRecord() {
   save();
   const ry = new Date(record.date).getFullYear();
   const rm = new Date(record.date).getMonth() + 1;
-  markDirtyIfChanged(ry, rm);
   toast('記録しました ✓');
 
   document.getElementById('f-purpose').value = '';
@@ -3361,7 +3347,6 @@ function saveEdit() {
   save();
   const ey = new Date(orig.date).getFullYear();
   const em = new Date(orig.date).getMonth() + 1;
-  markDirtyIfChanged(ey, em);
   closeEditModal();
   renderHistory();
   renderSummary();
@@ -3386,7 +3371,6 @@ function confirmDelete() {
   if (target) {
     const dy = new Date(target.date).getFullYear();
     const dm = new Date(target.date).getMonth() + 1;
-    markDirtyIfChanged(dy, dm);
   }
   closeModal();
   renderHistory();
@@ -3514,9 +3498,7 @@ function saveFuel() {
       const timing = getFuelTiming();
       fuelRecords[idx] = { id: editingFuelId, date, amount, category: cat, timing };
       save();
-      markDirtyIfChanged(oldY, oldM);
       const newY = parseInt(date.slice(0,4)), newM = parseInt(date.slice(5,7));
-      if (newY !== oldY || newM !== oldM) markDirtyIfChanged(newY, newM);
       const alloc = calcFuelAlloc(fuelRecords[idx]);
       const sign = fuelSign(cat) > 0 ? '+' : '-';
       toast('給油を更新しました ✓');
@@ -3528,7 +3510,6 @@ function saveFuel() {
     fuelRecords.push(fuel);
     save();
     const fy = parseInt(date.slice(0,4)), fm = parseInt(date.slice(5,7));
-    markDirtyIfChanged(fy, fm);
     const alloc = calcFuelAlloc(fuel);
     const sign = fuelSign(cat) > 0 ? '+' : '-';
     toast(alloc.totalKm === 0
@@ -3549,7 +3530,6 @@ function deleteFuel(id) {
   save();
   if (fuel) {
     const fy = parseInt(fuel.date.slice(0,4)), fm = parseInt(fuel.date.slice(5,7));
-    markDirtyIfChanged(fy, fm);
   }
   renderHistory();
   renderSummary();
@@ -3670,22 +3650,7 @@ function setInvoiceIssued(y, m) {
   const hash = getMonthHash(y, m);
   localStorage.setItem(getInvoiceKey(y, m), JSON.stringify({ issued: true, hash }));
 }
-function getMonthHash(y, m) {
-  const key = `${y}-${String(m).padStart(2,'0')}`;
-  const monthRecs  = records.filter(r => r.date.startsWith(key));
-  const monthFuels = fuelRecords.filter(f => f.date.startsWith(key));
-  const recHash  = monthRecs.map(r => `${r.id}-${r.km}-${r.cost}`).join('|');
-  const fuelHash = monthFuels.map(f => `${f.id}-${f.amount}-${f.category||''}`).join('|');
-  return recHash + '§' + fuelHash;
-}
-function markDirtyIfChanged(y, m) {
-  const status = getInvoiceStatus(y, m);
-  if (!status || !status.issued) return;
-  const currentHash = getMonthHash(y, m);
-  if (currentHash !== status.hash) {
-    localStorage.setItem(getInvoiceKey(y, m), JSON.stringify({ issued: true, dirty: true, hash: status.hash }));
-  }
-}
+
 // ── 書類種別の判定 ──
 // 「法人←→個人のお金の動きがあるか」で判断
 // 法人名義車：個人事業 or 私用の記録があれば → 請求書
@@ -3713,28 +3678,13 @@ function getDocumentType(y, m) {
 function updateInvoiceBtn() {
   const y = summaryMonth.getFullYear();
   const m = summaryMonth.getMonth() + 1;
-  const status = getInvoiceStatus(y, m);
-  const btn = document.getElementById('invoice-btn');
+  const btn   = document.getElementById('invoice-btn');
   const label = document.getElementById('invoice-btn-label');
-  const sub = document.getElementById('invoice-btn-sub');
+  const sub   = document.getElementById('invoice-btn-sub');
   if (!btn) return;
-
-  const docType = getDocumentType(y, m);
-  const isInvoice = docType === 'invoice';
-
-  btn.classList.remove('issued', 'needs-reissue');
-  if (!status || !status.issued) {
-    label.textContent = isInvoice ? '請求書を発行' : '計算書を発行';
-    sub.textContent   = isInvoice ? 'EXPORT INVOICE' : 'EXPORT REPORT';
-  } else if (status.dirty) {
-    btn.classList.add('needs-reissue');
-    label.textContent = '再発行が必要です';
-    sub.textContent = 'NEEDS REISSUE';
-  } else {
-    btn.classList.add('issued');
-    label.textContent = '発行済み（再発行）';
-    sub.textContent = 'ISSUED ✓';
-  }
+  const isInvoice = getDocumentType(y, m) === 'invoice';
+  label.textContent = isInvoice ? '請求書を発行' : '計算書を発行';
+  sub.textContent   = isInvoice ? 'EXPORT INVOICE' : 'EXPORT REPORT';
 }
 let settings = JSON.parse(localStorage.getItem('driveSettings') || '{}');
 

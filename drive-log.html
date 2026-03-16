@@ -1666,18 +1666,7 @@
           ログアウト
         </button>
       </div>
-      <!-- データ消失時のヘルプ -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">
-        <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">💡 データが消えてしまったとき</div>
-        <div style="font-size:12px;color:var(--text3);line-height:1.8;">
-          PROプランに加入すると、過去にこのアプリで記録したデータを復元できる場合があります。<br>
-          <span style="color:var(--accent);font-weight:600;">アカウント情報はそのまま保持されています。</span>
-        </div>
-        <button onclick="openUpgradeModal('backup')"
-          style="margin-top:10px;background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">
-          PROプランの詳細を見る →
-        </button>
-      </div>
+
     </div>
 
     <!-- ③ 未ログイン（新規登録のみ表示・有料誘導） -->
@@ -2814,8 +2803,9 @@ function save() {
 }
 
 // ── FIREBASE AUTH ──
-let currentUser = null;
-let isSyncing   = false;
+let currentUser  = null;
+let isSyncing    = false;
+let isRestoring  = false; // 復元中フラグ（空データでの上書きを防ぐ）
 function setSyncStatus(msg, color) {
   const el = document.getElementById('sync-status');
   if (el) { el.textContent = msg; el.style.color = color || 'var(--text3)'; }
@@ -3041,6 +3031,7 @@ function initFirebase() {
 }
 
 async function syncToFirestore() {
+  if (isRestoring) return; // 復元完了前の同期をブロック
   if (!currentUser || !navigator.onLine) {
     if (currentUser && !navigator.onLine) {
       localStorage.setItem('pendingSync', '1');
@@ -3102,6 +3093,7 @@ async function syncToFirestore() {
 
 async function restoreFromFirestore(uid) {
   const { db, doc, collection, getDocs } = window._fb;
+  isRestoring = true;
   try {
     // まずplanだけ取得してプラン判定する
     const setSnap = await getDocs(collection(db, 'users', uid, 'meta'));
@@ -3166,6 +3158,8 @@ async function restoreFromFirestore(uid) {
   } catch(e) {
     console.error('restore error', e);
     setSyncStatus('同期失敗', '#e57373');
+  } finally {
+    isRestoring = false;
   }
 }
 

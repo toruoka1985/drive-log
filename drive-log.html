@@ -3428,6 +3428,7 @@ function renderSummary() {
 
   // 給油ごとに振込額への影響を計算
   let fuelAdjust = 0;
+  let fuelAdjustSub = 0; // 立替差し引き分のみ（表示用）
   monthFuels.forEach(f => {
     const sorted = [...activeFuelRecs].sort((a,b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
@@ -3448,6 +3449,7 @@ function renderSummary() {
             fuelAdjust += Math.round(f.amount * (prev.catKm['法人'] || 0) / prev.totalKm);
           } else {
             fuelAdjust -= f.amount;
+            fuelAdjustSub -= f.amount;
           }
         } else if (fc === '法人') {
           // 法人払い → 個人分上乗せ
@@ -3461,7 +3463,7 @@ function renderSummary() {
         const defCat = getVehicleDefaultCat();
         if (_isPersonalVehicleSummary) {
           if (fc !== '法人') { fuelAdjust += f.amount; }
-          else { fuelAdjust -= f.amount; }
+          else { fuelAdjust -= f.amount; fuelAdjustSub -= f.amount; }
         } else if (fc === '法人' && defCat !== '法人') {
           fuelAdjust += f.amount;
         } else if (fc !== '法人' && defCat === '法人') {
@@ -3477,11 +3479,13 @@ function renderSummary() {
       } else {
         // 法人払い → 全額差し引き（法人が立て替えたので）
         fuelAdjust -= f.amount;
+        fuelAdjustSub -= f.amount;
       }
     } else {
       // 法人名義車：個人払い → 全額差し引き、法人払いは影響なし
       if (fc !== '法人') {
         fuelAdjust -= f.amount;
+        fuelAdjustSub -= f.amount;
       }
     }
   });
@@ -3491,9 +3495,9 @@ function renderSummary() {
   // 法人名義車：走行（個人）+ 個人消費ガソリン + fuelAdjust（個人払い全額差し引き）
   // fuelShareは既に各カードのsubtotalに含まれているのでgrandTotalには走行費+ガソリン消費+差し引きを直接計算
   const _fuelShareForTotal = _isPersonalVehicleSummary
-    ? Object.values(fuelShare).filter((v,i) => ['法人'].includes(Object.keys(fuelShare)[i])).reduce((s,v)=>s+v,0)
+    ? (fuelShare['法人'] || 0)
     : (fuelShare['個人事業']||0) + (fuelShare['私用']||0);
-  const grandTotal = personalDrive + _fuelShareForTotal + fuelAdjust + carry;
+  const grandTotal = personalDrive + _fuelShareForTotal + fuelAdjustSub + carry;
 
   // 持ち越しカード
   const carryHtml = carry < 0 ? `
@@ -3511,7 +3515,7 @@ function renderSummary() {
   // 使用料 = 走行費 + ガソリン消費分（_fuelShareForTotal）
   const _usageTotal = personalDrive + _fuelShareForTotal;
   let totalBreakdown = `使用料（${_isPersonalVehicleSummary ? '法人' : '個人'}）¥${_usageTotal.toLocaleString()}`;
-  if (fuelAdjust < 0) totalBreakdown += `　ガソリン代精算：-¥${Math.abs(fuelAdjust).toLocaleString()}`;
+  if (fuelAdjustSub < 0) totalBreakdown += `　ガソリン代精算：-¥${Math.abs(fuelAdjustSub).toLocaleString()}`;
   if (carry < 0)      totalBreakdown += `　前月繰越：-¥${Math.abs(carry).toLocaleString()}`;
 
   const grandLabel = grandTotal >= 0 ? `¥${grandTotal.toLocaleString()}` : `-¥${Math.abs(grandTotal).toLocaleString()}`;

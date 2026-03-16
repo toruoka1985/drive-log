@@ -3478,19 +3478,22 @@ function renderSummary() {
         // 法人払い → 全額差し引き（法人が立て替えたので）
         fuelAdjust -= f.amount;
       }
-    } else if (fc === '法人') {
-      // 法人名義車・法人払い → 個人事業＋私用の按分を上乗せ
-      const personalKm = inRange.filter(r=>r.category==='個人事業'||r.category==='私用').reduce((s,r)=>s+r.km,0);
-      fuelAdjust += Math.round(f.amount * personalKm / totalKm);
     } else {
-      // 法人名義車・個人払い → 法人の按分を差し引き
-      const hojinKm = inRange.filter(r=>r.category==='法人').reduce((s,r)=>s+r.km,0);
-      fuelAdjust -= Math.round(f.amount * hojinKm / totalKm);
+      // 法人名義車：個人払い → 全額差し引き、法人払いは影響なし
+      if (fc !== '法人') {
+        fuelAdjust -= f.amount;
+      }
     }
   });
 
   const carry = calcCarryover(y, m);
-  const grandTotal = personalDrive + fuelAdjust + carry;
+  // 個人名義車：走行（法人）+ 法人消費ガソリン + fuelAdjust
+  // 法人名義車：走行（個人）+ 個人消費ガソリン + fuelAdjust（個人払い全額差し引き）
+  // fuelShareは既に各カードのsubtotalに含まれているのでgrandTotalには走行費+ガソリン消費+差し引きを直接計算
+  const _fuelShareForTotal = _isPersonalVehicleSummary
+    ? Object.values(fuelShare).filter((v,i) => ['法人'].includes(Object.keys(fuelShare)[i])).reduce((s,v)=>s+v,0)
+    : (fuelShare['個人事業']||0) + (fuelShare['私用']||0);
+  const grandTotal = personalDrive + _fuelShareForTotal + fuelAdjust + carry;
 
   // 持ち越しカード
   const carryHtml = carry < 0 ? `
@@ -3865,23 +3868,18 @@ function calcCarryover(targetY, targetM) {
             } else {
               fuelAdjustM -= f.amount;
             }
-          } else if (fc === '法人') {
-            // 法人払い → 個人分上乗せ
-            const personalKm = (prev.catKm['個人事業']||0) + (prev.catKm['私用']||0);
-            fuelAdjustM += Math.round(f.amount * personalKm / prev.totalKm);
           } else {
-            // 個人払い → 法人分差し引き
-            fuelAdjustM -= Math.round(f.amount * (prev.catKm['法人']||0) / prev.totalKm);
+            // 法人名義車：個人払い全額差し引き、法人払いは影響なし
+            if (fc !== '法人') { fuelAdjustM -= f.amount; }
           }
         } else {
           const defCat = getVehicleDefaultCat();
           if (_isPersonalVehicleCO) {
             if (fc !== '法人') { fuelAdjustM += f.amount; }
             else { fuelAdjustM -= f.amount; }
-          } else if (fc === '法人' && defCat !== '法人') {
-            fuelAdjustM += f.amount;
-          } else if (fc !== '法人' && defCat === '法人') {
-            fuelAdjustM -= f.amount;
+          } else {
+            // 法人名義車：個人払い全額差し引き
+            if (fc !== '法人') { fuelAdjustM -= f.amount; }
           }
         }
       } else if (_isPersonalVehicleCO) {
@@ -3892,15 +3890,33 @@ function calcCarryover(targetY, targetM) {
           // 法人払い → 全額差し引き
           fuelAdjustM -= f.amount;
         }
-      } else if (fc === '法人') {
-        const personalKm = inRange.filter(r=>r.category==='個人事業'||r.category==='私用').reduce((s,r)=>s+r.km,0);
-        fuelAdjustM += Math.round(f.amount * personalKm / totalKm);
       } else {
-        const hojinKm = inRange.filter(r=>r.category==='法人').reduce((s,r)=>s+r.km,0);
-        fuelAdjustM -= Math.round(f.amount * hojinKm / totalKm);
+        // 法人名義車：個人払い全額差し引き
+        if (fc !== '法人') { fuelAdjustM -= f.amount; }
       }
     });
-    const net = driveTotal + fuelAdjustM;
+    // ガソリン消費分を加算（小計に含まれる分）
+    let fuelShareM = 0;
+    mFuels.forEach(f2 => {
+      const sorted2 = [...activeFR].sort((a,b) => a.date.localeCompare(b.date));
+      const idx2 = sorted2.findIndex(r => r.id === f2.id);
+      const prevDate2 = idx2 > 0 ? sorted2[idx2-1].date : null;
+      const incl2 = f2.timing === 'after' || !f2.timing;
+      const inRange2 = activeR.filter(r =>
+        (prevDate2 ? r.date > prevDate2 : true) &&
+        (incl2 ? r.date <= f2.date : r.date < f2.date) &&
+        r.date.startsWith(mk)
+      );
+      const totalKm2 = inRange2.reduce((s,r) => s+r.km, 0);
+      if (totalKm2 > 0) {
+        const targetCats = _isPersonalVehicleCO ? ['法人'] : ['個人事業','私用'];
+        targetCats.forEach(cat => {
+          const catKm2 = inRange2.filter(r=>r.category===cat).reduce((s,r)=>s+r.km,0);
+          fuelShareM += Math.round(f2.amount * catKm2 / totalKm2);
+        });
+      }
+    });
+    const net = driveTotal + fuelShareM + fuelAdjustM;
     if (net < 0) carry += net;
     else carry = Math.min(carry + net, 0);
     cm++; if (cm > 12) { cm = 1; cy++; }
@@ -4237,14 +4253,11 @@ async function exportInvoice() {
             fuelShareInv[cat] = (fuelShareInv[cat] || 0) + Math.round(f.amount * (prev.catKm[cat]||0) / prev.totalKm);
           });
           const fcInv1 = f.category || '私用';
-          const personalKm = (prev.catKm['個人事業']||0) + (prev.catKm['私用']||0);
-          if (fcInv1 === '法人') {
-            // 法人払い → 個人分上乗せ
-            fuelAdjustInv += Math.round(f.amount * personalKm / prev.totalKm);
-          } else {
-            // 個人払い → 法人分差し引き
-            fuelAdjustInv -= Math.round(f.amount * (prev.catKm['法人']||0) / prev.totalKm);
+          if (fcInv1 !== '法人') {
+            // 個人払い → 全額差し引き
+            fuelAdjustInvSub -= f.amount;
           }
+          // 法人払いは何もしない（小計行のガソリン消費分に含まれる）
         }
       } else {
         const defCat = getVehicleDefaultCat();
@@ -4256,8 +4269,7 @@ async function exportInvoice() {
         }
         else if (!isPersonalVehicle) {
           const fcInvDef2 = f.category || '私用';
-          if (fcInvDef2 === '法人') { if (defCat !== '法人') fuelAdjustInv += f.amount; }
-          else { if (defCat === '法人') fuelAdjustInv -= f.amount; }
+          if (fcInvDef2 !== '法人') { fuelAdjustInvSub -= f.amount; }
         }
       }
     } else if (isPersonalVehicle) {
@@ -4279,14 +4291,10 @@ async function exportInvoice() {
         const catKm = inRange.filter(r=>r.category===cat).reduce((s,r)=>s+r.km,0);
         fuelShareInv[cat] += Math.round(f.amount * catKm / totalKm);
       });
-      // 振込額：法人払い→個人事業+私用按分を上乗せ、個人払い→法人按分を差し引き
+      // 個人払い → 全額差し引き、法人払いは何もしない（小計行に含まれる）
       const fc = f.category || '私用';
-      if (fc === '法人') {
-        const personalKm = inRange.filter(r=>r.category==='個人事業'||r.category==='私用').reduce((s,r)=>s+r.km,0);
-        fuelAdjustInv += Math.round(f.amount * personalKm / totalKm);
-      } else {
-        const hojinKm = inRange.filter(r=>r.category==='法人').reduce((s,r)=>s+r.km,0);
-        fuelAdjustInv -= Math.round(f.amount * hojinKm / totalKm);
+      if (fc !== '法人') {
+        fuelAdjustInvSub -= f.amount;
       }
     }
   });
@@ -4296,9 +4304,11 @@ async function exportInvoice() {
   const carryInv   = calcCarryover(y, m);
   // 個人名義車は「走行費 + ガソリン消費分 + 法人払い差し引き」
   // 法人名義車は「走行費 + fuelAdjustInv（個人消費上乗せ - 個人払い法人分差し引き）」
+  // 個人・法人どちらも「走行費 + ガソリン消費分（小計） + 立替差し引き」
+  const _fuelPersonalShare = (fuelSelfShare || 0) + (fuelPrivShare || 0);
   const grandTotalInvoice = isPersonalVehicle
     ? total + fuelCorpShare + fuelAdjustInvSub + carryInv
-    : total + fuelAdjustInv + carryInv;
+    : total + _fuelPersonalShare + fuelAdjustInvSub + carryInv;
 
   // ── 利用明細：名義別にグループ化して出力 ──
   // 個人事業・私用のガソリン按分を各行の金額には加えず、名義別の小計行に合算表示

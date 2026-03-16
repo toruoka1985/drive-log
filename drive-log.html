@@ -4769,50 +4769,45 @@ fuelTableSection +
 // ── PREVIEW ──
 // プレビュー画面の共有ボタン（ユーザータップから直接呼ばれる）
 function handlePreviewShare(btn) {
-  const imgUrl = btn.dataset.imgUrl;
-  const fname  = btn.dataset.fname;
-  const title  = btn.dataset.title;
-  const file   = window._previewFile;
+  const file  = window._previewFile;
+  const title = btn.dataset.title || '車両使用書類';
+  // fnameが未設定のときのデフォルト
+  const fname = btn.dataset.fname && btn.dataset.fname !== 'undefined'
+    ? btn.dataset.fname
+    : '車両使用書類.png';
 
-  // imgUrlが未設定の場合はpreview-imgのsrcから取得（フォールバック）
-  const resolvedUrl = imgUrl || document.getElementById('preview-img')?.src;
-  if (!resolvedUrl || resolvedUrl === window.location.href) {
+  // imgUrlが未設定の場合はpreview-imgのsrcから取得
+  const imgUrl = (btn.dataset.imgUrl && btn.dataset.imgUrl !== 'undefined')
+    ? btn.dataset.imgUrl
+    : document.getElementById('preview-img')?.src;
+
+  if (!imgUrl || imgUrl === window.location.href || imgUrl === '') {
     toast('画像の準備ができていません');
     return;
   }
 
-  // iOS/Android: navigator.shareでファイル共有（async不使用でジェスチャー連鎖を維持）
-  if (navigator.share && file && navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({ files: [file], title })
-      .then(() => toast('共有しました ✓'))
-      .catch(e => {
-        if (e.name !== 'AbortError') {
-          if (navigator.share) {
-            navigator.share({ url: resolvedUrl, title }).catch(() => _fallbackDownload(resolvedUrl, fname));
-          } else {
-            _fallbackDownload(resolvedUrl, fname);
-          }
-        }
-      });
-    return;
+  // iOS/Android: ファイルがあればnavigator.shareで共有シートを開く
+  if (navigator.share && file) {
+    // canShareチェック（使えない環境はスキップして直接try）
+    const canTry = !navigator.canShare || navigator.canShare({ files: [file] });
+    if (canTry) {
+      navigator.share({ files: [file], title })
+        .then(() => toast('共有しました ✓'))
+        .catch(e => {
+          if (e.name !== 'AbortError') _fallbackDownload(imgUrl, fname);
+        });
+      return;
+    }
   }
 
-  // navigator.share があるがcanShareが効かない場合（一部Android等）
-  if (navigator.share) {
-    navigator.share({ url: resolvedUrl, title })
-      .then(() => toast('共有しました ✓'))
-      .catch(e => { if (e.name !== 'AbortError') _fallbackDownload(resolvedUrl, fname); });
-    return;
-  }
-
-  // フォールバック: ダウンロード
-  _fallbackDownload(resolvedUrl, fname);
+  // ファイル共有非対応: ダウンロード
+  _fallbackDownload(imgUrl, fname);
 }
 
 function _fallbackDownload(imgUrl, fname) {
   const a = document.createElement('a');
   a.href = imgUrl;
-  a.download = fname;
+  a.download = fname || '車両使用書類.png';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

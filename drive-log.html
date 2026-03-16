@@ -3104,6 +3104,7 @@ async function restoreFromFirestore(uid) {
         localStorage.setItem('vehicles', JSON.stringify(vehicles));
         localStorage.setItem('activeVehicleId', activeVehicleId);
       }
+      updateVehicleSwitcher(); // 右上ボタンを復元後の車両名に更新
       renderPlanSection();
       localStorage.setItem('driveRecords',  JSON.stringify(records));
       localStorage.setItem('fuelRecords',   JSON.stringify(fuelRecords));

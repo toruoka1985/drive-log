@@ -1326,6 +1326,19 @@
           <button class="seg-btn vehicle-ownership-btn" data-o="私用"    onclick="selectVehicleOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">私用</button>
         </div>
       </div>
+      <!-- 料金設定（追加モードのみ表示） -->
+      <div id="vehicle-form-rate-section" style="margin-top:12px;padding:12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px;letter-spacing:.04em;">料金設定</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <label style="font-size:12px;color:var(--text2);white-space:nowrap;">km単価</label>
+          <input type="number" id="v-rate" inputmode="numeric" placeholder="50"
+            style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text1);font-size:13px;"
+            oninput="updateVehicleFormRatePreview()">
+          <span style="font-size:12px;color:var(--text3);">円/km</span>
+        </div>
+        <div id="v-rate-preview" style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;"></div>
+      </div>
+
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="vehicle-add-btn" onclick="hideVehicleNameInput()" style="border-color:var(--border);color:var(--text3);">キャンセル</button>
         <button class="vehicle-add-btn" id="vehicle-form-submit-btn" onclick="addVehicle()" style="border-style:solid;border-color:var(--accent);color:var(--accent);">追加</button>
@@ -2424,6 +2437,13 @@ function showVehicleNameInput(existingName) {
   if (firstBtn) firstBtn.classList.add('active');
   if (label) label.textContent = '車両名';
   if (btn) { btn.textContent = '追加'; btn.onclick = addVehicle; }
+  // 料金セクションを表示・リセット
+  const rateSection = document.getElementById('vehicle-form-rate-section');
+  if (rateSection) rateSection.style.display = 'block';
+  const vRate = document.getElementById('v-rate');
+  if (vRate) vRate.value = '';
+  const vPreview = document.getElementById('v-rate-preview');
+  if (vPreview) vPreview.textContent = '';
   // 追加モードでも一覧と追加ボタンを非表示
   document.getElementById('vehicle-list').style.display = 'none';
   document.querySelector('.vehicle-add-btn[onclick="showVehicleNameInput()"]').style.display = 'none';
@@ -2465,12 +2485,17 @@ function addVehicle() {
   const ownership = ownershipBtn?.dataset.o || '法人';
   const id = 'v_' + Date.now();
   vehicles.push({ id, name, ownership, createdAt: Date.now() });
+  // 料金設定を保存
+  const rateInput = document.getElementById('v-rate');
+  const rateVal = parseFloat(rateInput?.value) || 50;
+  setVehicleRate(id, { ratePerKm: rateVal, baseFixed: 0, capAmount: 0 });
+  localStorage.setItem('driveSettings', JSON.stringify(settings));
   // activeVehicleIdは変更しない（追加後も元の車両のまま）
   saveVehicles();
   updateVehicleSwitcher();
   hideVehicleNameInput();
   renderVehicleList();
-  toast(`${name} を追加しました　設定タブで料金を確認してください`);
+  toast(`${name} を追加しました ✓`);
 }
 
 function renameVehicle(id) {
@@ -2489,6 +2514,9 @@ function renameVehicle(id) {
   });
   if (label) label.textContent = '車両名を編集';
   if (btn) { btn.textContent = '保存'; btn.onclick = saveVehicleEdit; }
+  // 編集モードでは料金セクションを非表示
+  const rateSec = document.getElementById('vehicle-form-rate-section');
+  if (rateSec) rateSec.style.display = 'none';
   // 編集中は一覧と追加ボタンを非表示
   document.getElementById('vehicle-list').style.display = 'none';
   document.querySelector('.vehicle-add-btn[onclick="showVehicleNameInput()"]').style.display = 'none';
@@ -4662,7 +4690,7 @@ function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2200);
+  setTimeout(() => el.classList.remove('show'), 3500);
 }
 
 // ── UTILS ──

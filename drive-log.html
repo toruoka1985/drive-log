@@ -4364,7 +4364,6 @@ async function exportInvoice() {
     '      <th style="text-align:left;padding:4px 6px;color:#888;white-space:nowrap;">日付</th>\n' +
     '      <th style="text-align:left;padding:4px 6px;color:#888;white-space:nowrap;">支払名義</th>\n' +
     '      <th style="text-align:right;padding:4px 6px;color:#888;white-space:nowrap;">金額</th>\n' +
-    '      <th style="text-align:right;padding:4px 6px;color:#888;white-space:nowrap;font-size:10px;">（法人　個人事業　私用）</th>\n' +
     '    </tr></thead>\n' +
     '    <tbody>\n' +
     monthFuelsInv.map(f => {
@@ -4396,18 +4395,16 @@ async function exportInvoice() {
           catAmounts[cat] = Math.round(f.amount * km / totalKmF);
         });
       }
-      const fmt = v => v > 0 ? '¥' + v.toLocaleString() : '';
       const _parts = [
-        catAmounts['法人'] > 0 ? '法人¥'+catAmounts['法人'].toLocaleString() : '法人—',
-        catAmounts['個人事業'] > 0 ? '個人¥'+catAmounts['個人事業'].toLocaleString() : '個人—',
-        catAmounts['私用'] > 0 ? '私用¥'+catAmounts['私用'].toLocaleString() : '私用—',
+        '法人¥'+catAmounts['法人'].toLocaleString(),
+        '個人事業¥'+catAmounts['個人事業'].toLocaleString(),
+        '私用¥'+catAmounts['私用'].toLocaleString(),
       ];
       const breakdown = '（' + _parts.join('　') + '）';
       return '      <tr>' +
         '<td style="padding:5px 6px;white-space:nowrap;">' + fdate + '</td>' +
         '<td style="padding:5px 6px;white-space:nowrap;">' + escHtml(f.category || '') + '</td>' +
-        '<td style="text-align:right;padding:5px 6px;font-family:monospace;white-space:nowrap;">¥' + f.amount.toLocaleString() + '</td>' +
-        '<td style="text-align:center;padding:5px 6px;font-family:monospace;font-size:10px;color:#777;white-space:nowrap;">' + breakdown + '</td>' +
+        '<td style="text-align:right;padding:5px 6px;font-family:monospace;white-space:nowrap;">¥' + f.amount.toLocaleString() + '&nbsp;&nbsp;<span style="font-size:10px;color:#777;">' + breakdown + '</span></td>' +
         '</tr>\n';
     }).join('') +
     '    </tbody></table>\n' +

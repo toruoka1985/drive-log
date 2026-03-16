@@ -1681,7 +1681,6 @@
     </div>
 
     <!-- ③ 未ログイン（新規登録のみ表示・有料誘導） -->
-    <!-- auth-formはdisplay制御用ラッパー。formタグは常にDOMに存在させる -->
     <div id="auth-form" style="display:none;">
 
       <!-- 未ログイン時の誘導カード -->
@@ -1700,32 +1699,6 @@
         </button>
       </div>
 
-      <!-- 入力フィールド（表示用・formタグなし） -->
-      <div id="auth-fields" style="display:none;">
-        <div class="field">
-          <label>メールアドレス</label>
-          <input type="email" id="auth-email-visual" name="email"
-            inputmode="email" placeholder="example@mail.com"
-            autocomplete="email" autocapitalize="none" autocorrect="off"
-            oninput="document.getElementById('auth-email').value=this.value">
-        </div>
-        <div class="field" id="auth-email-confirm-wrap" style="display:none;">
-          <label>メールアドレス（確認）</label>
-          <input type="email" id="auth-email-confirm-visual"
-            inputmode="email" placeholder="もう一度入力してください"
-            autocomplete="off" autocapitalize="none" autocorrect="off"
-            oninput="document.getElementById('auth-email-confirm').value=this.value">
-        </div>
-        <div class="field">
-          <label>パスワード</label>
-          <input type="password" id="auth-password-visual" name="password"
-            placeholder="6文字以上" autocomplete="current-password"
-            oninput="document.getElementById('auth-password').value=this.value">
-        </div>
-        <div id="auth-error" style="font-size:12px;color:#e57373;margin-bottom:10px;min-height:16px;"></div>
-        <button class="submit-btn" id="auth-submit-btn" onclick="handleEmailAuth()">ログイン</button>
-      </div>
-
       <!-- モード切替タブ（ログイン選択時のみ表示） -->
       <div id="auth-tabs" style="display:none;gap:8px;margin-bottom:20px;">
         <button id="tab-login"    onclick="switchAuthMode('login')"
@@ -1737,6 +1710,34 @@
           新規登録
         </button>
       </div>
+
+      <!-- 入力フォーム（formタグ + name属性でiOSパスワードアプリに対応） -->
+      <form id="auth-form-inner" onsubmit="handleEmailAuth();return false;" autocomplete="on">
+
+        <div class="field">
+          <label>メールアドレス</label>
+          <input type="email" id="auth-email" name="email"
+            inputmode="email" placeholder="example@mail.com"
+            autocomplete="email" autocapitalize="none" autocorrect="off">
+        </div>
+
+        <div class="field" id="auth-email-confirm-wrap" style="display:none;">
+          <label>メールアドレス（確認）</label>
+          <input type="email" id="auth-email-confirm" name="email-confirm"
+            inputmode="email" placeholder="もう一度入力してください"
+            autocomplete="off" autocapitalize="none" autocorrect="off">
+        </div>
+
+        <div class="field">
+          <label>パスワード</label>
+          <input type="password" id="auth-password" name="password"
+            placeholder="6文字以上" autocomplete="current-password">
+        </div>
+
+        <div id="auth-error" style="font-size:12px;color:#e57373;margin-bottom:10px;min-height:16px;"></div>
+        <button type="submit" id="auth-submit-btn" class="submit-btn">ログイン</button>
+
+      </form>
 
       <!-- パスワードリセット（ログインモードのみ表示） -->
       <div id="auth-reset-wrap">
@@ -1752,29 +1753,6 @@
 
     <!-- 確認中 -->
     <div id="auth-checking" style="font-size:13px;color:var(--text3);padding:14px 0;">確認中...</div>
-
-    <!--
-      formタグは常にDOMに存在させる（display:noneにしない）。
-      iOSパスワードアプリはページロード時にformを走査するため、
-      親要素がdisplay:noneだと認識されない。
-      visibility:hiddenで視覚的に隠しつつDOMには存在させる。
-    -->
-    <form id="auth-form-inner"
-      onsubmit="handleEmailAuth();return false;"
-      autocomplete="on"
-      style="visibility:hidden;height:0;overflow:hidden;margin:0;padding:0;">
-      <input type="email" id="auth-email" name="email"
-        inputmode="email" placeholder="example@mail.com"
-        autocomplete="email" autocapitalize="none" autocorrect="off">
-      <div id="auth-email-confirm-wrap-hidden">
-        <input type="email" id="auth-email-confirm" name="email-confirm"
-          inputmode="email" placeholder="もう一度入力してください"
-          autocomplete="off" autocapitalize="none" autocorrect="off">
-      </div>
-      <input type="password" id="auth-password" name="password"
-        placeholder="6文字以上" autocomplete="current-password">
-      <button type="submit">送信</button>
-    </form>
 
     <!-- ホーム画面追加 -->
     <div class="settings-section-label" style="margin-top:28px">このアプリについて</div>
@@ -2920,62 +2898,44 @@ function switchAuthMode(mode) {
   const banner      = document.getElementById('auth-unlogged-banner');
   const tabs        = document.getElementById('auth-tabs');
 
-  const fields    = document.getElementById('auth-fields');
-  const pwInput   = document.getElementById('auth-password');
-  const pwVisual  = document.getElementById('auth-password-visual');
-  // ログインを選んだ場合はバナーを隠してタブ・フィールドを表示
+  const pwInput = document.getElementById('auth-password');
+  // ログインを選んだ場合はバナーを隠してタブを表示
   if (mode === 'login' && banner && tabs) {
     banner.style.display = 'none';
     tabs.style.display   = 'flex';
-    if (fields) fields.style.display = 'block';
   }
-  // 新規登録の場合もタブ・フィールドを表示（戻ってきたとき用）
+  // 新規登録の場合もタブを表示
   if (mode === 'register' && tabs) {
     tabs.style.display = 'flex';
-    if (fields) fields.style.display = 'block';
   }
-  const confirmWrapOuter = document.getElementById('auth-email-confirm-wrap');
+
   if (mode === 'login') {
     if (tabLogin)    { tabLogin.style.background = 'var(--accent)'; tabLogin.style.color = '#0f0f0f'; }
     if (tabRegister) { tabRegister.style.background = 'var(--card)'; tabRegister.style.color = 'var(--text2)'; }
-    if (confirmWrap) confirmWrap.style.display = 'none';
-    if (confirmWrapOuter) confirmWrapOuter.style.display = 'none';
-    if (confirmInput) { confirmInput.value = ''; document.getElementById('auth-email-confirm-visual') && (document.getElementById('auth-email-confirm-visual').value=''); }
-    if (submitBtn)   submitBtn.textContent = 'ログイン';
-    if (resetWrap)   resetWrap.style.display = 'block';
-    // ログイン時: current-password（シャドウformと表示用両方）
-    if (pwInput)  pwInput.setAttribute('autocomplete', 'current-password');
-    if (pwVisual) pwVisual.setAttribute('autocomplete', 'current-password');
+    if (confirmWrap)  confirmWrap.style.display = 'none';
+    if (confirmInput) confirmInput.value = '';
+    if (submitBtn)    submitBtn.textContent = 'ログイン';
+    if (resetWrap)    resetWrap.style.display = 'block';
+    if (pwInput)      pwInput.setAttribute('autocomplete', 'current-password');
   } else {
     if (tabRegister) { tabRegister.style.background = 'var(--accent)'; tabRegister.style.color = '#0f0f0f'; }
     if (tabLogin)    { tabLogin.style.background = 'var(--card)'; tabLogin.style.color = 'var(--text2)'; }
     if (confirmWrap) confirmWrap.style.display = 'block';
-    if (confirmWrapOuter) confirmWrapOuter.style.display = 'block';
     if (submitBtn)   submitBtn.textContent = '新規登録';
     if (resetWrap)   resetWrap.style.display = 'none';
-    // 新規登録時: new-password（強いパスワード提案）
-    if (pwInput)  pwInput.setAttribute('autocomplete', 'new-password');
-    if (pwVisual) pwVisual.setAttribute('autocomplete', 'new-password');
+    if (pwInput)     pwInput.setAttribute('autocomplete', 'new-password');
   }
 }
 
 async function handleEmailAuth() {
-  // visual欄（表示用）があればそちらを優先、なければシャドウformの値を使う
-  const emailVisual = document.getElementById('auth-email-visual');
-  const pwVisual    = document.getElementById('auth-password-visual');
-  const email    = (emailVisual?.value.trim() || document.getElementById('auth-email').value.trim());
-  const password = (pwVisual?.value || document.getElementById('auth-password').value);
-  // シャドウformにも同期
-  document.getElementById('auth-email').value    = email;
-  document.getElementById('auth-password').value = password;
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
   setAuthError('');
 
   if (authMode === 'register') {
     // ── 新規登録 ──
     const { auth, createUserWithEmailAndPassword } = window._fb;
-    const confirmVisual = document.getElementById('auth-email-confirm-visual');
-    const emailConfirm  = (confirmVisual?.value.trim() || document.getElementById('auth-email-confirm').value.trim());
-    document.getElementById('auth-email-confirm').value = emailConfirm;
+    const emailConfirm = document.getElementById('auth-email-confirm').value.trim();
 
     if (!email || !emailConfirm || !password) {
       setAuthError('すべての項目を入力してください'); return;

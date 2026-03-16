@@ -964,15 +964,25 @@
     font-family: 'DM Mono', monospace;
     letter-spacing: .03em;
     transition: border-color .2s;
-    max-width: 200px;
+    max-width: 260px;
   }
   .vehicle-switcher:active { opacity: .7; }
   .vehicle-switcher svg { width: 14px; height: 14px; flex-shrink: 0; }
   .vehicle-switcher .v-name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .vehicle-switcher .v-name > span:first-child {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
+    min-width: 0;
+  }
+  .vehicle-switcher .v-name > span:last-child {
+    flex-shrink: 0;
   }
   .vehicle-modal-overlay {
     display: none;
@@ -2337,10 +2347,10 @@ function updateVehicleSwitcher() {
     if (!el) return;
     el.innerHTML =
       `<span>${escHtml(name)}</span>` +
-      `<span style="font-size:9px;margin-left:5px;padding:1px 5px;border-radius:8px;` +
+      `<span style="font-size:9px;padding:1px 5px;border-radius:8px;white-space:nowrap;` +
       `background:var(--surface2);border:1px solid var(--border);` +
       `color:${ownerColor};font-family:'DM Mono',monospace;letter-spacing:.03em;` +
-      `flex-shrink:0;">${escHtml(ownerLabel)}</span>`;
+      `">${escHtml(ownerLabel)}</span>`;
   });
 }
 
@@ -2435,6 +2445,10 @@ function hideVehicleNameInput() {
   // ボタンを追加モードに戻す
   const btn = document.getElementById('vehicle-form-submit-btn');
   if (btn) { btn.textContent = '追加'; btn.onclick = addVehicle; }
+  // 一覧と追加ボタンを再表示
+  document.getElementById('vehicle-list').style.display = '';
+  const addBtn = document.querySelector('.vehicle-add-btn[onclick="showVehicleNameInput()"]');
+  if (addBtn) addBtn.style.display = '';
 }
 
 function selectVehicleOwnership(btn) {
@@ -2479,6 +2493,9 @@ function renameVehicle(id) {
   });
   if (label) label.textContent = '車両名を編集';
   if (btn) { btn.textContent = '保存'; btn.onclick = saveVehicleEdit; }
+  // 編集中は一覧と追加ボタンを非表示
+  document.getElementById('vehicle-list').style.display = 'none';
+  document.querySelector('.vehicle-add-btn[onclick="showVehicleNameInput()"]').style.display = 'none';
   form.style.display = 'block';
   setTimeout(() => input.focus(), 50);
 }
@@ -2519,6 +2536,9 @@ async function deleteVehicle(id) {
 }
 
 function initVehicles() {
+  // 既存データのマイグレーション：ownershipフィールドがない車両に''を付与
+  vehicles = vehicles.map(v => v.ownership !== undefined ? v : { ...v, ownership: '' });
+
   // 既存データの移行：vehicleIdがない記録に'default'を付与
   if (vehicles.length === 0) {
     const defaultVehicle = { id: 'default', name: '車両1', ownership: '', createdAt: Date.now() };

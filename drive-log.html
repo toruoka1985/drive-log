@@ -4706,28 +4706,23 @@ fuelTableSection +
       });
       document.body.removeChild(iframe);
 
-      canvas.toBlob(async (blob) => {
-        const file = new File([blob], `${y}${String(m).padStart(2,'0')}_${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'}.png`, { type: 'image/png' });
+      canvas.toBlob((blob) => {
+        const fname = `${y}${String(m).padStart(2,'0')}_${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'}.png`;
         const imgUrl = URL.createObjectURL(blob);
-        const previewImg = document.getElementById('preview-img');
-        previewImg.src = imgUrl;
-        // プレビュー中はピンチズームを許可
-        document.querySelector('meta[name=viewport]').content =
-          'width=device-width, initial-scale=1.0, viewport-fit=cover';
-        document.getElementById('previewOverlay').classList.add('show');
-        // プレビュー表示時点で発行済みフラグを立てる
+        // 発行済みフラグ
         setInvoiceIssued(y, m);
         updateInvoiceBtn();
-
-        // 共有ボタン：imgUrlをdata属性にセット
-        // iOSではユーザータップ直後にnavigator.shareが必要なため
-        // ボタン自体のonclickで直接呼び出す形にする
-        const reshareBtn = document.getElementById('preview-reshare-btn');
-        reshareBtn.dataset.imgUrl = imgUrl;
-        reshareBtn.dataset.fname = `${y}${String(m).padStart(2,'0')}_${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'}.png`;
-        reshareBtn.dataset.title = `${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'} ${y}年${m}月`;
-        reshareBtn.dataset.blob = 'ready'; // fileオブジェクトはグローバル変数に保持
-        window._previewFile = file; // ← ユーザータップ時に使用
+        // iOSのSafariでは <a download> でダウンロードダイアログが出る
+        // 「表示」を押すと画像がSafariで開き、共有ボタン→AirDrop が使える
+        const a = document.createElement('a');
+        a.href = imgUrl;
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // BlobURLは少し遅らせて解放
+        setTimeout(() => URL.revokeObjectURL(imgUrl), 10000);
+        toast((isInvoice ? '請求書' : '計算書') + 'を生成しました ✓');
       }, 'image/png');
     } catch(e) {
       if (document.body.contains(iframe)) document.body.removeChild(iframe);

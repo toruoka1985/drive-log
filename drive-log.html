@@ -4197,6 +4197,7 @@ async function exportInvoice() {
     ? { '法人': 0 }
     : { '個人事業': 0, '私用': 0 };
   let fuelAdjustInv = 0;
+  let fuelAdjustInvSub = 0; // 法人払い全額差し引き分（個人名義車）
 
   // アクティブ車両の全給油・走行（按分計算用）
   const activeFuelRecsInv = fuelRecords.filter(f =>
@@ -4229,6 +4230,7 @@ async function exportInvoice() {
             fuelAdjustInv += Math.round(f.amount * hojinKm / prev.totalKm);
           } else {
             fuelAdjustInv -= f.amount;
+            fuelAdjustInvSub -= f.amount;
           }
         } else {
           ['個人事業','私用'].forEach(cat => {
@@ -4269,6 +4271,7 @@ async function exportInvoice() {
       } else {
         // 法人払い → 全額差し引き（法人が立て替えたので）
         fuelAdjustInv -= f.amount;
+        fuelAdjustInvSub -= f.amount;
       }
     } else {
       // 法人名義車：個人事業・私用走行分のガソリン按分を計算
@@ -4291,7 +4294,11 @@ async function exportInvoice() {
   const fuelPrivShare = fuelShareInv['私用'] || 0;
   const fuelCorpShare = fuelShareInv['法人'] || 0;
   const carryInv   = calcCarryover(y, m);
-  const grandTotalInvoice = total + fuelAdjustInv + carryInv;
+  // 個人名義車は「走行費 + ガソリン消費分 + 法人払い差し引き」
+  // 法人名義車は「走行費 + fuelAdjustInv（個人消費上乗せ - 個人払い法人分差し引き）」
+  const grandTotalInvoice = isPersonalVehicle
+    ? total + fuelCorpShare + fuelAdjustInvSub + carryInv
+    : total + fuelAdjustInv + carryInv;
 
   // ── 利用明細：名義別にグループ化して出力 ──
   // 個人事業・私用のガソリン按分を各行の金額には加えず、名義別の小計行に合算表示
@@ -4364,23 +4371,19 @@ async function exportInvoice() {
       '</tr>';
   });
 
-  // 精算行：fuelAdjustInvの内訳を名義・方向に応じて表示
+  // 精算行：名義に応じて表示
   if (isPersonalVehicle) {
-    // 個人名義車：プラスは「ガソリン代立替（法人消費分）」、マイナスは「ガソリン代精算（個人消費分）」
-    if (fuelAdjustInv > 0) detailRows +=
-      '<tr class="adj">' +
-      '<td colspan="4">ガソリン代立替（法人消費分）</td>' +
-      '<td class="r">+¥' + Math.abs(fuelAdjustInv).toLocaleString() + '</td></tr>';
-    if (fuelAdjustInv < 0) detailRows +=
+    // 個人名義車：法人払い全額を精算行として表示
+    if (fuelAdjustInvSub < 0) detailRows +=
       '<tr class="adj">' +
       '<td colspan="4">ガソリン代精算（法人払い立替分）</td>' +
-      '<td class="r">−¥' + Math.abs(fuelAdjustInv).toLocaleString() + '</td></tr>';
+      '<td class="r">−¥' + Math.abs(fuelAdjustInvSub).toLocaleString() + '</td></tr>';
   } else {
-    // 法人名義車
-    if (fuelAdjustInv !== 0) detailRows +=
+    // 法人名義車：個人払いの法人分を精算行として表示
+    if (fuelAdjustInv < 0) detailRows +=
       '<tr class="adj">' +
       '<td colspan="4">ガソリン代立替（個人払い分）</td>' +
-      '<td class="r">' + (fuelAdjustInv < 0 ? '−¥' + Math.abs(fuelAdjustInv).toLocaleString() : '+¥' + fuelAdjustInv.toLocaleString()) + '</td></tr>';
+      '<td class="r">−¥' + Math.abs(fuelAdjustInv).toLocaleString() + '</td></tr>';
   }
   if (carryInv < 0) detailRows +=
     '<tr class="adj">' +

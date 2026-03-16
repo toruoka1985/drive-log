@@ -4706,8 +4706,9 @@ fuelTableSection +
       });
       document.body.removeChild(iframe);
 
-      toast('DEBUG: PNG生成完了');
-      canvas.toBlob(async (blob) => {
+      toast('DEBUG: PNG生成完了 toBlob呼び出し中');
+      canvas.toBlob((blob) => {
+        toast('DEBUG: toBlob コールバック開始 blob=' + (blob ? blob.size : 'null'));
         const fname = `${y}${String(m).padStart(2,'0')}_${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'}.png`;
         const file = new File([blob], fname, { type: 'image/png' });
         const imgUrl = URL.createObjectURL(blob);

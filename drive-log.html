@@ -4199,7 +4199,7 @@ async function exportInvoice() {
   // 名義に応じて発行者・宛先を決定
   // 法人名義：発行者=法人(company)、宛先=個人(name)
   // 個人名義：発行者=個人(name)、宛先=法人(company)
-  const billToName   = isPersonalVehicle ? company : (name + ' 様');
+  const billToName   = isPersonalVehicle ? company : (name ? name + ' 様' : '');
   const issuedByName = isPersonalVehicle ? name : company;
   const invoiceNo = '' + y + String(m).padStart(2,'0');
   const t = new Date();

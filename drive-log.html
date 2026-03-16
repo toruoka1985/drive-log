@@ -3410,8 +3410,20 @@ function renderSummary() {
         (inclSameDayFF ? r.date <= f.date : r.date < f.date)
       );
       const totalKmF = inRangeF.reduce((s, r) => s + r.km, 0);
-      const hojinKmF = inRangeF.filter(r => r.category === '法人').reduce((s, r) => s + r.km, 0);
-      const hojinCost = totalKmF > 0 ? Math.round(f.amount * hojinKmF / totalKmF) : 0;
+      let hojinCost;
+      if (totalKmF === 0) {
+        const prev = getPrevFuelRatio(sortedF, idxF, activeRecs);
+        if (prev && prev.totalKm > 0) {
+          hojinCost = Math.round(f.amount * (prev.catKm['法人'] || 0) / prev.totalKm);
+        } else {
+          // 車両名義100%フォールバック
+          const defCat = getVehicleDefaultCat();
+          hojinCost = defCat === '法人' ? f.amount : 0;
+        }
+      } else {
+        const hojinKmF = inRangeF.filter(r => r.category === '法人').reduce((s, r) => s + r.km, 0);
+        hojinCost = Math.round(f.amount * hojinKmF / totalKmF);
+      }
       return `<div class="sc-breakdown">${f.date.slice(5).replace('-','/')} ${cat}名義：¥${f.amount.toLocaleString()}（法人分¥${hojinCost.toLocaleString()}）</div>`;
     }).join('');
     fuelCardHtml = `<div class="summary-card" style="border-color:#4fa8e0;">
@@ -3493,7 +3505,17 @@ function renderSummary() {
   if (carry < 0)      totalBreakdown += `　前月繰越：-¥${Math.abs(carry).toLocaleString()}`;
 
   const grandLabel = grandTotal >= 0 ? `¥${grandTotal.toLocaleString()}` : `-¥${Math.abs(grandTotal).toLocaleString()}`;
-  const grandNote  = grandTotal < 0 ? '（次月に持ち越し）' : '個人 → 法人への振込金額';
+  // 振込方向：法人名義車=個人→法人、個人名義車=法人→個人
+  const _v = getActiveVehicle();
+  const _ownership = _v?.ownership || '法人';
+  let grandNote;
+  if (grandTotal < 0) {
+    grandNote = '（次月に持ち越し）';
+  } else if (_ownership === '法人') {
+    grandNote = '個人 → 法人への振込金額';
+  } else {
+    grandNote = '法人 → 個人への振込金額';
+  }
 
   document.getElementById('summary-content').innerHTML = `
     <div class="summary-cards">${cardsHtml}${fuelCardHtml}${carryHtml}</div>

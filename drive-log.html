@@ -4681,84 +4681,31 @@ fuelTableSection +
 '</body>\n' +
 '</html>';
 
-  // 請求書HTMLをiframe内でレンダリングしてhtml2canvasでPNG化
-  toast((isInvoice ? '請求書' : '計算書') + 'を生成中…');
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;height:1px;border:none;';
-  document.body.appendChild(iframe);
+  // HTMLをBlobURLで新タブに開く（Safari共有→AirDrop対応）
+  setInvoiceIssued(y, m);
+  updateInvoiceBtn();
 
-  const htmlForRender = html.replace('<script>window.onload=function(){window.print();}<\/script>', '');
+  // PWAスタンドアロンモード判定
+  const isStandalone = window.navigator.standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches;
 
-  const runCanvas = async () => {
-    try {
-      await new Promise(r => setTimeout(r, 800));
-      const iframeBody = iframe.contentDocument.body;
-      const h = iframeBody.scrollHeight;
-      iframe.style.height = h + 'px';
-      await new Promise(r => setTimeout(r, 300));
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const blobUrl = URL.createObjectURL(blob);
+  const newTab = window.open(blobUrl, '_blank');
 
-      const canvas = await html2canvas(iframeBody, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        width: 800,
-        height: h
-      });
-      document.body.removeChild(iframe);
+  if (!newTab) {
+    // PWAなどでwindow.openがブロックされた場合：<a>でフォールバック
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 
-      canvas.toBlob((blob) => {
-        const fname = `${y}${String(m).padStart(2,'0')}_${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'}.png`;
-        const imgUrl = URL.createObjectURL(blob);
-        // 発行済みフラグ
-        setInvoiceIssued(y, m);
-        updateInvoiceBtn();
-        // iOSのSafariでは <a download> でダウンロードダイアログが出る
-        // 「表示」を押すと画像がSafariで開き、共有ボタン→AirDrop が使える
-        const a = document.createElement('a');
-        a.href = imgUrl;
-        a.download = fname;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        // BlobURLは少し遅らせて解放
-        setTimeout(() => URL.revokeObjectURL(imgUrl), 10000);
-        toast((isInvoice ? '請求書' : '計算書') + 'を生成しました ✓');
-      }, 'image/png');
-    } catch(e) {
-      if (document.body.contains(iframe)) document.body.removeChild(iframe);
-      toast('生成に失敗しました');
-      console.error(e);
-    }
-  };
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+  toast((isInvoice ? '請求書' : '計算書') + 'を開きました　右上の共有ボタンからAirDrop・保存できます');
 
-  const startRender = () => {
-    if (typeof html2canvas !== 'undefined') {
-      runCanvas();
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-      script.onload = runCanvas;
-      script.onerror = () => { toast('ライブラリの読み込みに失敗しました'); };
-      document.head.appendChild(script);
-    }
-  };
-
-  let renderStarted = false;
-  iframe.onload = () => {
-    if (renderStarted) return;
-    renderStarted = true;
-    startRender();
-  };
-  setTimeout(() => {
-    if (!renderStarted) {
-      renderStarted = true;
-      startRender();
-    }
-  }, 600);
-
-  iframe.contentDocument.open();
-  iframe.contentDocument.write(htmlForRender);
-  iframe.contentDocument.close();
 }
 
 // ── PREVIEW ──

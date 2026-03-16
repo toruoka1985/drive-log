@@ -1393,7 +1393,7 @@
       style="width:100%;margin-bottom:10px;justify-content:center;font-size:15px;padding:14px;border-radius:14px;">
       給油を記録
     </button>
-    <button class="submit-btn" id="submit-btn" onclick="saveRecord()">記録する</button>
+    <button class="submit-btn" id="submit-btn" onclick="saveRecord()">走行を記録する</button>
   </div>
 </div>
 
@@ -4021,8 +4021,8 @@ async function exportInvoice() {
   // 請求金額：法人名義なら個人事業+私用、個人名義なら法人分
   const total = isPersonalVehicle ? corpCost : (selfCost + privCost);
 
-  const company = settings.company || '（会社名未設定）';
-  const name    = settings.name    || '（氏名未設定）';
+  const company = settings.company || '';
+  const name    = settings.name    || '';
   // 名義に応じて発行者・宛先を決定
   // 法人名義：発行者=法人(company)、宛先=個人(name)
   // 個人名義：発行者=個人(name)、宛先=法人(company)

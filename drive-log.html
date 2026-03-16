@@ -1645,8 +1645,7 @@
         <div>
           <div style="font-size:13px;font-weight:700;color:#e57373;margin-bottom:3px;">バックアップ停止中</div>
           <div style="font-size:12px;color:var(--text2);line-height:1.7;">
-            現在のデータはこのブラウザにしか保存されていません。<br>
-            キャッシュ削除・機種変更でデータが<strong style="color:#e57373;">完全に消えます。</strong>
+            現在のデータはブラウザにのみ保存されており、履歴の削除でデータが消失してしまうことがあります。これらからのデータ保護や別端末への機種変更などにはクラウド同期が可能なPROプランをご検討ください。
           </div>
         </div>
       </div>
@@ -1665,6 +1664,18 @@
         </button>
         <button class="settings-save-btn" onclick="handleSignOut()" style="background:var(--card);color:var(--text3);font-size:12px;">
           ログアウト
+        </button>
+      </div>
+      <!-- データ消失時のヘルプ -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">💡 データが消えてしまったとき</div>
+        <div style="font-size:12px;color:var(--text3);line-height:1.8;">
+          PROプランに加入すると、過去にこのアプリで記録したデータを復元できる場合があります。<br>
+          <span style="color:var(--accent);font-weight:600;">アカウント情報はそのまま保持されています。</span>
+        </div>
+        <button onclick="openUpgradeModal('backup')"
+          style="margin-top:10px;background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">
+          PROプランの詳細を見る →
         </button>
       </div>
     </div>
@@ -3078,12 +3089,8 @@ async function syncToFirestore() {
 async function restoreFromFirestore(uid) {
   const { db, doc, collection, getDocs } = window._fb;
   try {
-    const drSnap  = await getDocs(collection(db, 'users', uid, 'driveRecords'));
-    const frSnap  = await getDocs(collection(db, 'users', uid, 'fuelRecords'));
+    // まずplanだけ取得してプラン判定する
     const setSnap = await getDocs(collection(db, 'users', uid, 'meta'));
-
-    const cloudDrive    = drSnap.docs.map(d => d.data());
-    const cloudFuel     = frSnap.docs.map(d => d.data());
     let cloudSettings = null;
     let cloudVehicles = null;
     let cloudPlan     = null;
@@ -3093,9 +3100,24 @@ async function restoreFromFirestore(uid) {
       if (d.id === 'plan')     cloudPlan     = d.data();
     });
 
-    // plan は常に Firestore の値を優先して反映（全ケース共通）
-    window._userPlan = cloudPlan || { tier: 'free', expiresAt: null };
+    // plan を反映（全ケース共通）
+    window._userPlan = cloudPlan || { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
     renderPlanSection();
+
+    // ── フリープランはFirestoreのデータに一切触れない ──
+    // Firestoreのデータは温存（PRO課金時に復元できるよう）
+    // ローカルのデータもそのまま維持（上書きしない）
+    if (!isPro()) {
+      setSyncStatus('', '');
+      updateAuthUI(currentUser);
+      return;
+    }
+
+    // ── PROプラン：通常の復元フロー ──
+    const drSnap = await getDocs(collection(db, 'users', uid, 'driveRecords'));
+    const frSnap = await getDocs(collection(db, 'users', uid, 'fuelRecords'));
+    const cloudDrive = drSnap.docs.map(d => d.data());
+    const cloudFuel  = frSnap.docs.map(d => d.data());
 
     if (cloudDrive.length > 0 || cloudFuel.length > 0) {
       // クラウドにデータあり → クラウドを正とする（復元）
@@ -3108,7 +3130,6 @@ async function restoreFromFirestore(uid) {
         localStorage.setItem('vehicles', JSON.stringify(vehicles));
         localStorage.setItem('activeVehicleId', activeVehicleId);
       }
-      // plan は上部で読み込み済み
       renderPlanSection();
       localStorage.setItem('driveRecords',  JSON.stringify(records));
       localStorage.setItem('fuelRecords',   JSON.stringify(fuelRecords));
@@ -3116,7 +3137,6 @@ async function restoreFromFirestore(uid) {
       renderHistory();
       renderSummary();
       loadSettings();
-      // 復元した場合のみ「復元しました」を一時表示し、その後通常表示に切り替え
       setSyncStatus('クラウドから復元しました ✓', 'var(--accent)');
       setTimeout(() => {
         const now = new Date();
@@ -3127,7 +3147,6 @@ async function restoreFromFirestore(uid) {
       // クラウド空・ローカルにデータあり → アップロード
       await syncToFirestore();
     } else {
-      // データなし
       setSyncStatus('同期中', 'var(--text3)');
     }
   } catch(e) {

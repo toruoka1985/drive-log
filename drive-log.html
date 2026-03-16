@@ -1333,7 +1333,6 @@
         <button class="vehicle-add-btn" onclick="addVehicle()" style="border-style:solid;border-color:var(--accent);color:var(--accent);">追加</button>
       </div>
     </div>
-    <button class="vehicle-add-btn" onclick="closeVehicleModal()" style="margin-top:8px;border-color:var(--border);">閉じる</button>
   </div>
 </div>
 
@@ -2519,6 +2518,19 @@ window.addEventListener('DOMContentLoaded', () => {
     else { setTimeout(tryInitFirebase, 100); }
   }
   tryInitFirebase();
+
+  // iOS Safari: 入力欄以外をタップしたときにキーボードを閉じる
+  document.addEventListener('touchend', (e) => {
+    const tag = e.target.tagName;
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+      if (document.activeElement && (
+          document.activeElement.tagName === 'INPUT' ||
+          document.activeElement.tagName === 'TEXTAREA'
+      )) {
+        dismissKeyboard();
+      }
+    }
+  }, { passive: true });
 });
 
 function getLastOdoValue() {

@@ -2500,9 +2500,7 @@ function renderVehicleList() {
   const list = document.getElementById('vehicle-list');
   if (!list) return;
   list.innerHTML = vehicles.map(v => {
-    const ownerBadge = v.ownership && v.ownership !== '法人'
-      ? `<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:var(--surface2);color:var(--text3);border:1px solid var(--border);margin-left:6px;">${escHtml(v.ownership)}</span>`
-      : '';
+    const ownerBadge = `<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:var(--surface2);color:var(--text3);border:1px solid var(--border);margin-left:6px;">${escHtml(v.ownership || '法人')}</span>`;
     return `
     <div class="vehicle-list-item ${v.id === activeVehicleId ? 'active' : ''}" onclick="selectVehicle('${v.id}')">
       <span class="v-item-name">${escHtml(v.name)}${ownerBadge}</span>

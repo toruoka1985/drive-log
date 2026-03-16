@@ -4364,6 +4364,7 @@ async function exportInvoice() {
     '      <th style="text-align:left;padding:4px 6px;color:#888;white-space:nowrap;">日付</th>\n' +
     '      <th style="text-align:left;padding:4px 6px;color:#888;white-space:nowrap;">支払名義</th>\n' +
     '      <th style="text-align:right;padding:4px 6px;color:#888;white-space:nowrap;">金額</th>\n' +
+    '      <th style="text-align:left;padding:4px 6px;color:#888;white-space:nowrap;font-size:10px;">内訳</th>\n' +
     '    </tr></thead>\n' +
     '    <tbody>\n' +
     monthFuelsInv.map(f => {
@@ -4404,7 +4405,8 @@ async function exportInvoice() {
       return '      <tr>' +
         '<td style="padding:5px 6px;white-space:nowrap;">' + fdate + '</td>' +
         '<td style="padding:5px 6px;white-space:nowrap;">' + escHtml(f.category || '') + '</td>' +
-        '<td style="text-align:right;padding:5px 6px;font-family:monospace;white-space:nowrap;">¥' + f.amount.toLocaleString() + '&nbsp;&nbsp;<span style="font-size:10px;color:#777;">' + breakdown + '</span></td>' +
+        '<td style="text-align:right;padding:5px 6px;font-family:monospace;white-space:nowrap;">¥' + f.amount.toLocaleString() + '</td>' +
+        '<td style="padding:5px 6px;font-family:monospace;font-size:10px;color:#777;white-space:nowrap;">' + breakdown + '</td>' +
         '</tr>\n';
     }).join('') +
     '    </tbody></table>\n' +

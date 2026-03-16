@@ -2592,6 +2592,7 @@ function updatePreview() {
 
 // ── SAVE ──
 async function saveRecord() {
+  document.activeElement?.blur(); // iOSキーボードを閉じる
   const date = document.getElementById('f-date').value;
   const purpose = document.getElementById('f-purpose').value.trim();
   const cat = getCategory();

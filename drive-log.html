@@ -1520,7 +1520,7 @@
     </div>
     <div class="field">
       <label>km単価（円/km）</label>
-      <input type="number" id="s-rate" inputmode="numeric" placeholder="例：300">
+      <input type="number" id="s-rate" inputmode="numeric" placeholder="例：50">
     </div>
     <div class="field">
       <label>固定基本料金（円）</label>
@@ -1792,7 +1792,7 @@
 </nav>
 
 <script>
-const RATE = 300; // フォールバック用（設定未保存時）
+const RATE = 50; // フォールバック用（設定未保存時）
 let records = JSON.parse(localStorage.getItem('driveRecords') || '[]');
 let fuelRecords = JSON.parse(localStorage.getItem('fuelRecords') || '[]');
 
@@ -2395,7 +2395,7 @@ function selectVehicle(id) {
   const rateEl = document.getElementById('s-rate');
   if (rateEl) {
     const vrate = {
-      ratePerKm: parseFloat(document.getElementById('s-rate').value) || 300,
+      ratePerKm: parseFloat(document.getElementById('s-rate').value) || 50,
       baseFixed:  parseFloat(document.getElementById('s-base').value) || 0,
       capAmount:  parseFloat(document.getElementById('s-cap').value)  || 0,
     };
@@ -2713,7 +2713,7 @@ async function saveRecord() {
   const km = end - start;
   const vrate = getVehicleRate(activeVehicleId);
   const rateSnapshot = {
-    ratePerKm: vrate.ratePerKm ?? 300,
+    ratePerKm: vrate.ratePerKm ?? 50,
     baseFixed: vrate.baseFixed || 0,
     capAmount: vrate.capAmount || 0,
   };
@@ -3883,7 +3883,7 @@ let settings = JSON.parse(localStorage.getItem('driveSettings') || '{}');
 function getVehicleRate(vehicleId) {
   const vid = vehicleId || activeVehicleId || 'default';
   return settings.vehicles?.[vid] || {
-    ratePerKm: settings.ratePerKm ?? 300,
+    ratePerKm: settings.ratePerKm ?? 50,
     baseFixed: settings.baseFixed ?? 0,
     capAmount: settings.capAmount ?? 0,
   };
@@ -3897,7 +3897,7 @@ function setVehicleRate(vehicleId, rateObj) {
 function loadSettings() {
   // 車両別料金を読み込む
   const vrate = getVehicleRate(activeVehicleId);
-  document.getElementById('s-rate').value = vrate.ratePerKm != null ? vrate.ratePerKm : 300;
+  document.getElementById('s-rate').value = vrate.ratePerKm != null ? vrate.ratePerKm : 50;
   document.getElementById('s-base').value = vrate.baseFixed || '';
   document.getElementById('s-cap').value  = vrate.capAmount || '';
   // 共通設定
@@ -3928,7 +3928,7 @@ function updateRatePreview() {
 function saveSettings() {
   dismissKeyboard();
   const vrate = {
-    ratePerKm: parseFloat(document.getElementById('s-rate').value) || 300,
+    ratePerKm: parseFloat(document.getElementById('s-rate').value) || 50,
     baseFixed:  parseFloat(document.getElementById('s-base').value) || 0,
     capAmount:  parseFloat(document.getElementById('s-cap').value)  || 0,
   };

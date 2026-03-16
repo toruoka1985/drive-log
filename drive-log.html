@@ -4722,6 +4722,7 @@ fuelTableSection +
         updateInvoiceBtn();
 
         const doShare = async () => {
+          toast('DEBUG: doShare呼ばれた');
           // ① navigator.share + files（iOS Safari・Android Chrome）
           if (navigator.share) {
             try {

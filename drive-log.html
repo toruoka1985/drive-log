@@ -3804,6 +3804,9 @@ async function exportInvoice() {
   const corpRecs = monthRecs.filter(r => r.category === '法人');
   const selfRecs = monthRecs.filter(r => r.category === '個人事業');
   const privRecs = monthRecs.filter(r => r.category === '私用');
+  // 明細生成用：請求対象レコード
+  // 法人名義→個人事業・私用、個人名義→法人
+  const targetRecs = isPersonalVehicle ? corpRecs : [...selfRecs, ...privRecs];
 
   if (monthRecs.length === 0) { toast('対象データがありません'); return; }
 
@@ -3870,14 +3873,18 @@ async function exportInvoice() {
   // 個人事業・私用のガソリン按分を各行の金額には加えず、名義別の小計行に合算表示
   let detailRows = '';
   let detailRows2 = '';
-  ['個人事業', '私用'].forEach(cat => {
+
+  // 明細行を生成：名義に応じてカテゴリを切替
+  const detailCats = isPersonalVehicle ? ['法人'] : ['個人事業', '私用'];
+  const badgeMap   = { '法人': 'corp', '個人事業': 'self', '私用': 'priv' };
+
+  detailCats.forEach(cat => {
     const recs = targetRecs.filter(r => r.category === cat);
-    if (recs.length === 0 && fuelShareInv[cat] === 0) return;
+    const share = isPersonalVehicle ? 0 : (fuelShareInv[cat] || 0);
+    if (recs.length === 0 && share === 0) return;
     const driveCost = recs.reduce((s,r) => s + r.cost, 0);
-    const share = fuelShareInv[cat];
-    const subtotal = driveCost + share;
-    // 走行行
-    const badgeClass = cat === '個人事業' ? 'self' : 'priv';
+    const subtotal  = driveCost + share;
+    const badgeClass = badgeMap[cat] || 'priv';
     recs.forEach(r => {
       detailRows +=
         '<tr>' +
@@ -3888,7 +3895,6 @@ async function exportInvoice() {
         '<td class="r">¥' + r.cost.toLocaleString() + '</td>' +
         '</tr>';
     });
-    // 名義別小計行（ガソリン按分含む）
     const shareNote = share > 0
       ? '<span style="font-size:9.5px;font-weight:400;color:#999;margin-left:8px;">走行 ¥' + driveCost.toLocaleString() + ' ＋ ガソリン消費分 ¥' + share.toLocaleString() + '</span>'
       : '';

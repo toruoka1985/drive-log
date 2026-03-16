@@ -2596,11 +2596,12 @@ async function saveRecord() {
   const date = document.getElementById('f-date').value;
   const purpose = document.getElementById('f-purpose').value.trim();
   const cat = getCategory();
-  const start = parseFloat(document.getElementById('f-odo-start').value);
+  const startRaw = document.getElementById('f-odo-start').value;
+  const start = startRaw === '' ? 0 : parseFloat(startRaw);
   const end = parseFloat(document.getElementById('f-odo-end').value);
 
   if (!date || !purpose || !cat) { toast('日付・目的・費用区分を入力してください'); return; }
-  if (isNaN(start) || isNaN(end)) { toast('オドメーターを入力してください'); return; }
+  if (isNaN(end)) { toast('終了オドメーターを入力してください'); return; }
   if (end <= start) { toast('終了値は開始値より大きくしてください'); return; }
 
   // オドメーター整合チェック
@@ -3655,9 +3656,13 @@ function markDirtyIfChanged(y, m) {
 // それ以外 → 使用比率計算書
 function getDocumentType(y, m) {
   const key = y + '-' + String(m).padStart(2,'0');
-  const monthRecs = records.filter(r => r.date.startsWith(key));
   const v = getActiveVehicle();
   const ownership = v?.ownership || '法人';
+  // アクティブ車両のみに絞る
+  const monthRecs = records.filter(r =>
+    r.date.startsWith(key) &&
+    (r.vehicleId || 'default') === (v?.id || activeVehicleId || 'default')
+  );
 
   if (ownership === '法人') {
     const hasPersonal = monthRecs.some(r => r.category === '個人事業' || r.category === '私用');
@@ -3793,9 +3798,12 @@ async function exportInvoice() {
   }
 
   const key = y + '-' + String(m).padStart(2,'0');
-  const monthRecs = records.filter(r => r.date.startsWith(key));
-
   const activeVehicle    = getActiveVehicle();
+  // アクティブ車両のみに絞る
+  const monthRecs = records.filter(r =>
+    r.date.startsWith(key) &&
+    (r.vehicleId || 'default') === (activeVehicle?.id || activeVehicleId || 'default')
+  );
   const vehicleOwnership = activeVehicle?.ownership || '法人';
   const isPersonalVehicle = vehicleOwnership !== '法人';
 

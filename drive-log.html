@@ -3165,7 +3165,22 @@ function renderHistory() {
     html += `<div class="month-group"><div class="month-label">${y}年 ${parseInt(m)}月</div>`;
 
     // 日付降順でソート
-    items.sort((a,b) => b.data.date.localeCompare(a.data.date));
+    // 同日の場合：timing='before'の給油は走行より下（時系列で先）→ 降順で後ろ
+    //             timing='after'の給油は走行より上（時系列で後）→ 降順で前
+    items.sort((a, b) => {
+      const dateA = a.data.date;
+      const dateB = b.data.date;
+      if (dateA !== dateB) return dateB.localeCompare(dateA); // 日付降順
+
+      // 同日：走行と給油の相対順序を timing で決定
+      // sortKey: 大きいほど上（降順表示で先頭）
+      const sortKey = item => {
+        if (item.type === 'drive') return 1; // 走行は中間
+        const timing = item.data.timing;
+        return timing === 'before' ? 0 : 2;  // before=下(0), after=上(2)
+      };
+      return sortKey(b) - sortKey(a);
+    });
 
     items.forEach(item => {
       if (item.type === 'drive') {

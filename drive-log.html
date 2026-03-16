@@ -1711,6 +1711,40 @@
 </div>
 
 <!-- PWA INSTALL MODAL -->
+<!-- ── 初回セットアップモーダル ── -->
+<div class="pwa-modal-overlay" id="setupModal" onclick="if(event.target===this)skipSetup()" style="z-index:600;">
+  <div class="pwa-modal" style="max-width:340px;">
+    <div style="font-size:22px;text-align:center;margin-bottom:8px;">🚗</div>
+    <div class="pwa-modal-title" style="font-size:16px;text-align:center;margin-bottom:6px;">まず車両を登録しましょう</div>
+    <div style="font-size:12px;color:var(--text3);text-align:center;margin-bottom:20px;line-height:1.7;">
+      車両名と名義を設定すると<br>請求書の発行がスムーズになります
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label style="font-size:12px;">車両名</label>
+      <input type="text" id="setup-vehicle-name" placeholder="例：プロボックス" maxlength="20"
+        style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text1);font-size:15px;">
+    </div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">車両名義</div>
+      <div style="display:flex;gap:6px;">
+        <button class="seg-btn setup-ownership-btn active" data-o="法人"
+          onclick="selectSetupOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">法人</button>
+        <button class="seg-btn setup-ownership-btn" data-o="個人事業"
+          onclick="selectSetupOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">個人事業</button>
+        <button class="seg-btn setup-ownership-btn" data-o="私用"
+          onclick="selectSetupOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">私用</button>
+      </div>
+    </div>
+    <button class="settings-save-btn" onclick="completeSetup()" style="margin-bottom:10px;">
+      登録して始める
+    </button>
+    <button onclick="skipSetup()"
+      style="display:block;width:100%;padding:10px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">
+      後で設定する
+    </button>
+  </div>
+</div>
+
 <div class="pwa-modal-overlay" id="pwaModal" onclick="if(event.target===this)closePwaModal()">
   <div class="pwa-modal">
     <div class="pwa-modal-title">📱 ホーム画面に追加する</div>
@@ -1831,6 +1865,45 @@ let editTargetId = null;
 let summaryMonth = new Date();
 
 // ── PWA INSTALL GUIDE ──
+// ── 初回セットアップ ──
+function initSetup() {
+  // 表示条件: 未ログイン + setup未完了 + 車両名が「車両1」のまま
+  if (currentUser) return; // ログイン済みはスキップ
+  if (localStorage.getItem('dl_setup_done')) return;
+  const v = vehicles.find(v => v.id === 'default' || v.id === activeVehicleId);
+  if (!v || v.name !== '車両1') return; // すでに名前を変えていればスキップ
+  document.getElementById('setupModal').classList.add('show');
+}
+
+function selectSetupOwnership(btn) {
+  document.querySelectorAll('.setup-ownership-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function completeSetup() {
+  dismissKeyboard();
+  const name = document.getElementById('setup-vehicle-name').value.trim();
+  const ownershipBtn = document.querySelector('.setup-ownership-btn.active');
+  const ownership = ownershipBtn?.dataset.o || '法人';
+
+  // 車両名・名義を更新（デフォルト車両を書き換え）
+  const v = vehicles.find(v => v.id === activeVehicleId);
+  if (v) {
+    v.name = name || v.name;
+    v.ownership = ownership;
+    saveVehicles();
+    updateVehicleSwitcher();
+  }
+  localStorage.setItem('dl_setup_done', '1');
+  document.getElementById('setupModal').classList.remove('show');
+  if (name) toast(`${name} を登録しました ✓`);
+}
+
+function skipSetup() {
+  localStorage.setItem('dl_setup_done', '1');
+  document.getElementById('setupModal').classList.remove('show');
+}
+
 function initPwaBanner() {
   // スタンドアロン（ホーム画面から起動中）は表示しない
   if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) return;
@@ -2423,12 +2496,12 @@ function addVehicle() {
   const ownership = ownershipBtn?.dataset.o || '法人';
   const id = 'v_' + Date.now();
   vehicles.push({ id, name, ownership, createdAt: Date.now() });
-  activeVehicleId = id;
+  // activeVehicleIdは変更しない（追加後も元の車両のまま）
   saveVehicles();
   updateVehicleSwitcher();
   hideVehicleNameInput();
   renderVehicleList();
-  toast(`${name} を追加しました`);
+  toast(`${name} を追加しました（切り替えは車両一覧から）`);
 }
 
 function renameVehicle(id) {
@@ -2503,6 +2576,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initVehicles();
   renderPlanSection();
   initPwaBanner();
+  setTimeout(initSetup, 300); // 画面描画後に表示
   ['s-rate','s-base','s-cap'].forEach(id => {
     document.getElementById(id).addEventListener('input', updateRatePreview);
   });

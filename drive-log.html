@@ -3450,7 +3450,6 @@ function saveEdit() {
   const orig = records.find(r => r.id === editTargetId);
   if (!orig) return;
 
-  pushUndo('編集：' + (orig.date || '') + ' ' + (orig.purpose || ''));
 
   records = records.map(r =>
     r.id === editTargetId ? { ...r, purpose, category: cat } : r
@@ -3477,7 +3476,6 @@ function closeModal() {
 }
 function confirmDelete() {
   const target = records.find(r => r.id === deleteTargetId);
-  pushUndo('削除：' + (target?.date || '') + ' ' + (target?.purpose || ''));
   records = records.filter(r => r.id !== deleteTargetId);
   save();
   if (target) {
@@ -3637,7 +3635,6 @@ function saveFuel() {
 
 function deleteFuel(id) {
   const fuel = fuelRecords.find(f => f.id === id);
-  pushUndo('給油削除：' + (fuel?.date || ''));
   fuelRecords = fuelRecords.filter(f => f.id !== id);
   save();
   if (fuel) {

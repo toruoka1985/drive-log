@@ -4275,9 +4275,39 @@ async function exportInvoice() {
   const detailCats = isPersonalVehicle ? ['法人'] : ['個人事業', '私用'];
   const badgeMap   = { '法人': 'corp', '個人事業': 'self', '私用': 'priv' };
 
-  detailCats.forEach(cat => {
-    const recs = targetRecs.filter(r => r.category === cat);
-    const share = fuelShareInv[cat] || 0; // 法人名義車は個人事業・私用分、個人名義車は法人分
+  // 請求書：請求対象カテゴリのみ、使用比率計算書：全カテゴリ
+  const displayCats = isInvoice ? detailCats : ['法人', '個人事業', '私用'];
+  displayCats.forEach(cat => {
+    const recs = monthRecs.filter(r => r.category === cat);
+    // fuelShareInvは請求書用（detailCatsベース）なので計算書用に全カテゴリのshareを計算
+    let share = 0;
+    if (isInvoice) {
+      share = fuelShareInv[cat] || 0;
+    } else {
+      // 使用比率計算書：各カテゴリの給油按分を計算
+      monthFuelsInv.forEach(f => {
+        const sortedF2 = [...activeFuelRecsInv].sort((a,b) => a.date.localeCompare(b.date));
+        const idxF2 = sortedF2.findIndex(r => r.id === f.id);
+        const prevDateF2 = idxF2 > 0 ? sortedF2[idxF2-1].date : null;
+        const inclF2 = f.timing === 'after' || !f.timing;
+        const inRangeF2 = activeRecsInv.filter(r =>
+          (prevDateF2 ? r.date > prevDateF2 : true) &&
+          (inclF2 ? r.date <= f.date : r.date < f.date)
+        );
+        const totalKmF2 = inRangeF2.reduce((s,r) => s+r.km, 0);
+        if (totalKmF2 === 0) {
+          const prev2 = getPrevFuelRatio(sortedF2, idxF2, activeRecsInv);
+          if (prev2 && prev2.totalKm > 0) {
+            share += Math.round(f.amount * (prev2.catKm[cat]||0) / prev2.totalKm);
+          } else if (getVehicleDefaultCat() === cat) {
+            share += f.amount;
+          }
+        } else {
+          const catKmF2 = inRangeF2.filter(r=>r.category===cat).reduce((s,r)=>s+r.km,0);
+          share += Math.round(f.amount * catKmF2 / totalKmF2);
+        }
+      });
+    }
     if (recs.length === 0 && share === 0) return;
     const driveCost = recs.reduce((s,r) => s + r.cost, 0);
     const subtotal  = driveCost + share;
@@ -4669,7 +4699,7 @@ async function exportInvoice() {
 '  </div>\n' +
 '</header>\n' +
 
-'<div class="parties">\n' +
+(isInvoice ? '<div class="parties">\n' +
 '  <div class="party">\n' +
 '    <div class="party-label">Bill To</div>\n' +
 '    <div class="party-name">' + escHtml(billToName) + '</div>\n' +
@@ -4678,15 +4708,15 @@ async function exportInvoice() {
 '    <div class="party-label">Issued By</div>\n' +
 '    <div class="party-name">' + escHtml(issuedByName) + '</div>\n' +
 '  </div>\n' +
-'</div>\n' +
+'</div>\n' : '') +
 
-'<div class="total-band">\n' +
+(isInvoice ? '<div class="total-band">\n' +
 '  <div class="tb-left">\n' +
-'    <div class="tb-label">' + (isInvoice ? 'Amount Due' : '対象期間') + '</div>\n' +
+'    <div class="tb-label">Amount Due</div>\n' +
 '    <div class="tb-period">' + y + '年' + m + '月分</div>\n' +
 '  </div>\n' +
-'  <div class="tb-amount">' + (isInvoice ? totalStr : (totalKmAll.toFixed(1) + ' km')) + '</div>\n' +
-'</div>\n' +
+'  <div class="tb-amount">' + totalStr + '</div>\n' +
+'</div>\n' : '') +
 
 '<div class="section-label">利用明細 — Detail</div>\n' +
 '<div style="font-size:11px;color:#888;margin:-6px 0 10px;font-family:sans-serif;">対象車両：' + (getActiveVehicle()?.name || '—') + '</div>\n' +
@@ -4701,12 +4731,12 @@ async function exportInvoice() {
 '    </tr>\n' +
 '  </thead>\n' +
 '  <tbody>' + detailRows + '</tbody>\n' +
-'  <tfoot>\n' +
+(isInvoice ? '  <tfoot>\n' +
 '    <tr>\n' +
-'      <td colspan="4">合計振込額</td>\n' +
+'      <td colspan="4">' + (isInvoice ? '合計振込額' : '合計') + '</td>\n' +
 '      <td class="r">' + totalStr + '</td>\n' +
 '    </tr>\n' +
-'  </tfoot>\n' +
+'  </tfoot>\n' : '') +
 '</table>\n' +
 
 

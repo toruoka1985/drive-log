@@ -1306,18 +1306,19 @@
     <div id="vehicle-list"></div>
     <button class="vehicle-add-btn" onclick="showVehicleNameInput()">＋ 車両を追加</button>
     <div id="vehicle-name-form" style="display:none;margin-top:8px;">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px;letter-spacing:.04em;" id="vehicle-form-label">車両名</div>
       <input class="vehicle-name-input" id="vehicle-name-input" type="text" placeholder="例：プロボックス" maxlength="20">
       <div style="margin-top:10px;">
         <div style="font-size:11px;color:var(--text3);margin-bottom:6px;letter-spacing:.04em;">車両名義</div>
         <div style="display:flex;gap:6px;">
-          <button class="seg-btn vehicle-ownership-btn active" data-o="法人"    onclick="selectVehicleOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">法人</button>
-          <button class="seg-btn vehicle-ownership-btn"        data-o="個人事業" onclick="selectVehicleOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">個人事業</button>
-          <button class="seg-btn vehicle-ownership-btn"        data-o="私用"    onclick="selectVehicleOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">私用</button>
+          <button class="seg-btn vehicle-ownership-btn" data-o="法人"    onclick="selectVehicleOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">法人</button>
+          <button class="seg-btn vehicle-ownership-btn" data-o="個人事業" onclick="selectVehicleOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">個人事業</button>
+          <button class="seg-btn vehicle-ownership-btn" data-o="私用"    onclick="selectVehicleOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">私用</button>
         </div>
       </div>
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="vehicle-add-btn" onclick="hideVehicleNameInput()" style="border-color:var(--border);color:var(--text3);">キャンセル</button>
-        <button class="vehicle-add-btn" onclick="addVehicle()" style="border-style:solid;border-color:var(--accent);color:var(--accent);">追加</button>
+        <button class="vehicle-add-btn" id="vehicle-form-submit-btn" onclick="addVehicle()" style="border-style:solid;border-color:var(--accent);color:var(--accent);">追加</button>
       </div>
     </div>
   </div>
@@ -1711,40 +1712,6 @@
 </div>
 
 <!-- PWA INSTALL MODAL -->
-<!-- ── 初回セットアップモーダル ── -->
-<div class="pwa-modal-overlay" id="setupModal" onclick="if(event.target===this)skipSetup()" style="z-index:600;">
-  <div class="pwa-modal" style="max-width:340px;">
-    <div style="font-size:22px;text-align:center;margin-bottom:8px;">🚗</div>
-    <div class="pwa-modal-title" style="font-size:16px;text-align:center;margin-bottom:6px;">まず車両を登録しましょう</div>
-    <div style="font-size:12px;color:var(--text3);text-align:center;margin-bottom:20px;line-height:1.7;">
-      車両名と名義を設定すると<br>請求書の発行がスムーズになります
-    </div>
-    <div class="field" style="margin-bottom:12px;">
-      <label style="font-size:12px;">車両名</label>
-      <input type="text" id="setup-vehicle-name" placeholder="例：プロボックス" maxlength="20"
-        style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text1);font-size:15px;">
-    </div>
-    <div style="margin-bottom:20px;">
-      <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">車両名義</div>
-      <div style="display:flex;gap:6px;">
-        <button class="seg-btn setup-ownership-btn" data-o="法人"
-          onclick="selectSetupOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">法人</button>
-        <button class="seg-btn setup-ownership-btn" data-o="個人事業"
-          onclick="selectSetupOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">個人事業</button>
-        <button class="seg-btn setup-ownership-btn" data-o="私用"
-          onclick="selectSetupOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">私用</button>
-      </div>
-    </div>
-    <button class="settings-save-btn" onclick="completeSetup()" style="margin-bottom:10px;">
-      登録して始める
-    </button>
-    <button onclick="skipSetup()"
-      style="display:block;width:100%;padding:10px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">
-      後で設定する
-    </button>
-  </div>
-</div>
-
 <div class="pwa-modal-overlay" id="pwaModal" onclick="if(event.target===this)closePwaModal()">
   <div class="pwa-modal">
     <div class="pwa-modal-title">📱 ホーム画面に追加する</div>
@@ -1868,55 +1835,10 @@ function dismissKeyboard() {
 let editStartEnabled = false;
 let deleteTargetId = null;
 let editTargetId = null;
+let _editingVehicleId = null; // 車両編集モードの対象ID（nullなら追加モード）
 let summaryMonth = new Date();
 
 // ── PWA INSTALL GUIDE ──
-// ── 初回セットアップ ──
-function initSetup() {
-  // ログイン後のみ表示（ログイン前は出さない）
-  if (!currentUser) return;
-  // アクティブ車両の名義が未設定なら表示
-  const v = vehicles.find(v => v.id === activeVehicleId);
-  if (!v || (v.ownership && v.ownership !== '')) return; // 名義設定済みならスキップ
-  // 入力欄リセット
-  const nameInput = document.getElementById('setup-vehicle-name');
-  if (nameInput) nameInput.value = v.name !== '車両1' ? v.name : '';
-  document.querySelectorAll('.setup-ownership-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('setupModal').classList.add('show');
-}
-
-function selectSetupOwnership(btn) {
-  document.querySelectorAll('.setup-ownership-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-}
-
-function completeSetup() {
-  dismissKeyboard();
-  const name = document.getElementById('setup-vehicle-name').value.trim();
-  const ownershipBtn = document.querySelector('.setup-ownership-btn.active');
-  const ownership = ownershipBtn?.dataset.o || '';
-
-  if (!ownership) { toast('車両名義を選択してください'); return; }
-
-  const v = vehicles.find(v => v.id === activeVehicleId);
-  if (v) {
-    if (name) v.name = name;
-    v.ownership = ownership;
-    saveVehicles();
-    updateVehicleSwitcher();
-    if (isPro()) syncToFirestore();
-  }
-  document.getElementById('setupModal').classList.remove('show');
-  toast((name || v?.name || '車両') + ' を登録しました ✓');
-}
-
-function skipSetup() {
-  // 名義を未設定のまま閉じる（次回ログイン時にまた表示）
-  const v = vehicles.find(v => v.id === activeVehicleId);
-  if (v && !v.ownership) v.ownership = ''; // 明示的に空のまま
-  document.getElementById('setupModal').classList.remove('show');
-}
-
 function initPwaBanner() {
   // スタンドアロン（ホーム画面から起動中）は表示しない
   if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) return;
@@ -2405,10 +2327,20 @@ function saveVehicles() {
 
 function updateVehicleSwitcher() {
   const v = getActiveVehicle();
-  const name = v ? v.name : '車両未設定';
+  const name      = v ? v.name : '車両未設定';
+  const ownership = v?.ownership || '';
+  const ownerLabel = ownership || '名義未設定';
+  const ownerColor = ownership ? 'var(--text3)' : '#e57373';
+
   ['vehicle-switcher-name', 'vehicle-switcher-name-history', 'vehicle-switcher-name-summary', 'vehicle-switcher-name-settings'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.textContent = name;
+    if (!el) return;
+    el.innerHTML =
+      `<span>${escHtml(name)}</span>` +
+      `<span style="font-size:9px;margin-left:5px;padding:1px 5px;border-radius:8px;` +
+      `background:var(--surface2);border:1px solid var(--border);` +
+      `color:${ownerColor};font-family:'DM Mono',monospace;letter-spacing:.03em;` +
+      `flex-shrink:0;">${escHtml(ownerLabel)}</span>`;
   });
 }
 
@@ -2477,20 +2409,32 @@ function selectVehicle(id) {
 }
 
 function showVehicleNameInput(existingName) {
-  const form = document.getElementById('vehicle-name-form');
+  _editingVehicleId = null; // 追加モード
+  const form  = document.getElementById('vehicle-name-form');
   const input = document.getElementById('vehicle-name-input');
-  form.style.display = 'block';
+  const label = document.getElementById('vehicle-form-label');
+  const btn   = document.getElementById('vehicle-form-submit-btn');
   input.value = existingName || '';
+  // 名義ボタンをリセット（追加モードは未選択）
+  document.querySelectorAll('.vehicle-ownership-btn').forEach(b => b.classList.remove('active'));
+  const firstBtn = document.querySelector('.vehicle-ownership-btn[data-o="法人"]');
+  if (firstBtn) firstBtn.classList.add('active');
+  if (label) label.textContent = '車両名';
+  if (btn) { btn.textContent = '追加'; btn.onclick = addVehicle; }
+  form.style.display = 'block';
   setTimeout(() => input.focus(), 50);
 }
 
 function hideVehicleNameInput() {
+  _editingVehicleId = null;
   document.getElementById('vehicle-name-form').style.display = 'none';
   document.getElementById('vehicle-name-input').value = '';
-  // 名義ボタンを法人にリセット
   document.querySelectorAll('.vehicle-ownership-btn').forEach(b => b.classList.remove('active'));
   const firstBtn = document.querySelector('.vehicle-ownership-btn[data-o="法人"]');
   if (firstBtn) firstBtn.classList.add('active');
+  // ボタンを追加モードに戻す
+  const btn = document.getElementById('vehicle-form-submit-btn');
+  if (btn) { btn.textContent = '追加'; btn.onclick = addVehicle; }
 }
 
 function selectVehicleOwnership(btn) {
@@ -2522,12 +2466,39 @@ function addVehicle() {
 function renameVehicle(id) {
   const v = vehicles.find(v => v.id === id);
   if (!v) return;
-  const name = prompt('新しい車両名を入力してください', v.name);
-  if (!name || !name.trim()) return;
-  v.name = name.trim();
-  saveVehicles();
-  updateVehicleSwitcher();
+  _editingVehicleId = id;
+  // フォームを編集モードで表示
+  const form  = document.getElementById('vehicle-name-form');
+  const input = document.getElementById('vehicle-name-input');
+  const label = document.getElementById('vehicle-form-label');
+  const btn   = document.getElementById('vehicle-form-submit-btn');
+  input.value = v.name;
+  // 名義ボタンの選択状態を現在の値に合わせる
+  document.querySelectorAll('.vehicle-ownership-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.o === (v.ownership || ''));
+  });
+  if (label) label.textContent = '車両名を編集';
+  if (btn) { btn.textContent = '保存'; btn.onclick = saveVehicleEdit; }
+  form.style.display = 'block';
+  setTimeout(() => input.focus(), 50);
+}
+
+function saveVehicleEdit() {
+  const name = document.getElementById('vehicle-name-input').value.trim();
+  if (!name) { toast('車両名を入力してください'); return; }
+  const ownershipBtn = document.querySelector('.vehicle-ownership-btn.active');
+  const ownership = ownershipBtn?.dataset.o || '';
+  const v = vehicles.find(v => v.id === _editingVehicleId);
+  if (v) {
+    v.name = name;
+    v.ownership = ownership;
+    saveVehicles();
+    updateVehicleSwitcher();
+  }
+  hideVehicleNameInput();
   renderVehicleList();
+  if (isPro()) syncToFirestore();
+  toast(`${name} を更新しました ✓`);
 }
 
 async function deleteVehicle(id) {
@@ -3127,7 +3098,6 @@ async function restoreFromFirestore(uid) {
       renderSummary();
       loadSettings();
       setSyncStatus('クラウドから復元しました ✓', 'var(--accent)');
-      setTimeout(initSetup, 500); // 復元完了後にセットアップ確認
       setTimeout(() => {
         const now = new Date();
         const hm  = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -3136,10 +3106,8 @@ async function restoreFromFirestore(uid) {
     } else if (records.length > 0 || fuelRecords.length > 0) {
       // クラウド空・ローカルにデータあり → アップロード
       await syncToFirestore();
-      setTimeout(initSetup, 500);
     } else {
       setSyncStatus('同期中', 'var(--text3)');
-      setTimeout(initSetup, 500); // 完全新規ユーザー
     }
   } catch(e) {
     console.error('restore error', e);

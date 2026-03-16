@@ -4761,6 +4761,7 @@ fuelTableSection +
         const btn = document.getElementById('preview-reshare-btn');
         if (btn) {
           btn.onclick = doShare;
+          toast('DEBUG: onclickセット完了');
         } else {
           toast('DEBUG: ボタンが見つかりません');
         }

@@ -3935,8 +3935,7 @@ function getInvoiceStatus(y, m) {
   return JSON.parse(localStorage.getItem(getInvoiceKey(y, m)) || 'null');
 }
 function setInvoiceIssued(y, m) {
-  const hash = getMonthHash(y, m);
-  localStorage.setItem(getInvoiceKey(y, m), JSON.stringify({ issued: true, hash }));
+  localStorage.setItem(getInvoiceKey(y, m), JSON.stringify({ issued: true }));
 }
 
 // ── 書類種別の判定 ──
@@ -4706,10 +4705,8 @@ fuelTableSection +
       });
       document.body.removeChild(iframe);
 
-      toast('DEBUG: PNG生成完了 toBlob呼び出し中');
       canvas.toBlob((blob) => {
         try {
-        toast('DEBUG: toBlob コールバック開始 blob=' + (blob ? blob.size : 'null'));
         const fname = `${y}${String(m).padStart(2,'0')}_${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'}.png`;
         const file = new File([blob], fname, { type: 'image/png' });
         const imgUrl = URL.createObjectURL(blob);
@@ -4724,7 +4721,7 @@ fuelTableSection +
         updateInvoiceBtn();
 
         const doShare = async () => {
-          toast('DEBUG: doShare呼ばれた');
+  
           // ① navigator.share + files（iOS Safari・Android Chrome）
           if (navigator.share) {
             try {
@@ -4763,12 +4760,12 @@ fuelTableSection +
         const btn = document.getElementById('preview-reshare-btn');
         if (btn) {
           btn.onclick = doShare;
-          toast('DEBUG: onclickセット完了');
+  
         } else {
-          toast('DEBUG: ボタンが見つかりません');
+  
         }
         } catch(e2) {
-          toast('DEBUG: toBlob内エラー: ' + e2.message);
+          toast('共有の準備に失敗しました: ' + e2.message);
         }
       }, 'image/png');
     } catch(e) {

@@ -3443,8 +3443,12 @@ function renderSummary() {
       const prev = getPrevFuelRatio(sorted, idx, activeRecs);
       if (prev && prev.totalKm > 0) {
         if (_isPersonalVehicleSummary) {
-          // 個人名義車：法人走行按分を上乗せ
-          fuelAdjust += Math.round(f.amount * (prev.catKm['法人'] || 0) / prev.totalKm);
+          // 個人名義車：給油名義で分岐
+          if (fc !== '法人') {
+            fuelAdjust += Math.round(f.amount * (prev.catKm['法人'] || 0) / prev.totalKm);
+          } else {
+            fuelAdjust -= f.amount;
+          }
         } else if (fc === '法人') {
           const personalKm = (prev.catKm['個人事業'] || 0) + (prev.catKm['私用'] || 0);
           fuelAdjust += Math.round(f.amount * personalKm / prev.totalKm);
@@ -3454,7 +3458,8 @@ function renderSummary() {
       } else {
         const defCat = getVehicleDefaultCat();
         if (_isPersonalVehicleSummary) {
-          fuelAdjust += f.amount; // 全額法人負担
+          if (fc !== '法人') { fuelAdjust += f.amount; }
+          else { fuelAdjust -= f.amount; }
         } else if (fc === '法人' && defCat !== '法人') {
           fuelAdjust += f.amount;
         } else if (fc !== '法人' && defCat === '法人') {
@@ -3852,7 +3857,11 @@ function calcCarryover(targetY, targetM) {
         const prev = getPrevFuelRatio(sorted, idx, activeR);
         if (prev && prev.totalKm > 0) {
           if (_isPersonalVehicleCO) {
-            fuelAdjustM += Math.round(f.amount * (prev.catKm['法人']||0) / prev.totalKm);
+            if (fc !== '法人') {
+              fuelAdjustM += Math.round(f.amount * (prev.catKm['法人']||0) / prev.totalKm);
+            } else {
+              fuelAdjustM -= f.amount;
+            }
           } else if (fc === '法人') {
             const personalKm = (prev.catKm['個人事業']||0) + (prev.catKm['私用']||0);
             fuelAdjustM += Math.round(f.amount * personalKm / prev.totalKm);
@@ -3862,7 +3871,8 @@ function calcCarryover(targetY, targetM) {
         } else {
           const defCat = getVehicleDefaultCat();
           if (_isPersonalVehicleCO) {
-            fuelAdjustM += f.amount;
+            if (fc !== '法人') { fuelAdjustM += f.amount; }
+            else { fuelAdjustM -= f.amount; }
           } else if (fc === '法人' && defCat !== '法人') {
             fuelAdjustM += f.amount;
           } else if (fc !== '法人' && defCat === '法人') {
@@ -4209,7 +4219,12 @@ async function exportInvoice() {
         if (isPersonalVehicle) {
           const hojinKm = prev.catKm['法人'] || 0;
           fuelShareInv['法人'] = (fuelShareInv['法人'] || 0) + Math.round(f.amount * hojinKm / prev.totalKm);
-          fuelAdjustInv += Math.round(f.amount * hojinKm / prev.totalKm);
+          const fcInv0 = f.category || '私用';
+          if (fcInv0 !== '法人') {
+            fuelAdjustInv += Math.round(f.amount * hojinKm / prev.totalKm);
+          } else {
+            fuelAdjustInv -= f.amount;
+          }
         } else {
           ['個人事業','私用'].forEach(cat => {
             fuelShareInv[cat] = (fuelShareInv[cat] || 0) + Math.round(f.amount * (prev.catKm[cat]||0) / prev.totalKm);
@@ -4220,7 +4235,11 @@ async function exportInvoice() {
       } else {
         const defCat = getVehicleDefaultCat();
         fuelShareInv[defCat] = (fuelShareInv[defCat] || 0) + f.amount;
-        if (isPersonalVehicle && defCat === '法人') fuelAdjustInv += f.amount;
+        if (isPersonalVehicle) {
+          const fcInvDef = f.category || '私用';
+          if (fcInvDef !== '法人') { if (defCat === '法人') fuelAdjustInv += f.amount; }
+          else { fuelAdjustInv -= f.amount; }
+        }
         else if (!isPersonalVehicle && defCat !== '法人') fuelAdjustInv += f.amount;
       }
     } else if (isPersonalVehicle) {

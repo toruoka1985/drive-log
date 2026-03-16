@@ -3311,8 +3311,15 @@ function renderSummary() {
     );
     const totalKm = inRange.reduce((s, r) => s + r.km, 0);
     if (totalKm === 0) {
-      // 走行記録なし → 車両名義100%
-      fuelShare[getVehicleDefaultCat()] += f.amount;
+      // 走行記録なし → 直近の走行ある給油の比率を引き継ぐ
+      const prev = getPrevFuelRatio(sorted, idx, activeRecs);
+      if (prev) {
+        ['法人', '個人事業', '私用'].forEach(cat => {
+          fuelShare[cat] += Math.round(f.amount * prev.catKm[cat] / prev.totalKm);
+        });
+      } else {
+        fuelShare[getVehicleDefaultCat()] += f.amount;
+      }
     } else {
       ['法人', '個人事業', '私用'].forEach(cat => {
         const catKm = inRange.filter(r => r.category === cat).reduce((s, r) => s + r.km, 0);

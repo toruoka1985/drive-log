@@ -3254,9 +3254,9 @@ function renderSummary() {
   const monthRecs = activeRecs.filter(r => r.date.startsWith(key));
   const cats = ['法人', '個人事業', '私用'];
   const notes = {
-    '法人': '参考値（法人業務のため精算不要）',
-    '個人事業': '事業経費として計上',
-    '私用': '自己負担'
+    '法人': '法人事業での使用分',
+    '個人事業': '個人事業での使用分',
+    '私用': '私用での使用分'
   };
 
   let totalDrive = 0;
@@ -4382,7 +4382,6 @@ async function exportInvoice() {
 '  <div class="note-block">\n' +
 '    <div class="note-label">備考 — Notes</div>\n' +
 '    <p>\n' +
-      (isInvoice && !isPersonalVehicle && corpRecs.length > 0 ? '法人業務分（' + corpRecs.length + '件）は精算不要のため本請求書には含まれません。<br>\n' : '') +
 '      算定レート&nbsp;¥' + (getVehicleRate(activeVehicleId).ratePerKm != null ? getVehicleRate(activeVehicleId).ratePerKm : RATE) + '/km' +
       (getVehicleRate(activeVehicleId).baseFixed ? '&emsp;固定基本料&nbsp;¥' + getVehicleRate(activeVehicleId).baseFixed.toLocaleString() : '') +
       (getVehicleRate(activeVehicleId).capAmount ? '&emsp;上限&nbsp;¥' + getVehicleRate(activeVehicleId).capAmount.toLocaleString() : '') + '<br>\n' +

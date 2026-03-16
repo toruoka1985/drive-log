@@ -1273,17 +1273,7 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="odoWarnOverlay" style="display:none;z-index:1100;">
-  <div class="modal">
-    <h3 style="color:var(--accent3);">⚠️ オドメーター不整合</h3>
-    <p id="odoWarnMsg" style="font-size:13px;line-height:1.7;white-space:pre-wrap;"></p>
-    <p style="font-size:12px;color:var(--text3);margin-top:8px;">このまま記録しますか？</p>
-    <div class="modal-btns">
-      <button class="btn-cancel" onclick="odoWarnResolve(false)">キャンセル</button>
-      <button class="btn-delete" style="background:var(--accent3);" onclick="odoWarnResolve(true)">記録する</button>
-    </div>
-  </div>
-</div>
+
 
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
@@ -1840,99 +1830,7 @@ function _confirmDismiss(result) {
   if (_confirmResolve) { _confirmResolve(result); _confirmResolve = null; }
 }
 
-let _odoWarnResolve = null;
-function showOdoWarning(warnings) {
-  return new Promise(resolve => {
-    _odoWarnResolve = resolve;
-    document.getElementById('odoWarnMsg').textContent = warnings.join('\n');
-    document.getElementById('odoWarnOverlay').style.display = 'flex';
-  });
-}
-function odoWarnResolve(result) {
-  document.getElementById('odoWarnOverlay').style.display = 'none';
-  if (_odoWarnResolve) { _odoWarnResolve(result); _odoWarnResolve = null; }
-}
 
-// ── UNDO スタック（最大5件、セッション中のみ保持）──
-const UNDO_MAX = 5;
-let undoStack = []; // [{records, fuelRecords, label}, ...]
-
-function pushUndo(label) {
-  undoStack.push({
-    records: JSON.parse(JSON.stringify(records)),
-    fuelRecords: JSON.parse(JSON.stringify(fuelRecords)),
-    label
-  });
-  if (undoStack.length > UNDO_MAX) undoStack.shift();
-  updateUndoBtn();
-}
-
-function updateUndoBtn() {
-  const btn = document.getElementById('undo-btn');
-  if (!btn) return;
-  if (undoStack.length === 0) {
-    btn.style.display = 'none';
-  } else {
-    btn.style.display = '';
-    btn.title = '元に戻す：' + undoStack[undoStack.length - 1].label;
-  }
-}
-
-function undoLastChange() {
-  if (undoStack.length === 0) return;
-  const snap = undoStack.pop();
-  records = snap.records;
-  fuelRecords = snap.fuelRecords;
-  save();
-  renderHistory();
-  renderSummary();
-  setLastOdo();
-  updateUndoBtn();
-  toast('元に戻しました ✓');
-}
-
-// ── オドメーター整合チェック（新規記録・編集時） ──
-// 同車両の日付順レコードを取得し、挿入位置の前後と照合
-// 戻り値: { ok: true } or { ok: false, warnings: [string] }
-function checkOdoConsistency(vehicleId, newDate, newStart, newEnd, excludeId) {
-  const sameVehicle = records
-    .filter(r => (r.vehicleId || 'default') === vehicleId && r.id !== excludeId)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
-
-  const warnings = [];
-
-  // ── 直前レコードの特定 ──
-  // 同日内でodoEndが新開始値より小さい（厳密に小さい）もの → 同日の直前
-  // それがなければ日付が前のレコードの最後
-  const sameDayBefore = [...sameVehicle]
-    .filter(r => r.date === newDate && r.odoEnd < newStart)
-    .pop(); // odoEnd昇順でソート済みなので最後が直前
-  const prevByDate = [...sameVehicle]
-    .filter(r => r.date < newDate)
-    .pop(); // 日付昇順で最後が直前
-  const prevRec = sameDayBefore || prevByDate;
-
-  // ── 直後レコードの特定 ──
-  // 同日内でodoStartが新終了値より大きい（厳密に大きい）もの → 同日の直後
-  // それがなければ日付が後のレコードの最初
-  const sameDayAfter = sameVehicle
-    .find(r => r.date === newDate && r.odoStart > newEnd);
-  const nextByDate = sameVehicle
-    .find(r => r.date > newDate);
-  const nextRec = sameDayAfter || nextByDate;
-
-  // ── 判定：前後と矛盾しないか ──
-  // prevRec.odoEnd === newStart は正常（連続走行）なので警告しない
-  if (prevRec && newStart < prevRec.odoEnd) {
-    warnings.push(`直前の記録（${prevRec.date}、終了 ${prevRec.odoEnd}km）より開始値（${newStart}km）が小さいです`);
-  }
-  // nextRec.odoStart === newEnd は正常なので警告しない
-  if (nextRec && newEnd > nextRec.odoStart) {
-    warnings.push(`直後の記録（${nextRec.date}、開始 ${nextRec.odoStart}km）より終了値（${newEnd}km）が大きいです`);
-  }
-
-  return warnings.length === 0 ? { ok: true } : { ok: false, warnings };
-}
 let editStartEnabled = false;
 let deleteTargetId = null;
 let editTargetId = null;
@@ -2705,11 +2603,6 @@ async function saveRecord() {
   if (end <= start) { toast('終了値は開始値より大きくしてください'); return; }
 
   // オドメーター整合チェック
-  const odoCheck = checkOdoConsistency(activeVehicleId || 'default', date, start, end, null);
-  if (!odoCheck.ok) {
-    const proceed = await showOdoWarning(odoCheck.warnings);
-    if (!proceed) return;
-  }
 
   pushUndo('記録追加：' + date + ' ' + purpose);
 
@@ -3871,6 +3764,10 @@ async function exportInvoice() {
   const y = summaryMonth.getFullYear();
   const m = summaryMonth.getMonth() + 1;
 
+  // 書類種別を最初に判定（以降のダイアログ文言で使用）
+  const docType   = getDocumentType(y, m);
+  const isInvoice = docType === 'invoice';
+
   // フリープラン：月1回制限チェック
   if (!canIssueInvoice(y, m)) {
     const go = await showConfirm({
@@ -3900,10 +3797,6 @@ async function exportInvoice() {
   const activeVehicle    = getActiveVehicle();
   const vehicleOwnership = activeVehicle?.ownership || '法人';
   const isPersonalVehicle = vehicleOwnership !== '法人';
-
-  // 書類種別：請求書 or 使用比率計算書
-  const docType   = getDocumentType(y, m);
-  const isInvoice = docType === 'invoice';
 
   // 対象レコード
   // 法人名義：個人事業・私用が請求対象

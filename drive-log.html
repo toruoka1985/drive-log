@@ -1243,7 +1243,7 @@
   <div class="preview-header">
     <span class="preview-title">Invoice Preview</span>
     <div style="display:flex;gap:10px;align-items:center;">
-      <button class="preview-reshare-btn" id="preview-reshare-btn" title="共有">
+      <button class="preview-reshare-btn" id="preview-reshare-btn" title="共有" onclick="handlePreviewShare(this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -1692,13 +1692,16 @@
   <!-- テスト用プラン切り替え（開発時のみ） -->
   <div id="dev-plan-toggle" style="margin-top:32px;padding:14px 16px;background:var(--card);border-radius:12px;border:1px dashed var(--border);">
     <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:.1em;margin-bottom:10px;">DEV · プランテスト</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
       <button onclick="devSetPlan('pro')"
         style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;"
-        id="dev-btn-pro">PRO に切り替え</button>
+        id="dev-btn-pro">PRO</button>
       <button onclick="devSetPlan('free')"
         style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;"
-        id="dev-btn-free">FREE に切り替え</button>
+        id="dev-btn-free">FREE</button>
+      <button onclick="devSetPlan('none')"
+        style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;"
+        id="dev-btn-none">未設定</button>
     </div>
     <div id="dev-plan-status" style="margin-top:8px;font-size:11px;color:var(--text3);text-align:center;font-family:'DM Mono',monospace;"></div>
   </div>
@@ -2070,20 +2073,45 @@ function devSetPlan(tier) {
     const future = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     window._userPlan = { tier: 'pro', trialStartedAt: null, trialEndsAt: null, expiresAt: future };
     _devPlanOverride = true;
-  } else {
+    localStorage.setItem('dev_plan_override', 'pro');
+  } else if (tier === 'free') {
     window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
+    _devPlanOverride = true;
+    localStorage.setItem('dev_plan_override', 'free');
+  } else {
+    // 未設定：上書きを解除してFirestoreの実際のplanに戻す
     _devPlanOverride = false;
+    localStorage.removeItem('dev_plan_override');
+    if (currentUser) {
+      restoreFromFirestore(currentUser.uid);
+    } else {
+      window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
+    }
   }
   renderPlanSection();
   updateTrialBanner();
   updateAuthUI(currentUser);
-  // DEVテスト: PRO昇格時はFirestoreから復元を試みる（planは上書きしない）
+  updateDevPlanStatus();
   if (tier === 'pro' && currentUser) {
     restoreFromFirestore(currentUser.uid);
   }
+  toast('DEV: プランを ' + (tier === 'none' ? '未設定（実際のプランを使用）' : tier.toUpperCase()) + ' に変更しました');
+}
+
+function updateDevPlanStatus() {
+  const saved = localStorage.getItem('dev_plan_override');
   const status = document.getElementById('dev-plan-status');
-  if (status) status.textContent = '現在: ' + tier.toUpperCase() + ' (' + new Date().toLocaleTimeString() + ')';
-  toast('プランを ' + tier.toUpperCase() + ' に切り替えました（テスト用）');
+  if (!status) return;
+  const btns = { pro: document.getElementById('dev-btn-pro'), free: document.getElementById('dev-btn-free'), none: document.getElementById('dev-btn-none') };
+  // ボタンのハイライト
+  Object.entries(btns).forEach(([k, btn]) => {
+    if (!btn) return;
+    const active = saved === k || (!saved && k === 'none');
+    btn.style.background = active ? 'var(--accent)' : 'var(--surface2)';
+    btn.style.color = active ? '#0f0f0f' : 'var(--text2)';
+    btn.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+  });
+  status.textContent = saved ? ('保存済: ' + saved.toUpperCase()) : '実際のプランを使用中';
 }
 
 // ── PLAN ──
@@ -2604,7 +2632,18 @@ window.addEventListener('DOMContentLoaded', () => {
   renderSummary();
   loadSettings();
   initVehicles();
+  // DEV: リロード後もプラン設定を引き継ぐ
+  const _devSaved = localStorage.getItem('dev_plan_override');
+  if (_devSaved === 'pro') {
+    const future = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    window._userPlan = { tier: 'pro', trialStartedAt: null, trialEndsAt: null, expiresAt: future };
+    _devPlanOverride = true;
+  } else if (_devSaved === 'free') {
+    window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
+    _devPlanOverride = true;
+  }
   renderPlanSection();
+  updateDevPlanStatus();
   initPwaBanner();
   ['s-rate','s-base','s-cap'].forEach(id => {
     document.getElementById(id).addEventListener('input', updateRatePreview);
@@ -4254,14 +4293,14 @@ async function exportInvoice() {
     '<div class="note-section" style="margin-top:0;">\n' +
     '  <div class="note-block" style="width:100%">\n' +
     '    <div class="note-label">給油記録（参考） — Fuel Records</div>\n' +
-    '    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">\n' +
+    '    <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;">\n' +
     '    <thead><tr style="border-bottom:1px solid #ccc;">\n' +
     '      <th style="text-align:left;padding:4px 8px;color:#888;">日付</th>\n' +
     '      <th style="text-align:left;padding:4px 8px;color:#888;">支払名義</th>\n' +
     '      <th style="text-align:right;padding:4px 8px;color:#888;">金額</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;font-weight:400;font-size:11px;">内訳（法人）</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;font-weight:400;font-size:11px;">内訳（個人事業）</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;font-weight:400;font-size:11px;">内訳（私用）</th>\n' +
+    '      <th style="text-align:right;padding:4px 8px;color:#888;">法人</th>\n' +
+    '      <th style="text-align:right;padding:4px 8px;color:#888;">個人事業</th>\n' +
+    '      <th style="text-align:right;padding:4px 8px;color:#888;">私用</th>\n' +
     '    </tr></thead>\n' +
     '    <tbody>\n' +
     monthFuelsInv.map(f => {
@@ -4293,7 +4332,7 @@ async function exportInvoice() {
           catAmounts[cat] = Math.round(f.amount * km / totalKmF);
         });
       }
-      const fmt = v => v > 0 ? '<span style="color:#555;font-size:11px;">(¥' + v.toLocaleString() + ')</span>' : '<span style="color:#bbb;font-size:11px;">—</span>';
+      const fmt = v => v > 0 ? '¥' + v.toLocaleString() : '<span style="color:#bbb;">—</span>';
       return '      <tr>' +
         '<td style="padding:5px 8px;white-space:nowrap;">' + fdate + '</td>' +
         '<td style="padding:5px 8px;white-space:nowrap;">' + escHtml(f.category || '') + '</td>' +
@@ -4683,43 +4722,15 @@ fuelTableSection +
         setInvoiceIssued(y, m);
         updateInvoiceBtn();
 
-        const doShare = async () => {
-          const title = `${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'} ${y}年${m}月`;
-          const fname = `${y}${String(m).padStart(2,'0')}_${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'}.png`;
-          // ① ファイル共有（iOS15+/Android Chrome）
-          if (navigator.share) {
-            try {
-              // canShareが使えるなら確認、使えなければそのままtry
-              const canTry = !navigator.canShare || navigator.canShare({ files: [file] });
-              if (canTry) {
-                await navigator.share({ files: [file], title });
-                setInvoiceIssued(y, m);
-                updateInvoiceBtn();
-                closePreview();
-                toast((isInvoice ? '請求書' : '計算書') + 'を共有しました ✓');
-                return;
-              }
-            } catch(e) {
-              if (e.name === 'AbortError') return; // ユーザーがキャンセル
-              // ファイル共有失敗 → フォールバックへ
-            }
-          }
-          // ② 画像を新しいタブで開く（iOS Safariで長押し保存・共有が可能）
-          const newTab = window.open(imgUrl, '_blank');
-          if (newTab) {
-            toast('画像を開きました。長押しで保存・共有できます');
-          } else {
-            // ③ ダウンロード（デスクトップ・Android）
-            const a = document.createElement('a');
-            a.href = imgUrl;
-            a.download = fname;
-            a.click();
-            toast((isInvoice ? '請求書' : '計算書') + 'をダウンロードしました ✓');
-          }
-          setInvoiceIssued(y, m);
-          updateInvoiceBtn();
-        };
-        document.getElementById('preview-reshare-btn').onclick = doShare;
+        // 共有ボタン：imgUrlをdata属性にセット
+        // iOSではユーザータップ直後にnavigator.shareが必要なため
+        // ボタン自体のonclickで直接呼び出す形にする
+        const reshareBtn = document.getElementById('preview-reshare-btn');
+        reshareBtn.dataset.imgUrl = imgUrl;
+        reshareBtn.dataset.fname = `${y}${String(m).padStart(2,'0')}_${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'}.png`;
+        reshareBtn.dataset.title = `${isInvoice ? '車両使用料請求書' : '車両使用比率計算書'} ${y}年${m}月`;
+        reshareBtn.dataset.blob = 'ready'; // fileオブジェクトはグローバル変数に保持
+        window._previewFile = file; // ← ユーザータップ時に使用
       }, 'image/png');
     } catch(e) {
       if (document.body.contains(iframe)) document.body.removeChild(iframe);
@@ -4759,6 +4770,36 @@ fuelTableSection +
 }
 
 // ── PREVIEW ──
+// プレビュー画面の共有ボタン（ユーザータップから直接呼ばれる）
+async function handlePreviewShare(btn) {
+  const imgUrl = btn.dataset.imgUrl;
+  const fname  = btn.dataset.fname;
+  const title  = btn.dataset.title;
+  const file   = window._previewFile;
+  if (!imgUrl) return;
+
+  // iOS Safari / Android Chrome: navigator.share（ユーザージェスチャー直結なので動作する）
+  if (navigator.share && file) {
+    try {
+      await navigator.share({ files: [file], title });
+      toast('共有しました ✓');
+      return;
+    } catch(e) {
+      if (e.name === 'AbortError') return;
+      // ファイル共有非対応 → フォールバック
+    }
+  }
+  // フォールバック: 新タブで画像を開く（iOS長押し保存 or ダウンロード）
+  const a = document.createElement('a');
+  a.href = imgUrl;
+  a.download = fname;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  toast('画像を保存しました ✓');
+}
+
 function closePreview() {
   document.getElementById('previewOverlay').classList.remove('show');
   const img = document.getElementById('preview-img');

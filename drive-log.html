@@ -1639,13 +1639,29 @@
 
     <!-- ② FREE・ログイン済み（バックアップ不可、アップグレード誘導） -->
     <div id="auth-free-loggedin" style="display:none;">
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;">
-        <div style="font-size:13px;color:var(--text2);margin-bottom:4px;" id="auth-free-email"></div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:14px;line-height:1.6;">
-          🔒 クラウドバックアップはPROプランの機能です。<br>アップグレードするとデータを自動保護できます。
+      <!-- 警告バナー：バックアップ停止中 -->
+      <div style="background:rgba(229,115,115,.1);border:1px solid rgba(229,115,115,.4);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:18px;flex-shrink:0;line-height:1.4;">⚠️</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#e57373;margin-bottom:3px;">バックアップ停止中</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.7;">
+            現在のデータはこのブラウザにしか保存されていません。<br>
+            キャッシュ削除・機種変更でデータが<strong style="color:#e57373;">完全に消えます。</strong>
+          </div>
+        </div>
+      </div>
+      <!-- アカウント情報 -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:12px;color:var(--text3);" id="auth-free-email"></div>
+          <span style="font-size:10px;font-family:'DM Mono',monospace;background:var(--surface2);color:var(--text3);padding:2px 8px;border-radius:20px;border:1px solid var(--border);">FREE</span>
+        </div>
+        <div style="font-size:12px;color:var(--text3);line-height:1.7;padding:10px 12px;background:var(--surface2);border-radius:8px;margin-bottom:12px;">
+          PROプランにアップグレードすると<br>
+          自動バックアップが有効になります。
         </div>
         <button class="settings-save-btn" onclick="openUpgradeModal('backup')" style="font-size:13px;margin-bottom:8px;">
-          PROプランにアップグレード
+          今すぐバックアップを有効にする
         </button>
         <button class="settings-save-btn" onclick="handleSignOut()" style="background:var(--card);color:var(--text3);font-size:12px;">
           ログアウト

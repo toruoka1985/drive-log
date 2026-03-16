@@ -3267,31 +3267,7 @@ function renderHistory() {
         </div>`;
       } else {
         const f = item.data;
-        const alloc = calcFuelAlloc(f);
         const catLabel = (f.category || '私用') + '名義';
-        // 法人利用比率を算出（アクティブ車両のみ）
-        const sorted = [...activeFuelRecs].sort((a,b) => a.date.localeCompare(b.date));
-        const fidx = sorted.findIndex(r => r.id === f.id);
-        const fprev = fidx > 0 ? sorted[fidx-1].date : null;
-        const inclSameDayFin = f.timing === 'after' || !f.timing;
-        const finRange = activeRecs.filter(r =>
-          (fprev ? r.date > fprev : true) &&
-          (inclSameDayFin ? r.date <= f.date : r.date < f.date)
-        );
-        const fTotalKm = finRange.reduce((s,r) => s+r.km, 0);
-        const fHojinKm = finRange.filter(r => r.category==='法人').reduce((s,r) => s+r.km, 0);
-        let hojinRatioText;
-        if (fTotalKm === 0) {
-          const prev = getPrevFuelRatio(sorted, fidx, activeRecs);
-          if (prev && prev.totalKm > 0) {
-            const ph = prev.catKm['法人'] || 0;
-            hojinRatioText = `前回比率引継 ${Math.round(ph/prev.totalKm*100)}%`;
-          } else {
-            hojinRatioText = '走行記録なし';
-          }
-        } else {
-          hojinRatioText = `${fHojinKm.toFixed(1)}km / ${fTotalKm.toFixed(1)}km = ${Math.round(fHojinKm/fTotalKm*100)}%`;
-        }
         html += `<div class="fuel-card">
           <div class="fuel-card-top">
             <span class="fuel-card-date">${formatDate(f.date)}</span>
@@ -3302,7 +3278,6 @@ function renderHistory() {
             <span class="fuel-card-alloc">${catLabel}</span>
             <span class="fuel-card-cost">¥${f.amount.toLocaleString()}</span>
           </div>
-          <div class="fuel-card-ratio">法人利用比率　${hojinRatioText}</div>
           <div class="fuel-card-actions">
             <button class="action-btn" onclick="openFuelModal(${f.id})">編集</button>
             <button class="action-btn danger" onclick="deleteFuel(${f.id})">削除</button>
@@ -4354,6 +4329,56 @@ async function exportInvoice() {
   // ── 使用比率計算書用：区分別サマリーセクション ──
   const ratioSection = ''; // 使用比率テーブルは明細に統合済み
 
+  // ── 個人名義車請求書：参考明細（個人事業・私用分） ──
+  let refDetailSection = '';
+  if (isInvoice && isPersonalVehicle && (selfRecs.length > 0 || privRecs.length > 0)) {
+    const refCats = [['個人事業', selfRecs], ['私用', privRecs]];
+    const badgeMapRef = { '個人事業': 'self', '私用': 'priv' };
+    let refRows = '';
+    refCats.forEach(([cat, recs]) => {
+      if (recs.length === 0) return;
+      const km = recs.reduce((s,r) => s+r.km, 0);
+      const cost = recs.reduce((s,r) => s+r.cost, 0);
+      const ratio = totalKmAll > 0 ? Math.round(km / totalKmAll * 100) : 0;
+      const badgeClass = badgeMapRef[cat];
+      recs.forEach(r => {
+        refRows +=
+          '<tr style="opacity:.75;">' +
+          '<td style="padding:4px 6px;font-size:11px;">' + formatDate(r.date) + '</td>' +
+          '<td style="padding:4px 6px;font-size:11px;">' + escHtml(r.purpose) + '</td>' +
+          '<td class="c" style="padding:4px 6px;font-size:11px;"><span class="badge ' + badgeClass + '">' + r.category + '</span></td>' +
+          '<td class="r" style="padding:4px 6px;font-size:11px;font-family:monospace;">' + r.km.toFixed(1) + '</td>' +
+          '<td class="r" style="padding:4px 6px;font-size:11px;color:#aaa;"></td>' +
+          '<td class="r" style="padding:4px 6px;font-size:11px;font-family:monospace;color:#aaa;">&#165;' + r.cost.toLocaleString() + '</td>' +
+          '</tr>';
+      });
+      refRows +=
+        '<tr style="background:#f8f8f6;">' +
+        '<td colspan="3" style="padding:4px 6px;font-size:11px;color:#888;">' + cat + ' 小計（参考）</td>' +
+        '<td class="r" style="padding:4px 6px;font-size:11px;font-family:monospace;color:#888;">' + km.toFixed(1) + '</td>' +
+        '<td class="r" style="padding:4px 6px;font-size:11px;color:#888;">' + ratio + '%</td>' +
+        '<td class="r" style="padding:4px 6px;font-size:11px;font-family:monospace;color:#888;">&#165;' + cost.toLocaleString() + '</td>' +
+        '</tr>';
+    });
+    refDetailSection =
+      '<div class="note-section" style="margin-top:0;">\n' +
+      '  <div class="note-block" style="width:100%">\n' +
+      '    <div class="note-label" style="color:#aaa;">&#20491;&#20154;&#20351;&#29992;&#20998;&#65288;&#21442;&#32771;&#65289; &mdash; Personal Use</div>\n' +
+      '    <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;">\n' +
+      '    <thead><tr style="border-bottom:1px solid #eee;">\n' +
+      '      <th style="text-align:left;padding:4px 6px;color:#aaa;">&#26085;&#20184;</th>\n' +
+      '      <th style="text-align:left;padding:4px 6px;color:#aaa;">&#30446;&#30340;</th>\n' +
+      '      <th style="text-align:center;padding:4px 6px;color:#aaa;">&#21306;&#20998;</th>\n' +
+      '      <th style="text-align:right;padding:4px 6px;color:#aaa;">&#36317;&#31163; km</th>\n' +
+      '      <th style="text-align:right;padding:4px 6px;color:#aaa;">&#27604;&#29575;</th>\n' +
+      '      <th style="text-align:right;padding:4px 6px;color:#aaa;">&#37329;&#39069;</th>\n' +
+      '    </tr></thead>\n' +
+      '    <tbody>' + refRows + '</tbody>\n' +
+      '    </table>\n' +
+      '  </div>\n' +
+      '</div>\n';
+  }
+
   // 給油記録テーブル（請求書・計算書共通）
   const fuelTableSection = monthFuelsInv.length > 0 ? (
     '<div class="note-section" style="margin-top:0;">\n' +
@@ -4745,6 +4770,7 @@ async function exportInvoice() {
 
 '</div>\n' +
 ratioSection +
+refDetailSection +
 fuelTableSection +
 
 '<div class="footer-line">Generated by 社有車走行記録 &nbsp;·&nbsp; ' + issueDate + ' &nbsp;·&nbsp; ' + (isInvoice ? 'INV-' : 'RPT-') + invoiceNo + '</div>\n' +

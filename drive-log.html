@@ -3212,9 +3212,18 @@ function renderHistory() {
         );
         const fTotalKm = finRange.reduce((s,r) => s+r.km, 0);
         const fHojinKm = finRange.filter(r => r.category==='法人').reduce((s,r) => s+r.km, 0);
-        const hojinRatioText = fTotalKm === 0
-          ? '走行記録なし'
-          : `${fHojinKm.toFixed(1)}km / ${fTotalKm.toFixed(1)}km = ${Math.round(fHojinKm/fTotalKm*100)}%`;
+        let hojinRatioText;
+        if (fTotalKm === 0) {
+          const prev = getPrevFuelRatio(sorted, fidx, activeRecs);
+          if (prev && prev.totalKm > 0) {
+            const ph = prev.catKm['法人'] || 0;
+            hojinRatioText = `前回比率引継 ${Math.round(ph/prev.totalKm*100)}%`;
+          } else {
+            hojinRatioText = '走行記録なし';
+          }
+        } else {
+          hojinRatioText = `${fHojinKm.toFixed(1)}km / ${fTotalKm.toFixed(1)}km = ${Math.round(fHojinKm/fTotalKm*100)}%`;
+        }
         html += `<div class="fuel-card">
           <div class="fuel-card-top">
             <span class="fuel-card-date">${formatDate(f.date)}</span>
@@ -3363,11 +3372,20 @@ function renderSummary() {
     const totalKm = inRange.reduce((s,r) => s+r.km, 0);
     const fc = f.category || '私用';
     if (totalKm === 0) {
-      // 走行記録なし → 車両名義100%として按分
-      const defCat = getVehicleDefaultCat();
-      if (fc === '法人' && defCat !== '法人') fuelAdjust += f.amount;  // 法人払い・個人名義車
-      else if (fc !== '法人' && defCat === '法人') fuelAdjust -= f.amount; // 個人払い・法人名義車
-      // 同名義（法人払い法人車、個人払い個人車）は相殺なし
+      // 走行記録なし → 直近の走行ある給油の比率を引き継ぐ
+      const prev = getPrevFuelRatio(sorted, idx, activeRecs);
+      if (prev && prev.totalKm > 0) {
+        if (fc === '法人') {
+          const personalKm = (prev.catKm['個人事業'] || 0) + (prev.catKm['私用'] || 0);
+          fuelAdjust += Math.round(f.amount * personalKm / prev.totalKm);
+        } else {
+          fuelAdjust -= Math.round(f.amount * (prev.catKm['法人'] || 0) / prev.totalKm);
+        }
+      } else {
+        const defCat = getVehicleDefaultCat();
+        if (fc === '法人' && defCat !== '法人') fuelAdjust += f.amount;
+        else if (fc !== '法人' && defCat === '法人') fuelAdjust -= f.amount;
+      }
     } else if (fc === '法人') {
       // 法人払い → 個人事業＋私用の按分を上乗せ
       const personalKm = inRange.filter(r=>r.category==='個人事業'||r.category==='私用').reduce((s,r)=>s+r.km,0);
@@ -3573,6 +3591,30 @@ function closeFuelModal() {
 }
 
 // 走行記録がないとき、車両名義に応じたデフォルト区分を返す
+// 直近の「走行記録がある給油」の区分別km比率を遡って取得する
+// totalKm=0のときに前回比率を引き継ぐために使用
+function getPrevFuelRatio(sortedFuels, currentIdx, activeRecs) {
+  // currentIdxより前の給油を新しい順に遡る
+  for (let i = currentIdx - 1; i >= 0; i--) {
+    const f = sortedFuels[i];
+    const prevDate = i > 0 ? sortedFuels[i - 1].date : null;
+    const inclSameDay = f.timing === 'after' || !f.timing;
+    const inRange = activeRecs.filter(r =>
+      (prevDate ? r.date > prevDate : true) &&
+      (inclSameDay ? r.date <= f.date : r.date < f.date)
+    );
+    const totalKm = inRange.reduce((s, r) => s + r.km, 0);
+    if (totalKm > 0) {
+      const catKm = {};
+      ['法人', '個人事業', '私用'].forEach(cat => {
+        catKm[cat] = inRange.filter(r => r.category === cat).reduce((s, r) => s + r.km, 0);
+      });
+      return { catKm, totalKm };
+    }
+  }
+  return null; // 全て走行なし → フォールバック
+}
+
 function getVehicleDefaultCat() {
   const v = getActiveVehicle();
   const ownership = v?.ownership || '法人';
@@ -3596,7 +3638,14 @@ function calcFuelAlloc(fuel) {
   const totalKm    = inRange.reduce((s, r) => s + r.km, 0);
   const personalKm = inRange.filter(r => r.category !== '法人').reduce((s, r) => s + r.km, 0);
   if (totalKm === 0) {
-    // 走行記録なし → 車両名義100%として扱う
+    // 走行記録なし → 直近の走行ある給油の比率を引き継ぐ
+    const prev = getPrevFuelRatio(sorted, idx, activeRecs);
+    if (prev) {
+      const prevPersonalKm = prev.catKm['個人事業'] + prev.catKm['私用'];
+      const prevRatio = prevPersonalKm / prev.totalKm;
+      return { personalKm: 0, totalKm: 0, ratio: prevRatio, personalCost: Math.round(fuel.amount * prevRatio) };
+    }
+    // 遡っても走行なし → 車両名義100%
     const defCat = getVehicleDefaultCat();
     const isPersonal = defCat !== '法人';
     return { personalKm: 0, totalKm: 0, ratio: isPersonal ? 1 : 0, personalCost: isPersonal ? fuel.amount : 0 };
@@ -3702,9 +3751,19 @@ function calcCarryover(targetY, targetM) {
       const totalKm = inRange.reduce((s,r) => s + r.km, 0);
       const fc = f.category || '私用';
       if (totalKm === 0) {
-        const defCat = getVehicleDefaultCat();
-        if (fc === '法人' && defCat !== '法人') fuelAdjustM += f.amount;
-        else if (fc !== '法人' && defCat === '法人') fuelAdjustM -= f.amount;
+        const prev = getPrevFuelRatio(sorted, idx, activeR);
+        if (prev && prev.totalKm > 0) {
+          if (fc === '法人') {
+            const personalKm = (prev.catKm['個人事業']||0) + (prev.catKm['私用']||0);
+            fuelAdjustM += Math.round(f.amount * personalKm / prev.totalKm);
+          } else {
+            fuelAdjustM -= Math.round(f.amount * (prev.catKm['法人']||0) / prev.totalKm);
+          }
+        } else {
+          const defCat = getVehicleDefaultCat();
+          if (fc === '法人' && defCat !== '法人') fuelAdjustM += f.amount;
+          else if (fc !== '法人' && defCat === '法人') fuelAdjustM -= f.amount;
+        }
       } else if (fc === '法人') {
         const personalKm = inRange.filter(r=>r.category==='個人事業'||r.category==='私用').reduce((s,r)=>s+r.km,0);
         fuelAdjustM += Math.round(f.amount * personalKm / totalKm);
@@ -4007,11 +4066,26 @@ async function exportInvoice() {
     const totalKm = inRange.reduce((s,r) => s+r.km, 0);
 
     if (totalKm === 0) {
-      // 走行記録なし → 車両名義100%として按分
-      const defCat = getVehicleDefaultCat();
-      fuelShareInv[defCat] = (fuelShareInv[defCat] || 0) + f.amount;
-      if (isPersonalVehicle && defCat === '法人') fuelAdjustInv += f.amount;
-      else if (!isPersonalVehicle && defCat !== '法人') fuelAdjustInv += f.amount;
+      // 走行記録なし → 直近の走行ある給油の比率を引き継ぐ
+      const prev = getPrevFuelRatio(sorted, idx, activeRecsInv);
+      if (prev && prev.totalKm > 0) {
+        if (isPersonalVehicle) {
+          const hojinKm = prev.catKm['法人'] || 0;
+          fuelShareInv['法人'] = (fuelShareInv['法人'] || 0) + Math.round(f.amount * hojinKm / prev.totalKm);
+          fuelAdjustInv += Math.round(f.amount * hojinKm / prev.totalKm);
+        } else {
+          ['個人事業','私用'].forEach(cat => {
+            fuelShareInv[cat] = (fuelShareInv[cat] || 0) + Math.round(f.amount * (prev.catKm[cat]||0) / prev.totalKm);
+          });
+          const personalKm = (prev.catKm['個人事業']||0) + (prev.catKm['私用']||0);
+          fuelAdjustInv += Math.round(f.amount * personalKm / prev.totalKm);
+        }
+      } else {
+        const defCat = getVehicleDefaultCat();
+        fuelShareInv[defCat] = (fuelShareInv[defCat] || 0) + f.amount;
+        if (isPersonalVehicle && defCat === '法人') fuelAdjustInv += f.amount;
+        else if (!isPersonalVehicle && defCat !== '法人') fuelAdjustInv += f.amount;
+      }
     } else if (isPersonalVehicle) {
       // 個人名義車：法人走行分のガソリン按分を計算
       const hojinKm = inRange.filter(r=>r.category==='法人').reduce((s,r)=>s+r.km,0);

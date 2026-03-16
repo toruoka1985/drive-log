@@ -2049,6 +2049,10 @@ function devSetPlan(tier) {
   renderPlanSection();
   updateTrialBanner();
   updateAuthUI(currentUser);
+  // DEVテスト: PRO昇格時はFirestoreから復元を試みる
+  if (tier === 'pro' && currentUser) {
+    restoreFromFirestore(currentUser.uid);
+  }
   const status = document.getElementById('dev-plan-status');
   if (status) status.textContent = '現在: ' + tier.toUpperCase() + ' (' + new Date().toLocaleTimeString() + ')';
   toast('プランを ' + tier.toUpperCase() + ' に切り替えました（テスト用）');
@@ -2899,6 +2903,13 @@ function initFirebase() {
       window.addEventListener('online', () => {
         if (localStorage.getItem('pendingSync')) syncToFirestore();
       });
+      // Paddle Webhook遅延対応: ログイン時フリーでも30秒後に再チェック
+      // （決済直後にplanがまだ更新されていない場合の救済）
+      setTimeout(async () => {
+        if (!isPro() && currentUser) {
+          await restoreFromFirestore(currentUser.uid);
+        }
+      }, 30000);
     } else {
       window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
       updateTrialBanner();

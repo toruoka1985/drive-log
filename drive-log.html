@@ -3881,7 +3881,10 @@ async function exportInvoice() {
 
   // ── 給油按分（請求書用） ──
   // 各名義カードの小計表示用：名義ごとのガソリン按分負担額
-  const monthFuelsInv = fuelRecords.filter(f => f.date.startsWith(key));
+  const monthFuelsInv = fuelRecords.filter(f =>
+    f.date.startsWith(key) &&
+    (f.vehicleId || 'default') === (activeVehicle?.id || activeVehicleId || 'default')
+  );
   const fuelShareInv = { '個人事業': 0, '私用': 0 };
   // 振込額調整用：給油ごとに名義判定
   let fuelAdjustInv = 0;

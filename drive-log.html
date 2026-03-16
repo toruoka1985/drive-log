@@ -1302,10 +1302,6 @@
     <div class="edit-modal-title">記録を編集</div>
 
     <div class="field">
-      <label>日付</label>
-      <input type="date" id="e-date">
-    </div>
-    <div class="field">
       <label>目的</label>
       <input type="text" id="e-purpose" placeholder="例：○○訪問、納品など">
     </div>
@@ -1315,47 +1311,6 @@
         <button class="seg-btn edit-seg" data-v="法人" onclick="selectEditCat(this)">法人</button>
         <button class="seg-btn edit-seg" data-v="個人事業" onclick="selectEditCat(this)">個人事業</button>
         <button class="seg-btn edit-seg" data-v="私用" onclick="selectEditCat(this)">私用</button>
-      </div>
-    </div>
-    <div class="field">
-      <label>開始オドメーター (km)</label>
-      <input type="number" id="e-odo-start" inputmode="numeric" oninput="updateEditPreview()">
-    </div>
-    <div class="field">
-      <label>終了オドメーター (km)</label>
-      <input type="number" id="e-odo-end" inputmode="numeric" oninput="updateEditPreview()">
-    </div>
-    <div class="dist-preview">
-      <span class="label">走行距離</span>
-      <span class="value" id="e-preview-km">— km</span>
-    </div>
-
-    <div class="field" style="margin-top:4px;">
-      <label style="display:flex;justify-content:space-between;align-items:center;">
-        <span>料金（円）</span>
-        <button type="button" onclick="resetEditCost()" style="background:none;border:none;color:var(--accent);font-size:11px;font-family:'DM Mono',monospace;cursor:pointer;padding:0;letter-spacing:.04em;">自動計算に戻す</button>
-      </label>
-      <div style="position:relative;">
-        <input type="number" id="e-custom-cost" inputmode="numeric" placeholder="自動計算" oninput="onEditCostInput()" style="padding-right:48px;">
-        <span id="e-cost-lock" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);">AUTO</span>
-      </div>
-      <div id="e-cost-hint" style="font-size:10px;color:var(--text3);margin-top:6px;font-family:'DM Mono',monospace;"></div>
-      <!-- レートスナップショット表示 -->
-      <div id="e-rate-info" style="margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);font-size:11px;font-family:'DM Mono',monospace;display:none;">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-          <div>
-            <span style="color:var(--text3);">記録時レート：</span>
-            <span id="e-rate-snapshot-label" style="color:var(--text2);"></span>
-          </div>
-          <div id="e-rate-current-wrap" style="display:none;">
-            <span style="color:var(--text3);">現在のレート：</span>
-            <span id="e-rate-current-label" style="color:var(--accent3);"></span>
-          </div>
-        </div>
-        <div id="e-rate-switch-wrap" style="margin-top:8px;display:none;">
-          <button type="button" id="e-rate-use-current" onclick="applyCurrentRate()" style="background:none;border:1px solid var(--accent3);color:var(--accent3);font-size:10px;font-family:'DM Mono',monospace;border-radius:6px;padding:4px 10px;cursor:pointer;">現在のレートを適用</button>
-          <button type="button" id="e-rate-use-snapshot" onclick="applySnapshotRate()" style="background:none;border:1px solid var(--text3);color:var(--text3);font-size:10px;font-family:'DM Mono',monospace;border-radius:6px;padding:4px 10px;cursor:pointer;display:none;">記録時レートに戻す</button>
-        </div>
       </div>
     </div>
 
@@ -3437,93 +3392,19 @@ function openEditModal(id) {
   if (!r) return;
   editTargetId = id;
 
-  document.getElementById('e-date').value = r.date;
   document.getElementById('e-purpose').value = r.purpose;
-  document.getElementById('e-odo-start').value = r.odoStart;
-  document.getElementById('e-odo-end').value = r.odoEnd;
-
-  // 料金欄：個別指定があれば表示、なければ空欄（AUTO）
-  const costInput = document.getElementById('e-custom-cost');
-  const lock = document.getElementById('e-cost-lock');
-  const hint = document.getElementById('e-cost-hint');
-  if (r.customRate) {
-    costInput.value = r.cost;
-    lock.textContent = 'FIXED';
-    lock.style.color = 'var(--self)';
-    hint.textContent = '個別指定中 — 設定レートは使用されません';
-    hint.style.color = 'var(--self)';
-  } else {
-    costInput.value = '';
-    lock.textContent = 'AUTO';
-    lock.style.color = 'var(--text3)';
-    hint.textContent = '';
-  }
-
   document.querySelectorAll('.edit-seg').forEach(b => {
     b.classList.toggle('active', b.dataset.v === r.category);
   });
 
-  // rateSnapshot表示
-  const rateInfo = document.getElementById('e-rate-info');
-  const snapshotLabel = document.getElementById('e-rate-snapshot-label');
-  const currentLabel = document.getElementById('e-rate-current-label');
-  const currentWrap = document.getElementById('e-rate-current-wrap');
-  const switchWrap = document.getElementById('e-rate-switch-wrap');
-  const useCurrent = document.getElementById('e-rate-use-current');
-  const useSnapshot = document.getElementById('e-rate-use-snapshot');
-
-  if (!r.customRate) {
-    rateInfo.style.display = 'block';
-    const snap = r.rateSnapshot;
-    const curr = getVehicleRate(r.vehicleId || activeVehicleId);
-
-    const fmtRate = (rt) => {
-      let s = '¥' + (rt.ratePerKm ?? 300) + '/km';
-      if (rt.baseFixed) s = '¥' + rt.baseFixed + ' + ' + s;
-      if (rt.capAmount) s += ' (上限¥' + rt.capAmount + ')';
-      return s;
-    };
-
-    if (snap) {
-      snapshotLabel.textContent = fmtRate(snap);
-      // 現在レートと差異があれば表示
-      const isDiff = snap.ratePerKm !== curr.ratePerKm ||
-                     snap.baseFixed !== curr.baseFixed ||
-                     snap.capAmount !== curr.capAmount;
-      if (isDiff) {
-        currentLabel.textContent = fmtRate(curr);
-        currentWrap.style.display = 'block';
-        switchWrap.style.display = 'block';
-        useCurrent.style.display = '';
-        useSnapshot.style.display = 'none';
-      } else {
-        currentWrap.style.display = 'none';
-        switchWrap.style.display = 'none';
-      }
-    } else {
-      // 古いデータ（rateSnapshot未保存）
-      snapshotLabel.textContent = '記録時レート不明';
-      currentLabel.textContent = fmtRate(curr);
-      currentWrap.style.display = 'block';
-      switchWrap.style.display = 'block';
-      useCurrent.style.display = '';
-      useSnapshot.style.display = 'none';
-    }
-  } else {
-    rateInfo.style.display = 'none';
-  }
-
-  updateEditPreview();
   const _emo = document.getElementById('editModalOverlay');
   _emo.classList.add('show');
-  // 開いた瞬間に先頭へスクロール（コンテンツが多くても上から表示）
   requestAnimationFrame(() => { _emo.scrollTop = 0; });
 }
 
 function closeEditModal() {
   document.getElementById('editModalOverlay').classList.remove('show');
   editTargetId = null;
-  window._editUseCurrentRate = false;
 }
 
 function selectEditCat(btn) {
@@ -3531,202 +3412,31 @@ function selectEditCat(btn) {
   btn.classList.add('active');
 }
 
-function updateEditPreview() {
-  const start = parseFloat(document.getElementById('e-odo-start').value);
-  const end = parseFloat(document.getElementById('e-odo-end').value);
-  const el = document.getElementById('e-preview-km');
-  const hint = document.getElementById('e-cost-hint');
-  const costInput = document.getElementById('e-custom-cost');
-  if (!isNaN(start) && !isNaN(end) && end > start) {
-    const km = end - start;
-    el.textContent = km.toFixed(1) + ' km';
-    if (costInput.value === '') {
-      // rateSnapshotがあればそちらで計算、なければ現在設定
-      const r = editTargetId ? records.find(r => r.id === editTargetId) : null;
-      const useSnap = r?.rateSnapshot && !window._editUseCurrentRate;
-      const snap = useSnap ? r.rateSnapshot : null;
-      const rate = snap ? (snap.ratePerKm ?? 300) : null;
-      const autoCost = snap
-        ? (() => { const base = snap.baseFixed||0; const cap = snap.capAmount||0; let c = base + Math.round(km*(snap.ratePerKm??300)); if(cap>0) c=Math.min(c,cap); return c; })()
-        : calcCost(km, null);
-      hint.textContent = '自動計算：¥' + autoCost.toLocaleString();
-    }
-  } else {
-    el.textContent = '— km';
-    hint.textContent = '';
-  }
-}
-
-// 現在レートに切り替え
-function applyCurrentRate() {
-  window._editUseCurrentRate = true;
-  document.getElementById('e-rate-use-current').style.display = 'none';
-  document.getElementById('e-rate-use-snapshot').style.display = '';
-  updateEditPreview();
-}
-
-// 記録時レートに戻す
-function applySnapshotRate() {
-  window._editUseCurrentRate = false;
-  document.getElementById('e-rate-use-snapshot').style.display = 'none';
-  document.getElementById('e-rate-use-current').style.display = '';
-  updateEditPreview();
-}
-
-function onEditCostInput() {
-  const lock = document.getElementById('e-cost-lock');
-  const hint = document.getElementById('e-cost-hint');
-  const val = document.getElementById('e-custom-cost').value;
-  if (val === '') {
-    lock.textContent = 'AUTO';
-    lock.style.color = 'var(--text3)';
-    updateEditPreview();
-  } else {
-    lock.textContent = 'FIXED';
-    lock.style.color = 'var(--self)';
-    hint.textContent = '個別指定中 — 設定レートは使用されません';
-    hint.style.color = 'var(--self)';
-  }
-}
-
-function resetEditCost() {
-  document.getElementById('e-custom-cost').value = '';
-  document.getElementById('e-cost-lock').textContent = 'AUTO';
-  document.getElementById('e-cost-lock').style.color = 'var(--text3)';
-  updateEditPreview();
-}
-
-async function saveEdit() {
-  const date    = document.getElementById('e-date').value;
+function saveEdit() {
   const purpose = document.getElementById('e-purpose').value.trim();
   const cat     = document.querySelector('.edit-seg.active')?.dataset.v;
-  const start   = parseFloat(document.getElementById('e-odo-start').value);
-  const end     = parseFloat(document.getElementById('e-odo-end').value);
 
-  if (!date || !purpose || !cat) { toast('日付・目的・費用区分を入力してください'); return; }
-  if (isNaN(start) || isNaN(end))  { toast('オドメーターを入力してください'); return; }
-  if (end <= start)                 { toast('終了値は開始値より大きくしてください'); return; }
+  if (!purpose || !cat) { toast('目的と費用区分を入力してください'); return; }
 
-  const km = end - start;
+  const orig = records.find(r => r.id === editTargetId);
+  if (!orig) return;
 
-  // ── 元レコードを最初に取得（以降すべてここを参照） ──
-  const origForCheck = records.find(r => r.id === editTargetId);
+  pushUndo('編集：' + (orig.date || '') + ' ' + (orig.purpose || ''));
 
-  // ── コスト計算 ──
-  const customCostVal = document.getElementById('e-custom-cost').value.trim();
-  const hasCustom     = customCostVal !== '' && !isNaN(Number(customCostVal));
-  let cost, newRateSnapshot;
-
-  if (hasCustom) {
-    cost             = Math.round(Number(customCostVal));
-    newRateSnapshot  = origForCheck?.rateSnapshot || null;
-  } else if (window._editUseCurrentRate) {
-    const currRate   = getVehicleRate(origForCheck?.vehicleId || activeVehicleId);
-    const base       = currRate.baseFixed || 0;
-    const cap        = currRate.capAmount || 0;
-    cost             = base + Math.round(km * (currRate.ratePerKm ?? 300));
-    if (cap > 0) cost = Math.min(cost, cap);
-    newRateSnapshot  = { ratePerKm: currRate.ratePerKm, baseFixed: currRate.baseFixed||0, capAmount: currRate.capAmount||0 };
-  } else {
-    const snap = origForCheck?.rateSnapshot;
-    if (snap) {
-      const base = snap.baseFixed || 0;
-      const cap  = snap.capAmount || 0;
-      cost = base + Math.round(km * (snap.ratePerKm ?? 300));
-      if (cap > 0) cost = Math.min(cost, cap);
-    } else {
-      cost = calcCost(km, null);
-    }
-    newRateSnapshot = snap || null;
-  }
-
-  // ── オドメーター整合チェック ──
-  const vidForCheck = origForCheck?.vehicleId || 'default';
-  const odoCheck    = checkOdoConsistency(vidForCheck, date, start, end, editTargetId);
-  if (!odoCheck.ok) {
-    const proceed = await showOdoWarning(odoCheck.warnings);
-    if (!proceed) return;
-  }
-
-  // ── 更新オブジェクト生成 ──
-  const updated = {
-    id:           editTargetId,
-    date, purpose,
-    category:     cat,
-    odoStart:     start,
-    odoEnd:       end,
-    km:           parseFloat(km.toFixed(1)),
-    cost,
-    customRate:   hasCustom ? true : null,
-    rateSnapshot: newRateSnapshot,
-    vehicleId:    origForCheck?.vehicleId || activeVehicleId || 'default',
-  };
-
-  pushUndo('編集：' + (origForCheck?.date || '') + ' ' + (origForCheck?.purpose || ''));
-
-  // ── 隣接レコードの自動連動更新 ──
-  const vehicleId  = origForCheck?.vehicleId || 'default';
-  const sameVehicle = records
-    .filter(r => (r.vehicleId || 'default') === vehicleId)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
-  const idx      = sameVehicle.findIndex(r => r.id === editTargetId);
-  const oldStart = origForCheck?.odoStart;
-  const oldEnd   = origForCheck?.odoEnd;
-
-  // まず対象レコードを更新
-  records = records.map(r => r.id === editTargetId ? { ...r, ...updated } : r);
-
-  const warnings = [];
-
-  // 終了値を変更 → 直後レコードのstartが旧endと一致していれば自動更新
-  if (!isNaN(oldEnd) && end !== oldEnd && idx >= 0 && idx < sameVehicle.length - 1) {
-    const nextRec = sameVehicle[idx + 1];
-    if (nextRec.odoStart === oldEnd) {
-      records = records.map(r => {
-        if (r.id !== nextRec.id) return r;
-        const newKm   = parseFloat((r.odoEnd - end).toFixed(1));
-        const newCost = r.customRate ? r.cost : calcCost(newKm, null);
-        return { ...r, odoStart: end, km: newKm, cost: newCost };
-      });
-    } else {
-      warnings.push(`直後の記録（${nextRec.date}）の開始値（${nextRec.odoStart}km）と終了値（${end}km）が一致しません`);
-    }
-  }
-
-  // 開始値を変更 → 直前レコードのendが旧startと一致していれば自動更新
-  if (!isNaN(oldStart) && start !== oldStart && idx > 0) {
-    const prevRec = sameVehicle[idx - 1];
-    if (prevRec.odoEnd === oldStart) {
-      records = records.map(r => {
-        if (r.id !== prevRec.id) return r;
-        const newKm   = parseFloat((start - r.odoStart).toFixed(1));
-        const newCost = r.customRate ? r.cost : calcCost(newKm, null);
-        return { ...r, odoEnd: start, km: newKm, cost: newCost };
-      });
-    } else {
-      warnings.push(`直前の記録（${prevRec.date}）の終了値（${prevRec.odoEnd}km）と開始値（${start}km）が一致しません`);
-    }
-  }
+  records = records.map(r =>
+    r.id === editTargetId ? { ...r, purpose, category: cat } : r
+  );
 
   save();
-  const ey = new Date(updated.date).getFullYear();
-  const em = new Date(updated.date).getMonth() + 1;
+  const ey = new Date(orig.date).getFullYear();
+  const em = new Date(orig.date).getMonth() + 1;
   markDirtyIfChanged(ey, em);
   closeEditModal();
   renderHistory();
-
-  if (warnings.length > 0) {
-    setTimeout(() => showConfirm({
-      title:  '⚠️ オドメーターの不整合',
-      msg:    warnings.join('\n\n') + '\n\n手動で確認・修正してください。',
-      ok:     '確認',
-      cancel: '閉じる',
-    }), 200);
-    toast('更新しました（不整合あり）');
-  } else {
-    toast('更新しました ✓');
-  }
+  renderSummary();
+  toast('更新しました ✓');
 }
+
 
 // ── DELETE ──
 function askDelete(id) {

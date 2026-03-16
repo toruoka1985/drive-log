@@ -3514,7 +3514,7 @@ function renderSummary() {
   const _driveLabel = _isPersonalVehicleSummary ? '走行（法人）' : '走行（個人）';
   // 使用料 = 走行費 + ガソリン消費分（_fuelShareForTotal）
   const _usageTotal = personalDrive + _fuelShareForTotal;
-  let totalBreakdown = `使用料（${_isPersonalVehicleSummary ? '法人' : '個人'}）¥${_usageTotal.toLocaleString()}`;
+  let totalBreakdown = `使用料（${_isPersonalVehicleSummary ? '法人' : '個人事業+私用'}）¥${_usageTotal.toLocaleString()}`;
   if (fuelAdjustSub < 0) totalBreakdown += `　ガソリン代精算：-¥${Math.abs(fuelAdjustSub).toLocaleString()}`;
   if (carry < 0)      totalBreakdown += `　前月繰越：-¥${Math.abs(carry).toLocaleString()}`;
 

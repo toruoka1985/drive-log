@@ -4361,6 +4361,7 @@ async function exportInvoice() {
         '</tr>';
     });
     refDetailSection =
+      '<hr style="border:none;border-top:1px solid var(--rule);margin:32px 0 28px;">\n' +
       '<div class="section-label">&#20491;&#20154;&#20351;&#29992;&#20998;&#65288;&#21442;&#32771;&#65289; &mdash; Personal Use</div>\n' +
       '<table class="ref-table">\n' +
       '  <thead>\n' +
@@ -4434,7 +4435,8 @@ async function exportInvoice() {
     }).join('') +
     '    </tbody></table>\n' +
     '  </div>\n' +
-    '</div>\n'
+    '</div>\n' +
+    '<p style="font-size:10px;color:#999;margin:4px 0 0;font-family:sans-serif;">&#10033; &#32989;&#27833;&#12398;&#35388;&#25340;&#65288;&#38936;&#21454;&#26360;&#12394;&#12393;&#65289;&#12399;&#21029;&#36途;&#20445;&#31649;&#12375;&#12390;&#12367;&#12384;&#12373;&#12356;&#12290;</p>\n'
   ) : '';
 
   const html = '<!DOCTYPE html>\n' +
@@ -4831,7 +4833,6 @@ fuelTableSection +
               setInvoiceIssued(y, m);
               updateInvoiceBtn();
               closePreview();
-              toast((isInvoice ? '請求書' : '計算書') + 'を共有しました ✓');
               return;
             } catch(e) {
               if (e.name === 'AbortError') return; // ユーザーキャンセル

@@ -3606,25 +3606,18 @@ function saveFuel() {
       // 旧日付の月も dirty チェック
       const oldY = parseInt(oldFuel.date.slice(0,4)), oldM = parseInt(oldFuel.date.slice(5,7));
       const timing = getFuelTiming();
-      fuelRecords[idx] = { id: editingFuelId, date, amount, category: cat, timing };
+      fuelRecords[idx] = { id: editingFuelId, date, amount, category: cat, timing,
+        vehicleId: oldFuel.vehicleId || activeVehicleId || 'default' };
       save();
-      const newY = parseInt(date.slice(0,4)), newM = parseInt(date.slice(5,7));
-      const alloc = calcFuelAlloc(fuelRecords[idx]);
-      const sign = fuelSign(cat) > 0 ? '+' : '-';
       toast('給油を更新しました ✓');
     }
   } else {
     // 新規モード
     const timing = getFuelTiming();
-    const fuel = { id: Date.now(), date, amount, category: cat, timing };
+    const fuel = { id: Date.now(), date, amount, category: cat, timing, vehicleId: activeVehicleId || 'default' };
     fuelRecords.push(fuel);
     save();
-    const fy = parseInt(date.slice(0,4)), fm = parseInt(date.slice(5,7));
-    const alloc = calcFuelAlloc(fuel);
-    const sign = fuelSign(cat) > 0 ? '+' : '-';
-    toast(alloc.totalKm === 0
-      ? '給油を記録しました（走行記録なし）✓'
-      : `給油を記録しました ✓　精算：${sign}¥${alloc.personalCost.toLocaleString()}`);
+    toast('給油を記録しました ✓');
   }
 
   closeFuelModal();

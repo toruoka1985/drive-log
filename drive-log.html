@@ -4319,16 +4319,20 @@ async function exportInvoice() {
         '<td>' + escHtml(r.purpose) + '</td>' +
         '<td class="c"><span class="badge ' + badgeClass + '">' + r.category + '</span></td>' +
         '<td class="r">' + r.km.toFixed(1) + '</td>' +
+        (!isInvoice ? '<td class="r"></td>' : '') +
         '<td class="r">¥' + r.cost.toLocaleString() + '</td>' +
         '</tr>';
     });
     const shareNote = share > 0
       ? '<span style="font-size:9.5px;font-weight:400;color:#999;margin-left:8px;">走行 ¥' + driveCost.toLocaleString() + ' ＋ ガソリン消費分 ¥' + share.toLocaleString() + '</span>'
       : '';
+    const catKmTotal = recs.reduce((s,r)=>s+r.km,0);
+    const catRatioStr = (!isInvoice && totalKmAll > 0) ? Math.round(catKmTotal / totalKmAll * 100) + '%' : '';
     detailRows +=
       '<tr class="subtotal">' +
       '<td colspan="3">' + cat + ' 小計' + shareNote + '</td>' +
-      '<td class="r">' + recs.reduce((s,r)=>s+r.km,0).toFixed(1) + '</td>' +
+      '<td class="r">' + catKmTotal.toFixed(1) + '</td>' +
+      (!isInvoice ? '<td class="r" style="color:#555;">' + catRatioStr + '</td>' : '') +
       '<td class="r">¥' + subtotal.toLocaleString() + '</td>' +
       '</tr>';
   });
@@ -4348,26 +4352,7 @@ async function exportInvoice() {
   const totalStr = footerTotal >= 0 ? '¥\u200B' + footerTotal.toLocaleString() : '−¥' + Math.abs(footerTotal).toLocaleString();
 
   // ── 使用比率計算書用：区分別サマリーセクション ──
-  const ratioSection = !isInvoice ? (
-    '<div class="note-section">\n' +
-    '  <div class="note-block" style="width:100%">\n' +
-    '    <div class="note-label">使用比率 — Usage Ratio</div>\n' +
-    '    <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;">\n' +
-    '    <thead><tr style="border-bottom:1px solid #ccc;">\n' +
-    '      <th style="text-align:left;padding:4px 8px;color:#888;">区分</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;">距離</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;">比率</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;">走行費用</th>\n' +
-    '    </tr></thead>\n' +
-    '    <tbody>\n' +
-    (corpKm > 0 ? '      <tr><td style="padding:6px 8px;">法人</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">' + corpKm.toFixed(1) + ' km</td><td style="text-align:right;padding:6px 8px;">' + (totalKmAll > 0 ? Math.round(corpKm/totalKmAll*100) : 0) + '%</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">¥' + corpCost.toLocaleString() + '</td></tr>\n' : '') +
-    (selfKm > 0 ? '      <tr><td style="padding:6px 8px;">個人事業</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">' + selfKm.toFixed(1) + ' km</td><td style="text-align:right;padding:6px 8px;">' + (totalKmAll > 0 ? Math.round(selfKm/totalKmAll*100) : 0) + '%</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">¥' + selfCost.toLocaleString() + '</td></tr>\n' : '') +
-    (privKm > 0 ? '      <tr><td style="padding:6px 8px;">私用</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">' + privKm.toFixed(1) + ' km</td><td style="text-align:right;padding:6px 8px;">' + (totalKmAll > 0 ? Math.round(privKm/totalKmAll*100) : 0) + '%</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">¥' + privCost.toLocaleString() + '</td></tr>\n' : '') +
-    '      <tr style="border-top:2px solid #222;font-weight:700;"><td style="padding:6px 8px;">合計</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">' + totalKmAll.toFixed(1) + ' km</td><td style="text-align:right;padding:6px 8px;">100%</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">¥' + (corpCost+selfCost+privCost).toLocaleString() + '</td></tr>\n' +
-    '    </tbody></table>\n' +
-    '  </div>\n' +
-    '</div>\n'
-  ) : '';
+  const ratioSection = ''; // 使用比率テーブルは明細に統合済み
 
   // 給油記録テーブル（請求書・計算書共通）
   const fuelTableSection = monthFuelsInv.length > 0 ? (
@@ -4411,13 +4396,18 @@ async function exportInvoice() {
           catAmounts[cat] = Math.round(f.amount * km / totalKmF);
         });
       }
-      const fmt = v => v > 0 ? '¥' + v.toLocaleString() : '<span style="color:#bbb;">—</span>';
-      const breakdown = '（' + fmt(catAmounts['法人']) + '　' + fmt(catAmounts['個人事業']) + '　' + fmt(catAmounts['私用']) + '）';
+      const fmt = v => v > 0 ? '¥' + v.toLocaleString() : '';
+      const _parts = [
+        catAmounts['法人'] > 0 ? '法人¥'+catAmounts['法人'].toLocaleString() : '法人—',
+        catAmounts['個人事業'] > 0 ? '個人¥'+catAmounts['個人事業'].toLocaleString() : '個人—',
+        catAmounts['私用'] > 0 ? '私用¥'+catAmounts['私用'].toLocaleString() : '私用—',
+      ];
+      const breakdown = '（' + _parts.join('　') + '）';
       return '      <tr>' +
         '<td style="padding:5px 6px;white-space:nowrap;">' + fdate + '</td>' +
         '<td style="padding:5px 6px;white-space:nowrap;">' + escHtml(f.category || '') + '</td>' +
         '<td style="text-align:right;padding:5px 6px;font-family:monospace;white-space:nowrap;">¥' + f.amount.toLocaleString() + '</td>' +
-        '<td style="text-align:right;padding:5px 6px;font-family:monospace;font-size:10px;color:#777;white-space:nowrap;">' + breakdown + '</td>' +
+        '<td style="text-align:center;padding:5px 6px;font-family:monospace;font-size:10px;color:#777;white-space:nowrap;">' + breakdown + '</td>' +
         '</tr>\n';
     }).join('') +
     '    </tbody></table>\n' +
@@ -4727,6 +4717,7 @@ async function exportInvoice() {
 '      <th>目的</th>\n' +
 '      <th class="c">区分</th>\n' +
 '      <th class="r">距離&thinsp;km</th>\n' +
+(!isInvoice ? '      <th class="r">比率</th>\n' : '') +
 '      <th class="r">金額</th>\n' +
 '    </tr>\n' +
 '  </thead>\n' +
@@ -4734,6 +4725,7 @@ async function exportInvoice() {
 (isInvoice ? '  <tfoot>\n' +
 '    <tr>\n' +
 '      <td colspan="4">' + (isInvoice ? '合計振込額' : '合計') + '</td>\n' +
+(!isInvoice ? '      <td class="r"></td>\n' : '') +
 '      <td class="r">' + totalStr + '</td>\n' +
 '    </tr>\n' +
 '  </tfoot>\n' : '') +

@@ -3399,7 +3399,7 @@ function renderSummary() {
         const hojinKmF = inRangeF.filter(r => r.category === '法人').reduce((s, r) => s + r.km, 0);
         hojinCost = Math.round(f.amount * hojinKmF / totalKmF);
       }
-      return `<div class="sc-breakdown">${f.date.slice(5).replace('-','/')} ${cat}名義：¥${f.amount.toLocaleString()}（法人分¥${hojinCost.toLocaleString()}）</div>`;
+      return `<div class="sc-breakdown">${f.date.slice(5).replace('-','/')} ${cat}名義：¥${f.amount.toLocaleString()}</div>`;
     }).join('');
     fuelCardHtml = `<div class="summary-card" style="border-color:#4fa8e0;">
       <div class="sc-top">
@@ -3508,9 +3508,10 @@ function renderSummary() {
 
   // 振込額の内訳メモ
   const _driveLabel = _isPersonalVehicleSummary ? '走行（法人）' : '走行（個人）';
-  let totalBreakdown = `${_driveLabel}：¥${personalDrive.toLocaleString()}`;
-  if (fuelAdjust > 0) totalBreakdown += `　ガソリン消費分：+¥${fuelAdjust.toLocaleString()}`;
-  if (fuelAdjust < 0) totalBreakdown += `　ガソリン立替：-¥${Math.abs(fuelAdjust).toLocaleString()}`;
+  // 使用料 = 走行費 + ガソリン消費分（_fuelShareForTotal）
+  const _usageTotal = personalDrive + _fuelShareForTotal;
+  let totalBreakdown = `使用料（${_isPersonalVehicleSummary ? '法人' : '個人'}）¥${_usageTotal.toLocaleString()}`;
+  if (fuelAdjust < 0) totalBreakdown += `　ガソリン代精算：-¥${Math.abs(fuelAdjust).toLocaleString()}`;
   if (carry < 0)      totalBreakdown += `　前月繰越：-¥${Math.abs(carry).toLocaleString()}`;
 
   const grandLabel = grandTotal >= 0 ? `¥${grandTotal.toLocaleString()}` : `-¥${Math.abs(grandTotal).toLocaleString()}`;
@@ -4389,11 +4390,11 @@ async function exportInvoice() {
       '<td colspan="4">ガソリン代精算（法人払い立替分）</td>' +
       '<td class="r">−¥' + Math.abs(fuelAdjustInvSub).toLocaleString() + '</td></tr>';
   } else {
-    // 法人名義車：個人払いの法人分を精算行として表示
-    if (fuelAdjustInv < 0) detailRows +=
+    // 法人名義車：個人払い全額を精算行として表示
+    if (fuelAdjustInvSub < 0) detailRows +=
       '<tr class="adj">' +
-      '<td colspan="4">ガソリン代立替（個人払い分）</td>' +
-      '<td class="r">−¥' + Math.abs(fuelAdjustInv).toLocaleString() + '</td></tr>';
+      '<td colspan="4">ガソリン代精算（個人払い立替分）</td>' +
+      '<td class="r">−¥' + Math.abs(fuelAdjustInvSub).toLocaleString() + '</td></tr>';
   }
   if (carryInv < 0) detailRows +=
     '<tr class="adj">' +

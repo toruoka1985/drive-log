@@ -1275,7 +1275,7 @@
 
 
 
-<div class="modal-overlay" id="modalOverlay">
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <h3>記録を削除しますか？</h3>
     <p>この操作は元に戻せません。</p>
@@ -1287,7 +1287,7 @@
 </div>
 
 <!-- EDIT MODAL -->
-<div class="edit-modal-overlay" id="editModalOverlay">
+<div class="edit-modal-overlay" id="editModalOverlay" onclick="if(event.target===this)closeEditModal()">
   <div class="edit-modal">
     <div class="edit-modal-title">記録を編集</div>
 
@@ -1313,7 +1313,7 @@
 
 <!-- PAGE: 記録 -->
 <!-- VEHICLE MODAL -->
-<div class="vehicle-modal-overlay" id="vehicleModalOverlay">
+<div class="vehicle-modal-overlay" id="vehicleModalOverlay" onclick="if(event.target===this)closeVehicleModal()">
   <div class="vehicle-modal">
     <div class="vehicle-modal-title">車両を選択</div>
     <div id="vehicle-list"></div>
@@ -1396,7 +1396,7 @@
 </div>
 
 <!-- FUEL MODAL -->
-<div class="edit-modal-overlay" id="fuelModalOverlay">
+<div class="edit-modal-overlay" id="fuelModalOverlay" onclick="if(event.target===this)closeFuelModal()">
   <div class="edit-modal">
     <div class="edit-modal-title" id="fuelModalTitle">給油を記録</div>
     <div class="field">
@@ -1724,7 +1724,7 @@
 </div>
 
 <!-- PWA INSTALL MODAL -->
-<div class="pwa-modal-overlay" id="pwaModal">
+<div class="pwa-modal-overlay" id="pwaModal" onclick="if(event.target===this)closePwaModal()">
   <div class="pwa-modal">
     <div class="pwa-modal-title">📱 ホーム画面に追加する</div>
     <div class="pwa-tab-wrap">

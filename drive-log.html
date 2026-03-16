@@ -4293,14 +4293,22 @@ async function exportInvoice() {
     '<div class="note-section" style="margin-top:0;">\n' +
     '  <div class="note-block" style="width:100%">\n' +
     '    <div class="note-label">給油記録（参考） — Fuel Records</div>\n' +
-    '    <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;">\n' +
+    '    <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;table-layout:fixed;">\n' +
+    '    <colgroup>\n' +
+    '      <col style="width:18%">\n' +
+    '      <col style="width:18%">\n' +
+    '      <col style="width:18%">\n' +
+    '      <col style="width:15%">\n' +
+    '      <col style="width:16%">\n' +
+    '      <col style="width:15%">\n' +
+    '    </colgroup>\n' +
     '    <thead><tr style="border-bottom:1px solid #ccc;">\n' +
-    '      <th style="text-align:left;padding:4px 8px;color:#888;">日付</th>\n' +
-    '      <th style="text-align:left;padding:4px 8px;color:#888;">支払名義</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;">金額</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;">法人</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;">個人事業</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;">私用</th>\n' +
+    '      <th style="text-align:left;padding:4px 6px;color:#888;white-space:nowrap;">日付</th>\n' +
+    '      <th style="text-align:left;padding:4px 6px;color:#888;white-space:nowrap;">支払名義</th>\n' +
+    '      <th style="text-align:right;padding:4px 6px;color:#888;white-space:nowrap;">金額</th>\n' +
+    '      <th style="text-align:right;padding:4px 6px;color:#888;white-space:nowrap;font-size:10px;">法人</th>\n' +
+    '      <th style="text-align:right;padding:4px 6px;color:#888;white-space:nowrap;font-size:10px;">個人事業</th>\n' +
+    '      <th style="text-align:right;padding:4px 6px;color:#888;white-space:nowrap;font-size:10px;">私用</th>\n' +
     '    </tr></thead>\n' +
     '    <tbody>\n' +
     monthFuelsInv.map(f => {
@@ -4334,12 +4342,12 @@ async function exportInvoice() {
       }
       const fmt = v => v > 0 ? '¥' + v.toLocaleString() : '<span style="color:#bbb;">—</span>';
       return '      <tr>' +
-        '<td style="padding:5px 8px;white-space:nowrap;">' + fdate + '</td>' +
-        '<td style="padding:5px 8px;white-space:nowrap;">' + escHtml(f.category || '') + '</td>' +
-        '<td style="text-align:right;padding:5px 8px;font-family:monospace;white-space:nowrap;">¥' + f.amount.toLocaleString() + '</td>' +
-        '<td style="text-align:right;padding:5px 8px;white-space:nowrap;">' + fmt(catAmounts['法人']) + '</td>' +
-        '<td style="text-align:right;padding:5px 8px;white-space:nowrap;">' + fmt(catAmounts['個人事業']) + '</td>' +
-        '<td style="text-align:right;padding:5px 8px;white-space:nowrap;">' + fmt(catAmounts['私用']) + '</td>' +
+        '<td style="padding:5px 6px;white-space:nowrap;">' + fdate + '</td>' +
+        '<td style="padding:5px 6px;white-space:nowrap;">' + escHtml(f.category || '') + '</td>' +
+        '<td style="text-align:right;padding:5px 6px;font-family:monospace;white-space:nowrap;">¥' + f.amount.toLocaleString() + '</td>' +
+        '<td style="text-align:right;padding:5px 6px;font-family:monospace;font-size:10px;white-space:nowrap;color:#555;">' + fmt(catAmounts['法人']) + '</td>' +
+        '<td style="text-align:right;padding:5px 6px;font-family:monospace;font-size:10px;white-space:nowrap;color:#555;">' + fmt(catAmounts['個人事業']) + '</td>' +
+        '<td style="text-align:right;padding:5px 6px;font-family:monospace;font-size:10px;white-space:nowrap;color:#555;">' + fmt(catAmounts['私用']) + '</td>' +
         '</tr>\n';
     }).join('') +
     '    </tbody></table>\n' +
@@ -4771,29 +4779,50 @@ fuelTableSection +
 
 // ── PREVIEW ──
 // プレビュー画面の共有ボタン（ユーザータップから直接呼ばれる）
-async function handlePreviewShare(btn) {
+function handlePreviewShare(btn) {
   const imgUrl = btn.dataset.imgUrl;
   const fname  = btn.dataset.fname;
   const title  = btn.dataset.title;
   const file   = window._previewFile;
-  if (!imgUrl) return;
 
-  // iOS Safari / Android Chrome: navigator.share（ユーザージェスチャー直結なので動作する）
-  if (navigator.share && file) {
-    try {
-      await navigator.share({ files: [file], title });
-      toast('共有しました ✓');
-      return;
-    } catch(e) {
-      if (e.name === 'AbortError') return;
-      // ファイル共有非対応 → フォールバック
-    }
+  if (!imgUrl) {
+    toast('画像の準備ができていません');
+    return;
   }
-  // フォールバック: 新タブで画像を開く（iOS長押し保存 or ダウンロード）
+
+  // iOS/Android: navigator.shareでファイル共有（async不使用でジェスチャー連鎖を維持）
+  if (navigator.share && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title })
+      .then(() => toast('共有しました ✓'))
+      .catch(e => {
+        if (e.name !== 'AbortError') {
+          // ファイル共有に失敗した場合はURLで共有
+          if (navigator.share) {
+            navigator.share({ url: imgUrl, title }).catch(() => _fallbackDownload(imgUrl, fname));
+          } else {
+            _fallbackDownload(imgUrl, fname);
+          }
+        }
+      });
+    return;
+  }
+
+  // navigator.share があるがcanShareが効かない場合（一部Android等）
+  if (navigator.share) {
+    navigator.share({ url: imgUrl, title })
+      .then(() => toast('共有しました ✓'))
+      .catch(e => { if (e.name !== 'AbortError') _fallbackDownload(imgUrl, fname); });
+    return;
+  }
+
+  // フォールバック: ダウンロード
+  _fallbackDownload(imgUrl, fname);
+}
+
+function _fallbackDownload(imgUrl, fname) {
   const a = document.createElement('a');
   a.href = imgUrl;
   a.download = fname;
-  a.target = '_blank';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

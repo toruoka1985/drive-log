@@ -4294,7 +4294,7 @@ async function exportInvoice() {
         '<td>' + escHtml(r.purpose) + '</td>' +
         '<td class="c"><span class="badge ' + badgeClass + '">' + r.category + '</span></td>' +
         '<td class="r">' + r.km.toFixed(1) + '</td>' +
-        (!isInvoice ? '<td class="r"></td>' : '') +
+        '<td class="r"></td>' +
         '<td class="r">¥' + r.cost.toLocaleString() + '</td>' +
         '</tr>';
     });
@@ -4302,12 +4302,12 @@ async function exportInvoice() {
       ? '<span style="font-size:9.5px;font-weight:400;color:#999;margin-left:8px;">走行 ¥' + driveCost.toLocaleString() + ' ＋ ガソリン消費分 ¥' + share.toLocaleString() + '</span>'
       : '';
     const catKmTotal = recs.reduce((s,r)=>s+r.km,0);
-    const catRatioStr = (!isInvoice && totalKmAll > 0) ? Math.round(catKmTotal / totalKmAll * 100) + '%' : '';
+    const catRatioStr = totalKmAll > 0 ? Math.round(catKmTotal / totalKmAll * 100) + '%' : '';
     detailRows +=
       '<tr class="subtotal">' +
       '<td colspan="3">' + cat + ' 小計' + shareNote + '</td>' +
       '<td class="r">' + catKmTotal.toFixed(1) + '</td>' +
-      (!isInvoice ? '<td class="r" style="color:#555;">' + catRatioStr + '</td>' : '') +
+      '<td class="r" style="color:#555;">' + catRatioStr + '</td>' +
       '<td class="r">¥' + subtotal.toLocaleString() + '</td>' +
       '</tr>';
   });
@@ -4343,21 +4343,21 @@ async function exportInvoice() {
       const badgeClass = badgeMapRef[cat];
       recs.forEach(r => {
         refRows +=
-          '<tr style="opacity:.75;">' +
-          '<td style="padding:4px 6px;font-size:11px;">' + formatDate(r.date) + '</td>' +
-          '<td style="padding:4px 6px;font-size:11px;">' + escHtml(r.purpose) + '</td>' +
-          '<td class="c" style="padding:4px 6px;font-size:11px;"><span class="badge ' + badgeClass + '">' + r.category + '</span></td>' +
-          '<td class="r" style="padding:4px 6px;font-size:11px;font-family:monospace;">' + r.km.toFixed(1) + '</td>' +
-          '<td class="r" style="padding:4px 6px;font-size:11px;color:#aaa;"></td>' +
-          '<td class="r" style="padding:4px 6px;font-size:11px;font-family:monospace;color:#aaa;">&#165;' + r.cost.toLocaleString() + '</td>' +
+          '<tr>' +
+          '<td>' + formatDate(r.date) + '</td>' +
+          '<td>' + escHtml(r.purpose) + '</td>' +
+          '<td class="c"><span class="badge ' + badgeClass + '">' + r.category + '</span></td>' +
+          '<td class="r">' + r.km.toFixed(1) + '</td>' +
+          '<td class="r"></td>' +
+          '<td class="r" style="color:#888;">&#165;' + r.cost.toLocaleString() + '</td>' +
           '</tr>';
       });
       refRows +=
-        '<tr style="background:#f8f8f6;">' +
-        '<td colspan="3" style="padding:4px 6px;font-size:11px;color:#888;">' + cat + ' 小計（参考）</td>' +
-        '<td class="r" style="padding:4px 6px;font-size:11px;font-family:monospace;color:#888;">' + km.toFixed(1) + '</td>' +
-        '<td class="r" style="padding:4px 6px;font-size:11px;color:#888;">' + ratio + '%</td>' +
-        '<td class="r" style="padding:4px 6px;font-size:11px;font-family:monospace;color:#888;">&#165;' + cost.toLocaleString() + '</td>' +
+        '<tr class="subtotal">' +
+        '<td colspan="3">' + cat + ' 小計（参考）</td>' +
+        '<td class="r">' + km.toFixed(1) + '</td>' +
+        '<td class="r" style="color:#555;">' + ratio + '%</td>' +
+        '<td class="r">&#165;' + cost.toLocaleString() + '</td>' +
         '</tr>';
     });
     refDetailSection =
@@ -4741,7 +4741,7 @@ async function exportInvoice() {
 '      <th>目的</th>\n' +
 '      <th class="c">区分</th>\n' +
 '      <th class="r">距離&thinsp;km</th>\n' +
-(!isInvoice ? '      <th class="r">比率</th>\n' : '') +
+'      <th class="r">比率</th>\n' +
 '      <th class="r">金額</th>\n' +
 '    </tr>\n' +
 '  </thead>\n' +
@@ -4749,7 +4749,7 @@ async function exportInvoice() {
 (isInvoice ? '  <tfoot>\n' +
 '    <tr>\n' +
 '      <td colspan="4">' + (isInvoice ? '合計振込額' : '合計') + '</td>\n' +
-(!isInvoice ? '      <td class="r"></td>\n' : '') +
+'      <td class="r"></td>\n' +
 '      <td class="r">' + totalStr + '</td>\n' +
 '    </tr>\n' +
 '  </tfoot>\n' : '') +

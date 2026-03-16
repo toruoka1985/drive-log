@@ -4257,11 +4257,11 @@ async function exportInvoice() {
     '    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">\n' +
     '    <thead><tr style="border-bottom:1px solid #ccc;">\n' +
     '      <th style="text-align:left;padding:4px 8px;color:#888;">日付</th>\n' +
-    '      <th style="text-align:left;padding:4px 8px;color:#888;">名義</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;">合計</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;">法人分</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;">個人事業分</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;">私用分</th>\n' +
+    '      <th style="text-align:left;padding:4px 8px;color:#888;">支払名義</th>\n' +
+    '      <th style="text-align:right;padding:4px 8px;color:#888;">金額</th>\n' +
+    '      <th style="text-align:right;padding:4px 8px;color:#888;font-weight:400;font-size:11px;">内訳（法人）</th>\n' +
+    '      <th style="text-align:right;padding:4px 8px;color:#888;font-weight:400;font-size:11px;">内訳（個人事業）</th>\n' +
+    '      <th style="text-align:right;padding:4px 8px;color:#888;font-weight:400;font-size:11px;">内訳（私用）</th>\n' +
     '    </tr></thead>\n' +
     '    <tbody>\n' +
     monthFuelsInv.map(f => {
@@ -4293,14 +4293,14 @@ async function exportInvoice() {
           catAmounts[cat] = Math.round(f.amount * km / totalKmF);
         });
       }
-      const fmt = v => v > 0 ? '¥' + v.toLocaleString() : '<span style="color:#bbb;">—</span>';
+      const fmt = v => v > 0 ? '<span style="color:#555;font-size:11px;">(¥' + v.toLocaleString() + ')</span>' : '<span style="color:#bbb;font-size:11px;">—</span>';
       return '      <tr>' +
-        '<td style="padding:5px 8px;">' + fdate + '</td>' +
-        '<td style="padding:5px 8px;">' + escHtml(f.category || '') + '</td>' +
-        '<td style="text-align:right;padding:5px 8px;font-family:monospace;">¥' + f.amount.toLocaleString() + '</td>' +
-        '<td style="text-align:right;padding:5px 8px;font-family:monospace;">' + fmt(catAmounts['法人']) + '</td>' +
-        '<td style="text-align:right;padding:5px 8px;font-family:monospace;">' + fmt(catAmounts['個人事業']) + '</td>' +
-        '<td style="text-align:right;padding:5px 8px;font-family:monospace;">' + fmt(catAmounts['私用']) + '</td>' +
+        '<td style="padding:5px 8px;white-space:nowrap;">' + fdate + '</td>' +
+        '<td style="padding:5px 8px;white-space:nowrap;">' + escHtml(f.category || '') + '</td>' +
+        '<td style="text-align:right;padding:5px 8px;font-family:monospace;white-space:nowrap;">¥' + f.amount.toLocaleString() + '</td>' +
+        '<td style="text-align:right;padding:5px 8px;white-space:nowrap;">' + fmt(catAmounts['法人']) + '</td>' +
+        '<td style="text-align:right;padding:5px 8px;white-space:nowrap;">' + fmt(catAmounts['個人事業']) + '</td>' +
+        '<td style="text-align:right;padding:5px 8px;white-space:nowrap;">' + fmt(catAmounts['私用']) + '</td>' +
         '</tr>\n';
     }).join('') +
     '    </tbody></table>\n' +

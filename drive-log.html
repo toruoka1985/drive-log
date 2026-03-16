@@ -3205,12 +3205,12 @@ function renderHistory() {
         const f = item.data;
         const alloc = calcFuelAlloc(f);
         const catLabel = (f.category || '私用') + '名義';
-        // 法人利用比率を算出
-        const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
+        // 法人利用比率を算出（アクティブ車両のみ）
+        const sorted = [...activeFuelRecs].sort((a,b) => a.date.localeCompare(b.date));
         const fidx = sorted.findIndex(r => r.id === f.id);
         const fprev = fidx > 0 ? sorted[fidx-1].date : null;
         const inclSameDayFin = f.timing === 'after' || !f.timing;
-        const finRange = records.filter(r =>
+        const finRange = activeRecs.filter(r =>
           (fprev ? r.date > fprev : true) &&
           (inclSameDayFin ? r.date <= f.date : r.date < f.date)
         );
@@ -3317,11 +3317,11 @@ function renderSummary() {
   if (monthFuels.length > 0) {
     const fuelRows = monthFuels.map(f => {
       const cat = f.category || '私用';
-      const sortedF = [...fuelRecords].sort((a, b) => a.date.localeCompare(b.date));
+      const sortedF = [...activeFuelRecs].sort((a, b) => a.date.localeCompare(b.date));
       const idxF = sortedF.findIndex(r => r.id === f.id);
       const prevDateF = idxF > 0 ? sortedF[idxF - 1].date : null;
       const inclSameDayFF = f.timing === 'after' || !f.timing;
-      const inRangeF = records.filter(r =>
+      const inRangeF = activeRecs.filter(r =>
         (prevDateF ? r.date > prevDateF : true) &&
         (inclSameDayFF ? r.date <= f.date : r.date < f.date)
       );
@@ -3352,11 +3352,11 @@ function renderSummary() {
   // 給油ごとに振込額への影響を計算
   let fuelAdjust = 0;
   monthFuels.forEach(f => {
-    const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
+    const sorted = [...activeFuelRecs].sort((a,b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
     const prevDate = idx > 0 ? sorted[idx-1].date : null;
     const inclSameDayAdj = f.timing === 'after' || !f.timing;
-    const inRange = records.filter(r =>
+    const inRange = activeRecs.filter(r =>
       (prevDate ? r.date > prevDate : true) &&
       (inclSameDayAdj ? r.date <= f.date : r.date < f.date)
     );
@@ -3650,9 +3650,14 @@ function calcMonthFuelNet(y, m) {
 // 前月までの未精算累積を計算（持ち越し）
 // 各月の net = 走行料金合計 + 給油精算額 を累積、マイナスが持ち越し残高
 function calcCarryover(targetY, targetM) {
+  // アクティブ車両のデータのみで計算
+  const vid = getActiveVehicle()?.id || activeVehicleId || 'default';
+  const activeR = records.filter(r => (r.vehicleId || 'default') === vid);
+  const activeFR = fuelRecords.filter(f => (f.vehicleId || 'default') === vid);
+
   const allDates = [
-    ...records.map(r => r.date.slice(0,7)),
-    ...fuelRecords.map(f => f.date.slice(0,7))
+    ...activeR.map(r => r.date.slice(0,7)),
+    ...activeFR.map(f => f.date.slice(0,7))
   ];
   if (allDates.length === 0) return 0;
   allDates.sort();
@@ -3660,19 +3665,18 @@ function calcCarryover(targetY, targetM) {
   let carry = 0;
   while (cy < targetY || (cy === targetY && cm < targetM)) {
     const mk = `${cy}-${String(cm).padStart(2,'0')}`;
-    const driveTotal = records
+    const driveTotal = activeR
       .filter(r => r.date.startsWith(mk) && r.category !== '法人')
       .reduce((s, r) => s + r.cost, 0);
 
-    // この月の給油精算netを計算（正しいロジック）
-    const mFuels = fuelRecords.filter(f => f.date.startsWith(mk));
+    const mFuels = activeFR.filter(f => f.date.startsWith(mk));
     let fuelAdjustM = 0;
     mFuels.forEach(f => {
-      const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
+      const sorted = [...activeFR].sort((a,b) => a.date.localeCompare(b.date));
       const idx = sorted.findIndex(r => r.id === f.id);
       const prevDate = idx > 0 ? sorted[idx-1].date : null;
       const inclSameDayM = f.timing === 'after' || !f.timing;
-      const inRange = records.filter(r =>
+      const inRange = activeR.filter(r =>
         (prevDate ? r.date > prevDate : true) &&
         (inclSameDayM ? r.date <= f.date : r.date < f.date)
       );
@@ -3956,12 +3960,20 @@ async function exportInvoice() {
   const fuelShareInv = { '個人事業': 0, '私用': 0 };
   // 振込額調整用：給油ごとに名義判定
   let fuelAdjustInv = 0;
+  // アクティブ車両の全給油・走行（按分計算用）
+  const activeFuelRecsInv = fuelRecords.filter(f =>
+    (f.vehicleId || 'default') === (activeVehicle?.id || activeVehicleId || 'default')
+  );
+  const activeRecsInv = records.filter(r =>
+    (r.vehicleId || 'default') === (activeVehicle?.id || activeVehicleId || 'default')
+  );
+
   monthFuelsInv.forEach(f => {
-    const sorted = [...fuelRecords].sort((a,b) => a.date.localeCompare(b.date));
+    const sorted = [...activeFuelRecsInv].sort((a,b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
     const prevDate = idx > 0 ? sorted[idx-1].date : null;
     const inclSameDayInv = f.timing === 'after' || !f.timing;
-    const inRange = records.filter(r =>
+    const inRange = activeRecsInv.filter(r =>
       (prevDate ? r.date > prevDate : true) &&
       (inclSameDayInv ? r.date <= f.date : r.date < f.date)
     );

@@ -1727,7 +1727,7 @@
     <div style="margin-bottom:20px;">
       <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">車両名義</div>
       <div style="display:flex;gap:6px;">
-        <button class="seg-btn setup-ownership-btn active" data-o="法人"
+        <button class="seg-btn setup-ownership-btn" data-o="法人"
           onclick="selectSetupOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">法人</button>
         <button class="seg-btn setup-ownership-btn" data-o="個人事業"
           onclick="selectSetupOwnership(this)" style="flex:1;padding:8px 4px;font-size:12px;">個人事業</button>
@@ -1833,9 +1833,15 @@ function showConfirm({ title = '', msg = '', ok = 'OK', cancel = 'キャンセ�
     document.getElementById('confirmModalTitle').textContent = title;
     document.getElementById('confirmModalMsg').textContent   = msg;
     document.getElementById('confirmModalOk').textContent    = ok;
-    document.getElementById('confirmModalCancel').textContent = cancel;
+    const cancelBtn = document.getElementById('confirmModalCancel');
+    if (cancel === null) {
+      cancelBtn.style.display = 'none';
+    } else {
+      cancelBtn.style.display = '';
+      cancelBtn.textContent = cancel;
+    }
     document.getElementById('confirmModalOk').onclick     = () => _confirmDismiss(true);
-    document.getElementById('confirmModalCancel').onclick = () => _confirmDismiss(false);
+    cancelBtn.onclick = () => _confirmDismiss(false);
     document.getElementById('confirmModalOverlay').style.display = 'flex';
   });
 }
@@ -1867,11 +1873,15 @@ let summaryMonth = new Date();
 // ── PWA INSTALL GUIDE ──
 // ── 初回セットアップ ──
 function initSetup() {
-  // 表示条件: 未ログイン + setup未完了 + 車両名が「車両1」のまま
-  if (currentUser) return; // ログイン済みはスキップ
-  if (localStorage.getItem('dl_setup_done')) return;
-  const v = vehicles.find(v => v.id === 'default' || v.id === activeVehicleId);
-  if (!v || v.name !== '車両1') return; // すでに名前を変えていればスキップ
+  // ログイン後のみ表示（ログイン前は出さない）
+  if (!currentUser) return;
+  // アクティブ車両の名義が未設定なら表示
+  const v = vehicles.find(v => v.id === activeVehicleId);
+  if (!v || (v.ownership && v.ownership !== '')) return; // 名義設定済みならスキップ
+  // 入力欄リセット
+  const nameInput = document.getElementById('setup-vehicle-name');
+  if (nameInput) nameInput.value = v.name !== '車両1' ? v.name : '';
+  document.querySelectorAll('.setup-ownership-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('setupModal').classList.add('show');
 }
 
@@ -1884,23 +1894,26 @@ function completeSetup() {
   dismissKeyboard();
   const name = document.getElementById('setup-vehicle-name').value.trim();
   const ownershipBtn = document.querySelector('.setup-ownership-btn.active');
-  const ownership = ownershipBtn?.dataset.o || '法人';
+  const ownership = ownershipBtn?.dataset.o || '';
 
-  // 車両名・名義を更新（デフォルト車両を書き換え）
+  if (!ownership) { toast('車両名義を選択してください'); return; }
+
   const v = vehicles.find(v => v.id === activeVehicleId);
   if (v) {
-    v.name = name || v.name;
+    if (name) v.name = name;
     v.ownership = ownership;
     saveVehicles();
     updateVehicleSwitcher();
+    if (isPro()) syncToFirestore();
   }
-  localStorage.setItem('dl_setup_done', '1');
   document.getElementById('setupModal').classList.remove('show');
-  if (name) toast(`${name} を登録しました ✓`);
+  toast((name || v?.name || '車両') + ' を登録しました ✓');
 }
 
 function skipSetup() {
-  localStorage.setItem('dl_setup_done', '1');
+  // 名義を未設定のまま閉じる（次回ログイン時にまた表示）
+  const v = vehicles.find(v => v.id === activeVehicleId);
+  if (v && !v.ownership) v.ownership = ''; // 明示的に空のまま
   document.getElementById('setupModal').classList.remove('show');
 }
 
@@ -2416,7 +2429,9 @@ function renderVehicleList() {
   list.innerHTML = vehicles.map(v => {
     const isActive  = v.id === activeVehicleId;
     const locked    = !pro && !isActive; // フリープランで現在車両以外はロック
-    const ownerBadge = `<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:var(--surface2);color:var(--text3);border:1px solid var(--border);margin-left:6px;">${escHtml(v.ownership || '法人')}</span>`;
+    const ownershipLabel = v.ownership || '未設定';
+    const ownerBadgeColor = v.ownership ? '' : 'color:#e57373;border-color:#e57373;';
+    const ownerBadge = `<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);margin-left:6px;${ownerBadgeColor}">${escHtml(ownershipLabel)}</span>`;
     const lockBadge  = locked ? `<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:var(--surface2);color:var(--text3);border:1px solid var(--border);margin-left:6px;">🔒 PRO</span>` : '';
     return `
     <div class="vehicle-list-item ${isActive ? 'active' : ''} ${locked ? 'locked' : ''}"
@@ -2535,7 +2550,7 @@ async function deleteVehicle(id) {
 function initVehicles() {
   // 既存データの移行：vehicleIdがない記録に'default'を付与
   if (vehicles.length === 0) {
-    const defaultVehicle = { id: 'default', name: '車両1', createdAt: Date.now() };
+    const defaultVehicle = { id: 'default', name: '車両1', ownership: '', createdAt: Date.now() };
     vehicles.push(defaultVehicle);
     activeVehicleId = 'default';
     // 既存記録にvehicleIdを付与
@@ -2576,7 +2591,6 @@ window.addEventListener('DOMContentLoaded', () => {
   initVehicles();
   renderPlanSection();
   initPwaBanner();
-  setTimeout(initSetup, 300); // 画面描画後に表示
   ['s-rate','s-base','s-cap'].forEach(id => {
     document.getElementById(id).addEventListener('input', updateRatePreview);
   });
@@ -3113,6 +3127,7 @@ async function restoreFromFirestore(uid) {
       renderSummary();
       loadSettings();
       setSyncStatus('クラウドから復元しました ✓', 'var(--accent)');
+      setTimeout(initSetup, 500); // 復元完了後にセットアップ確認
       setTimeout(() => {
         const now = new Date();
         const hm  = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -3121,8 +3136,10 @@ async function restoreFromFirestore(uid) {
     } else if (records.length > 0 || fuelRecords.length > 0) {
       // クラウド空・ローカルにデータあり → アップロード
       await syncToFirestore();
+      setTimeout(initSetup, 500);
     } else {
       setSyncStatus('同期中', 'var(--text3)');
+      setTimeout(initSetup, 500); // 完全新規ユーザー
     }
   } catch(e) {
     console.error('restore error', e);
@@ -3853,6 +3870,18 @@ async function exportInvoice() {
   // 書類種別を最初に判定（以降のダイアログ文言で使用）
   const docType   = getDocumentType(y, m);
   const isInvoice = docType === 'invoice';
+
+  // 名義未設定チェック
+  const _activeV = getActiveVehicle();
+  if (!_activeV?.ownership) {
+    const go = await showConfirm({
+      title:  '車両名義が未設定です',
+      msg:    '請求書・計算書を発行するには\n車両名義の設定が必要です。\n\n設定タブ → 車両一覧から設定してください。',
+      ok:     '閉じる',
+      cancel: null,
+    });
+    return;
+  }
 
   // フリープラン：月1回制限チェック
   if (!canIssueInvoice(y, m)) {

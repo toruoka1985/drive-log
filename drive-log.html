@@ -4096,15 +4096,13 @@ async function exportInvoice() {
     '    <thead><tr style="border-bottom:1px solid #ccc;">\n' +
     '      <th style="text-align:left;padding:4px 8px;color:#888;">日付</th>\n' +
     '      <th style="text-align:left;padding:4px 8px;color:#888;">名義</th>\n' +
-    '      <th style="text-align:left;padding:4px 8px;color:#888;">タイミング</th>\n' +
     '      <th style="text-align:right;padding:4px 8px;color:#888;">金額</th>\n' +
     '    </tr></thead>\n' +
     '    <tbody>\n' +
     monthFuelsInv.map(f => {
       const fd = new Date(f.date + 'T00:00:00');
       const fdate = (fd.getMonth()+1) + '/' + String(fd.getDate()).padStart(2,'0') + '(' + ['日','月','火','水','木','金','土'][fd.getDay()] + ')';
-      const ftiming = f.timing === 'before' ? '走行前' : '走行後';
-      return '      <tr><td style="padding:6px 8px;">' + fdate + '</td><td style="padding:6px 8px;">' + escHtml(f.category || '') + '</td><td style="padding:6px 8px;font-size:11px;color:#888;">' + ftiming + '</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">¥' + f.amount.toLocaleString() + '</td></tr>\n';
+      return '      <tr><td style="padding:6px 8px;">' + fdate + '</td><td style="padding:6px 8px;">' + escHtml(f.category || '') + '</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">¥' + f.amount.toLocaleString() + '</td></tr>\n';
     }).join('') +
     '    </tbody></table>\n' +
     '  </div>\n' +

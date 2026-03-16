@@ -4721,21 +4721,39 @@ fuelTableSection +
         updateInvoiceBtn();
 
         const doShare = async () => {
-          try {
-            if (navigator.share && navigator.canShare({ files: [file] })) {
+          // ① navigator.share + files（iOS Safari・Android Chrome）
+          if (navigator.share) {
+            try {
+              // canShareチェックをスキップして直接試みる
+              // （PWAスタンドアロンでcanShareがfalseを返すケースへの対処）
               await navigator.share({ files: [file], title: fname });
-            } else {
-              const a = document.createElement('a');
-              a.href = imgUrl;
-              a.download = fname;
-              a.click();
+              setInvoiceIssued(y, m);
+              updateInvoiceBtn();
+              closePreview();
+              toast((isInvoice ? '請求書' : '計算書') + 'を共有しました ✓');
+              return;
+            } catch(e) {
+              if (e.name === 'AbortError') return; // ユーザーキャンセル
+              // filesが非対応 → ② へ
             }
+          }
+          // ② window.open で画像を別タブに開く（Safariの共有ボタンが使える）
+          const opened = window.open(imgUrl, '_blank');
+          if (opened) {
             setInvoiceIssued(y, m);
             updateInvoiceBtn();
-            closePreview();
-            toast((isInvoice ? '請求書' : '計算書') + 'を共有しました ✓');
-          } catch(e) {
-            if (e.name !== 'AbortError') toast('共有に失敗しました');
+            toast('画像を開きました。Safariの共有ボタンから保存・AirDropできます');
+          } else {
+            // ③ 最終フォールバック：ダウンロード
+            const a = document.createElement('a');
+            a.href = imgUrl;
+            a.download = fname;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setInvoiceIssued(y, m);
+            updateInvoiceBtn();
+            toast((isInvoice ? '請求書' : '計算書') + 'を保存しました ✓');
           }
         };
         document.getElementById('preview-reshare-btn').onclick = doShare;

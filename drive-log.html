@@ -3835,10 +3835,32 @@ async function exportCSV() {
   );
 
   // ── 給油記録シート ──
-  const fuelHeader = '種別,日付,給油名義,タイミング,合計金額(円)';
-  const fuelRows = [...csvFuelRecs].sort((a,b) => a.date.localeCompare(b.date)).map(f =>
-    `給油,${f.date},${f.category || ''},${f.timing === 'before' ? '走行前' : '走行後'},${f.amount}`
-  );
+  const fuelHeader = '種別,日付,給油名義,タイミング,合計金額(円),法人按分(円),個人事業按分(円),私用按分(円)';
+  const csvActiveFuel = [...csvFuelRecs].sort((a,b) => a.date.localeCompare(b.date));
+  const csvActiveRecs = records.filter(r => (r.vehicleId || 'default') === (getActiveVehicle()?.id || 'default'));
+  const fuelRows = csvActiveFuel.map(f => {
+    const sortedF = [...csvActiveFuel];
+    const idxF = sortedF.findIndex(r => r.id === f.id);
+    const prevDateF = idxF > 0 ? sortedF[idxF-1].date : null;
+    const inclF = f.timing === 'after' || !f.timing;
+    const inRange = csvActiveRecs.filter(r =>
+      (prevDateF ? r.date > prevDateF : true) &&
+      (inclF ? r.date <= f.date : r.date < f.date)
+    );
+    const totalKm = inRange.reduce((s,r) => s+r.km, 0);
+    let ca = { '法人': 0, '個人事業': 0, '私用': 0 };
+    if (totalKm === 0) {
+      const prev = getPrevFuelRatio(sortedF, idxF, csvActiveRecs);
+      if (prev && prev.totalKm > 0) {
+        ['法人','個人事業','私用'].forEach(cat => { ca[cat] = Math.round(f.amount * (prev.catKm[cat]||0) / prev.totalKm); });
+      } else { ca[getVehicleDefaultCat()] = f.amount; }
+    } else {
+      ['法人','個人事業','私用'].forEach(cat => {
+        ca[cat] = Math.round(f.amount * inRange.filter(r=>r.category===cat).reduce((s,r)=>s+r.km,0) / totalKm);
+      });
+    }
+    return `給油,${f.date},${f.category || ''},${f.timing === 'before' ? '走行前' : '走行後'},${f.amount},${ca['法人']},${ca['個人事業']},${ca['私用']}`;
+  });
 
   // ── 統合（走行 → 空行 → 給油） ──
   const sections = [
@@ -4232,17 +4254,54 @@ async function exportInvoice() {
     '<div class="note-section" style="margin-top:0;">\n' +
     '  <div class="note-block" style="width:100%">\n' +
     '    <div class="note-label">給油記録（参考） — Fuel Records</div>\n' +
-    '    <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;">\n' +
+    '    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">\n' +
     '    <thead><tr style="border-bottom:1px solid #ccc;">\n' +
     '      <th style="text-align:left;padding:4px 8px;color:#888;">日付</th>\n' +
     '      <th style="text-align:left;padding:4px 8px;color:#888;">名義</th>\n' +
-    '      <th style="text-align:right;padding:4px 8px;color:#888;">金額</th>\n' +
+    '      <th style="text-align:right;padding:4px 8px;color:#888;">合計</th>\n' +
+    '      <th style="text-align:right;padding:4px 8px;color:#888;">法人分</th>\n' +
+    '      <th style="text-align:right;padding:4px 8px;color:#888;">個人事業分</th>\n' +
+    '      <th style="text-align:right;padding:4px 8px;color:#888;">私用分</th>\n' +
     '    </tr></thead>\n' +
     '    <tbody>\n' +
     monthFuelsInv.map(f => {
       const fd = new Date(f.date + 'T00:00:00');
       const fdate = (fd.getMonth()+1) + '/' + String(fd.getDate()).padStart(2,'0') + '(' + ['日','月','火','水','木','金','土'][fd.getDay()] + ')';
-      return '      <tr><td style="padding:6px 8px;">' + fdate + '</td><td style="padding:6px 8px;">' + escHtml(f.category || '') + '</td><td style="text-align:right;padding:6px 8px;font-family:monospace;">¥' + f.amount.toLocaleString() + '</td></tr>\n';
+      // 按分計算
+      const sortedF = [...activeFuelRecsInv].sort((a,b) => a.date.localeCompare(b.date));
+      const idxF = sortedF.findIndex(r => r.id === f.id);
+      const prevDateF = idxF > 0 ? sortedF[idxF-1].date : null;
+      const inclF = f.timing === 'after' || !f.timing;
+      const inRangeF = activeRecsInv.filter(r =>
+        (prevDateF ? r.date > prevDateF : true) &&
+        (inclF ? r.date <= f.date : r.date < f.date)
+      );
+      const totalKmF = inRangeF.reduce((s,r) => s+r.km, 0);
+      let catAmounts = { '法人': 0, '個人事業': 0, '私用': 0 };
+      if (totalKmF === 0) {
+        const prev = getPrevFuelRatio(sortedF, idxF, activeRecsInv);
+        if (prev && prev.totalKm > 0) {
+          ['法人','個人事業','私用'].forEach(cat => {
+            catAmounts[cat] = Math.round(f.amount * (prev.catKm[cat]||0) / prev.totalKm);
+          });
+        } else {
+          catAmounts[getVehicleDefaultCat()] = f.amount;
+        }
+      } else {
+        ['法人','個人事業','私用'].forEach(cat => {
+          const km = inRangeF.filter(r=>r.category===cat).reduce((s,r)=>s+r.km,0);
+          catAmounts[cat] = Math.round(f.amount * km / totalKmF);
+        });
+      }
+      const fmt = v => v > 0 ? '¥' + v.toLocaleString() : '<span style="color:#bbb;">—</span>';
+      return '      <tr>' +
+        '<td style="padding:5px 8px;">' + fdate + '</td>' +
+        '<td style="padding:5px 8px;">' + escHtml(f.category || '') + '</td>' +
+        '<td style="text-align:right;padding:5px 8px;font-family:monospace;">¥' + f.amount.toLocaleString() + '</td>' +
+        '<td style="text-align:right;padding:5px 8px;font-family:monospace;">' + fmt(catAmounts['法人']) + '</td>' +
+        '<td style="text-align:right;padding:5px 8px;font-family:monospace;">' + fmt(catAmounts['個人事業']) + '</td>' +
+        '<td style="text-align:right;padding:5px 8px;font-family:monospace;">' + fmt(catAmounts['私用']) + '</td>' +
+        '</tr>\n';
     }).join('') +
     '    </tbody></table>\n' +
     '  </div>\n' +

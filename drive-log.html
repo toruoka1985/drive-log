@@ -4003,7 +4003,7 @@ function renderSummary() {
     const prevTiming = prevFuel?.timing || 'after';
     const inclSameDayF = f.timing === 'after' || !f.timing;
     const inRange = activeRecs.filter(r =>
-      (prevDate ? ((prevTiming === 'after' ? r.date > prevDate : (prevTimingAdj === 'after' ? r.date > prevDate : (prevTimingP === 'after' ? r.date > prevDate : (prevTimingAlloc === 'after' ? r.date > prevDate : (prevTimingM === 'after' ? r.date > prevDate : (prevTimingInv === 'after' ? r.date > prevDate : r.date >= prevDate))))))) : true) &&
+      (prevDate ? (prevTiming === 'after' ? r.date > prevDate : r.date >= prevDate) : true) &&
       (inclSameDayF ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s, r) => s + r.km, 0);
@@ -4066,7 +4066,7 @@ function renderSummary() {
       const prevTimingF = prevFuelF?.timing || 'after';
       const inclSameDayFF = f.timing === 'after' || !f.timing;
       const inRangeF = activeRecs.filter(r =>
-        (prevDateF ? ((prevTimingF === 'after' ? r.date > prevDateF : (prevTimingCSV === 'after' ? r.date > prevDateF : (prevTimingInvF === 'after' ? r.date > prevDateF : r.date >= prevDateF)))) : true) &&
+        (prevDateF ? (prevTimingF === 'after' ? r.date > prevDateF : r.date >= prevDateF) : true) &&
         (inclSameDayFF ? r.date <= f.date : r.date < f.date)
       );
       const totalKmF = inRangeF.reduce((s, r) => s + r.km, 0);
@@ -4121,7 +4121,7 @@ function renderSummary() {
     const prevTimingAdj = prevFuelAdj?.timing || 'after';
     const inclSameDayAdj = f.timing === 'after' || !f.timing;
     const inRange = activeRecs.filter(r =>
-      (prevDate ? (r.date >= prevDate) : true) &&
+      (prevDate ? (prevTimingAdj === 'after' ? r.date > prevDate : r.date >= prevDate) : true) &&
       (inclSameDayAdj ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s,r) => s+r.km, 0);
@@ -4386,7 +4386,7 @@ function getPrevFuelRatio(sortedFuels, currentIdx, activeRecs) {
     const prevTimingP = prevFuelP?.timing || 'after';
     const inclSameDay = f.timing === 'after' || !f.timing;
     const inRange = activeRecs.filter(r =>
-      (prevDate ? (r.date >= prevDate) : true) &&
+      (prevDate ? (prevTimingP === 'after' ? r.date > prevDate : r.date >= prevDate) : true) &&
       (inclSameDay ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s, r) => s + r.km, 0);
@@ -4420,7 +4420,7 @@ function calcFuelAlloc(fuel) {
   const prevTimingAlloc = prevFuelAlloc?.timing || 'after';
   const includeSameDay = fuel.timing === 'after' || !fuel.timing;
   const inRange = activeRecs.filter(r =>
-    (prevDate ? (r.date >= prevDate) : true) &&
+    (prevDate ? (prevTimingAlloc === 'after' ? r.date > prevDate : r.date >= prevDate) : true) &&
     (includeSameDay ? r.date <= fuel.date : r.date < fuel.date)
   );
   const totalKm    = inRange.reduce((s, r) => s + r.km, 0);
@@ -4539,7 +4539,7 @@ function calcCarryover(targetY, targetM) {
       const prevTimingM = prevFuelM?.timing || 'after';
       const inclSameDayM = f.timing === 'after' || !f.timing;
       const inRange = activeR.filter(r =>
-        (prevDate ? (r.date >= prevDate) : true) &&
+        (prevDate ? (prevTimingM === 'after' ? r.date > prevDate : r.date >= prevDate) : true) &&
         (inclSameDayM ? r.date <= f.date : r.date < f.date)
       );
       const totalKm = inRange.reduce((s,r) => s + r.km, 0);
@@ -4641,7 +4641,7 @@ async function exportCSV() {
     const prevTimingCSV = prevFuelCSV?.timing || 'after';
     const inclF = f.timing === 'after' || !f.timing;
     const inRange = csvActiveRecs.filter(r =>
-      (prevDateF ? (r.date >= prevDateF) : true) &&
+      (prevDateF ? (prevTimingCSV === 'after' ? r.date > prevDateF : r.date >= prevDateF) : true) &&
       (inclF ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s,r) => s+r.km, 0);
@@ -4908,7 +4908,7 @@ async function exportInvoice() {
     if (_fuelOnlyAdjust <= 0) {
       await showConfirm({
         title: '精算額がマイナスです',
-        msg: `ガソリン代精算 -¥${Math.abs(_fuelOnlyAdjust).toLocaleString()} は\n翌月に精算します。`,
+        msg: 'ガソリン代は翌月に合わせて精算します。',
         ok: '閉じる',
         cancel: null,
       });
@@ -4973,7 +4973,7 @@ async function exportInvoice() {
     const prevTimingInv = prevFuelInv?.timing || 'after';
     const inclSameDayInv = f.timing === 'after' || !f.timing;
     const inRange = activeRecsInv.filter(r =>
-      (prevDate ? (r.date >= prevDate) : true) &&
+      (prevDate ? (prevTimingInv === 'after' ? r.date > prevDate : r.date >= prevDate) : true) &&
       (inclSameDayInv ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s,r) => s+r.km, 0);
@@ -5226,7 +5226,7 @@ async function exportInvoice() {
       const prevTimingInvF = prevFuelInvF?.timing || 'after';
       const inclF = f.timing === 'after' || !f.timing;
       const inRangeF = activeRecsInv.filter(r =>
-        (prevDateF ? (r.date >= prevDateF) : true) &&
+        (prevDateF ? (prevTimingInvF === 'after' ? r.date > prevDateF : r.date >= prevDateF) : true) &&
         (inclF ? r.date <= f.date : r.date < f.date)
       );
       const totalKmF = inRangeF.reduce((s,r) => s+r.km, 0);

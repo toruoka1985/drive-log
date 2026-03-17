@@ -2269,6 +2269,41 @@ function openUpgradeModal(reason) {
   el.classList.add('show');
 }
 
+// アップグレードモーダルから無料体験を開始
+async function startTrialFromModal() {
+  if (!currentUser) {
+    // 未ログイン → ログインを促す
+    closeUpgradeModal();
+    toast('無料体験にはログインが必要です。設定タブからログインしてください。');
+    showPage('settings', document.querySelector('nav button:last-child'));
+    return;
+  }
+  const p = window._userPlan;
+  if (p && (p.tier === 'trial' || p.tier === 'pro')) {
+    // すでにトライアル/PRO中
+    closeUpgradeModal();
+    toast('すでにPROプランまたは無料体験中です');
+    return;
+  }
+  if (p && p.tier === 'trial_ended') {
+    // 体験済み → 有料プランへ誘導
+    closeUpgradeModal();
+    toast('無料体験は1回のみです。有料プランをご選択ください。');
+    return;
+  }
+  // トライアル開始
+  const btn = document.getElementById('trial-cta-btn');
+  if (btn) { btn.textContent = '開始中...'; btn.disabled = true; }
+  try {
+    await startTrial(currentUser.uid);
+    closeUpgradeModal();
+  } catch(e) {
+    console.error(e);
+    toast('エラーが発生しました。再度お試しください。');
+    if (btn) { btn.textContent = '30日間 無料で試す →'; btn.disabled = false; }
+  }
+}
+
 function closeUpgradeModal() {
   const el = document.getElementById('upgradeModalOverlay');
   if (el) el.classList.remove('show');
@@ -2323,8 +2358,8 @@ function renderPlanSection() {
       ${pro && p.tier !== 'trial' ? '' : `
       <button class="upgrade-btn" onclick="openUpgradeModal('backup')"
         style="width:100%;padding:14px;border-radius:12px;background:var(--accent);color:#0f0f0f;font-weight:700;font-size:14px;border:none;cursor:pointer;margin-top:12px;">
-        ${p.tier === 'trial' ? 'PROプランを見る' : 'PROプランにアップグレード'}
-        <span style="font-size:12px;font-weight:400;"> ¥400/月〜</span>
+        ${p.tier === 'trial' ? 'PROプランを見る' : '30日間 無料で試す →'}
+        ${p.tier !== 'trial' ? '<span style="font-size:11px;font-weight:400;display:block;margin-top:2px;">クレジットカード不要</span>' : ''}
       </button>`}
     </div>
   `;
@@ -5106,19 +5141,30 @@ function escHtml(s) {
       <div><span style="color:var(--accent)">✓</span> マルチデバイス同期（スマホ・PC）</div>
       <div><span style="color:var(--accent)">✓</span> 今後追加される全機能</div>
     </div>
-    <!-- 月額・年額 選択 -->
-    <div class="plan-choice-wrap">
+
+    <!-- ① 無料体験ボタン（主役）-->
+    <button onclick="startTrialFromModal()" id="trial-cta-btn"
+      style="width:100%;padding:16px;border-radius:12px;background:var(--accent);color:#0f0f0f;font-size:16px;font-weight:800;border:none;cursor:pointer;margin-bottom:8px;letter-spacing:.02em;">
+      30日間 無料で試す →
+    </button>
+    <div style="text-align:center;font-size:11px;color:var(--text3);margin-bottom:18px;">
+      クレジットカード不要・いつでもキャンセル可
+    </div>
+
+    <!-- ② 有料プランを選ぶ（サブ）-->
+    <div style="text-align:center;font-size:11px;color:var(--text3);margin-bottom:10px;">すでに決めた方はこちら</div>
+    <div class="plan-choice-wrap" style="margin-bottom:12px;">
       <button class="plan-choice-btn" onclick="startCheckout('monthly')">
         <div class="price-main">¥400</div>
         <div class="price-sub">月額</div>
       </button>
       <button class="plan-choice-btn recommended" onclick="startCheckout('yearly')">
-        <div class="badge-rec">3ヶ月分お得・25%OFF</div>
+        <div class="badge-rec">25%OFF</div>
         <div class="price-main">¥3,600</div>
-        <div class="price-sub">年額</div>
-        <div class="price-save">¥300/月</div>
+        <div class="price-sub">年額・¥300/月</div>
       </button>
     </div>
+
     <button onclick="closeUpgradeModal()" style="width:100%;padding:12px;border-radius:12px;background:var(--surface2);color:var(--text2);font-size:14px;border:1px solid var(--border);cursor:pointer;">
       閉じる
     </button>

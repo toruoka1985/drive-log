@@ -3263,33 +3263,30 @@ function updateAuthUI(user) {
 
   // ── クラウドバックアップセクション ──
   const p = window._userPlan || {};
-  if (isPro()) {
-    // PRO：同期中表示
+  const tier = p.tier || 'free';
+  const isPROorTrial = tier === 'pro' || tier === 'trial';
+
+  if (isPROorTrial && user) {
+    // PRO/trial + ログイン済み → 同期中表示
     if (loggedinBackup) loggedinBackup.style.display = 'block';
     if (freeLoggedinEl) freeLoggedinEl.style.display = 'none';
     if (backupFormEl)   backupFormEl.style.display   = 'none';
+  } else if (isPROorTrial && !user) {
+    // PRO/trial + ログアウト中 → ログイン促進カード
+    if (loggedinBackup) loggedinBackup.style.display = 'none';
+    if (freeLoggedinEl) freeLoggedinEl.style.display = 'none';
+    if (backupFormEl)   backupFormEl.style.display   = 'block';
   } else if (user) {
-    // FREE+ログイン：訴求カード（メアド付き）
+    // FREE + ログイン済み → アップグレード訴求カード（メアド付き）
     if (loggedinBackup) loggedinBackup.style.display = 'none';
     if (freeLoggedinEl) {
       freeLoggedinEl.style.display = 'block';
       const emailEl = document.getElementById('auth-free-email');
       if (emailEl) emailEl.textContent = user.email;
-      const backupBtn = document.getElementById('backup-upgrade-btn');
-      const backupSub = document.getElementById('backup-upgrade-sub');
-      if (backupBtn) {
-        if (p.tier === 'trial_ended') {
-          backupBtn.textContent = 'PROプランにアップグレード →';
-          if (backupSub) backupSub.textContent = '';
-        } else {
-          backupBtn.textContent = '30日間 無料でフル機能を試す →';
-          if (backupSub) backupSub.textContent = 'クレジットカード不要';
-        }
-      }
     }
     if (backupFormEl) backupFormEl.style.display = 'none';
   } else {
-    // 未ログイン：訴求カード（メアドなし）
+    // FREE + 未ログイン → 訴求カード（メアドなし）
     if (loggedinBackup) loggedinBackup.style.display = 'none';
     if (freeLoggedinEl) freeLoggedinEl.style.display = 'none';
     if (backupFormEl)   backupFormEl.style.display   = 'block';
@@ -3301,23 +3298,46 @@ function updateAuthUI(user) {
 }
 
 function _updateAllBackupBtns() {
-  const used = isTrialAlreadyUsed() || (window._userPlan && (window._userPlan.tier === 'trial_ended'));
-  const ids = [
-    { btn: 'backup-upgrade-btn', sub: 'backup-upgrade-sub' },
-    { btn: 'backup-form-btn',    sub: 'backup-form-sub'    },
-  ];
-  ids.forEach(({ btn, sub }) => {
-    const b = document.getElementById(btn);
-    const s = document.getElementById(sub);
-    if (!b) return;
-    if (used) {
-      b.textContent = 'PROプランにアップグレード →';
-      if (s) s.textContent = '';
+  const tier     = window._userPlan ? window._userPlan.tier : 'free';
+  const loggedIn = !!currentUser;
+  const isPROorTrial = tier === 'pro' || tier === 'trial';
+
+  // ── クラウドバックアップ欄の表示パターン ──
+  // PRO/trial + ログイン済み → 同期中表示（auth-loggedin-backupで制御済み）
+  // PRO/trial + ログアウト中 → 「ログインしてクラウド同期する」
+  // FREE + 体験未使用       → 「30日間 無料でフル機能を試す」
+  // FREE + 体験済み         → 「PROプランにアップグレード」
+
+  // FREE+ログイン済みカード（backup-upgrade-btn）
+  // このカードはFREE+ログイン時のみ表示される
+  const bUpgrade = document.getElementById('backup-upgrade-btn');
+  const sUpgrade = document.getElementById('backup-upgrade-sub');
+  if (bUpgrade) {
+    const trialUsed = isTrialAlreadyUsed() || tier === 'trial_ended';
+    bUpgrade.textContent = trialUsed ? 'PROプランにアップグレード →' : '30日間 無料でフル機能を試す →';
+    if (sUpgrade) sUpgrade.textContent = trialUsed ? '' : 'クレジットカード不要';
+    bUpgrade.onclick = () => openUpgradeModal('backup');
+  }
+
+  // 未ログインカード（backup-form-btn）
+  const bForm = document.getElementById('backup-form-btn');
+  const sForm = document.getElementById('backup-form-sub');
+  if (bForm) {
+    if (isPROorTrial && !loggedIn) {
+      // PRO/trial でログアウト中 → ログイン促進
+      bForm.textContent = 'ログインしてクラウド同期する →';
+      bForm.onclick = () => {
+        const el = document.getElementById('auth-form');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+      if (sForm) sForm.textContent = '';
     } else {
-      b.textContent = '30日間 無料でフル機能を試す →';
-      if (s) s.textContent = 'クレジットカード不要';
+      // FREE（体験未使用）
+      bForm.textContent = '30日間 無料でフル機能を試す →';
+      bForm.onclick = () => openUpgradeModal('backup');
+      if (sForm) sForm.textContent = 'クレジットカード不要';
     }
-  });
+  }
 }
 
 // ── AUTH MODE ──

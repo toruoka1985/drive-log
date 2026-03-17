@@ -4178,15 +4178,8 @@ function renderSummary() {
   const grandTotal = personalDrive + _fuelShareForTotal + fuelAdjust + carry;
 
   // 持ち越しカード
-  const carryHtml = carry < 0 ? `
-    <div class="summary-card" style="border-color:var(--accent);opacity:.85;">
-      <div class="sc-top">
-        <span class="sc-label" style="color:var(--accent);">前月繰越</span>
-        <span class="sc-km" style="font-size:10px;">払い戻し残高</span>
-      </div>
-      <div class="sc-cost" style="color:var(--accent);">-¥${Math.abs(carry).toLocaleString()}</div>
-      <div class="sc-note">今月の振込額から差し引き済み</div>
-    </div>` : '';
+  // 前月繰越カードは翌月以降のみ表示（当月発生分は振込額内訳に含めるのみ）
+  const carryHtml = '';
 
   // 振込額の内訳メモ
   const _driveLabel = _isPersonalVehicleSummary ? '走行（法人）' : '走行（個人）';
@@ -4914,9 +4907,8 @@ async function exportInvoice() {
     }, 0);
     if (_fuelOnlyAdjust <= 0) {
       await showConfirm({
-        title: 'ガソリン代精算',
-        msg: `¥${Math.abs(_fuelOnlyAdjust).toLocaleString()} のガソリン代精算があります。
-マイナスのため翌月に精算します。`,
+        title: '精算額がマイナスです',
+        msg: `ガソリン代精算 -¥${Math.abs(_fuelOnlyAdjust).toLocaleString()} は\n翌月に精算します。`,
         ok: '閉じる',
         cancel: null,
       });

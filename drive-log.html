@@ -4360,13 +4360,14 @@ function openFuelModal(id) {
     timingBtns.forEach(b => b.classList.toggle('active', b.dataset.v === timingVal));
     selectFuelTiming([...timingBtns].find(b => b.dataset.v === timingVal));
   } else {
-    // 新規モード
+    // 新規モード：走行記録の日付が入力済みならそれを使う、なければ今日
     document.getElementById('fuelModalTitle').textContent = '給油を記録';
+    const recordDate = document.getElementById('f-date')?.value;
     const today = new Date();
     const yy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
-    document.getElementById('fuel-date').value = `${yy}-${mm}-${dd}`;
+    document.getElementById('fuel-date').value = recordDate || `${yy}-${mm}-${dd}`;
     document.getElementById('fuel-amount').value = '';
     document.querySelectorAll('.fuel-seg').forEach(b => b.classList.toggle('active', b.dataset.v === '私用'));
     const newTimingBtns = document.querySelectorAll('.fuel-timing-seg');

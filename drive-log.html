@@ -1344,6 +1344,21 @@
             oninput="updateVehicleFormRatePreview()">
           <span style="font-size:12px;color:var(--text3);">円/km</span>
         </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <label style="font-size:12px;color:var(--text2);white-space:nowrap;">基本料金</label>
+          <input type="number" id="v-base" inputmode="numeric" placeholder="0"
+            style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text1);font-size:13px;"
+            oninput="updateVehicleFormRatePreview()">
+          <span style="font-size:12px;color:var(--text3);">円</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <label style="font-size:12px;color:var(--text2);white-space:nowrap;">上限金額</label>
+          <input type="number" id="v-cap" inputmode="numeric" placeholder="0"
+            style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text1);font-size:13px;"
+            oninput="updateVehicleFormRatePreview()">
+          <span style="font-size:12px;color:var(--text3);">円</span>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:6px;">上限0で無制限</div>
         <div id="v-rate-preview" style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;"></div>
       </div>
 
@@ -1528,7 +1543,7 @@
   </div>
   <div class="form-wrap">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div class="settings-section-label" style="margin:0;">料金設定 — <span id="settings-vehicle-name" style="color:var(--text2);font-weight:500;"></span></div>
+      <div class="settings-section-label" style="margin:0;">料金設定</div>
       <button class="vehicle-switcher" onclick="openVehicleModal()" id="vehicle-switcher-btn-settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
           <path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2257,6 +2272,15 @@ function isPro() {
 
 // ── トライアル開始（新規登録時に呼ぶ） ──
 async function startTrial(uid) {
+  // restoreFromFirestoreが完了するまで最大3秒待機（車両データ上書き防止）
+  if (isRestoring) {
+    await new Promise(resolve => {
+      const check = setInterval(() => {
+        if (!isRestoring) { clearInterval(check); resolve(); }
+      }, 100);
+      setTimeout(() => { clearInterval(check); resolve(); }, 3000);
+    });
+  }
   const { db, doc, setDoc } = window._fb;
   const now = new Date();
   const trialEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -2275,7 +2299,9 @@ async function startTrial(uid) {
   renderPlanSection();
   updateTrialBanner();
   updateAuthUI(currentUser);  // バックアップ状態を即時更新
-  syncToFirestore();           // 既存データをクラウドに即同期
+  // ※ syncToFirestoreはここでは呼ばない
+  // restoreFromFirestore完了後にonAuthStateChanged経由で呼ばれるため
+  // ここで呼ぶとinitVehicles()で生成したデフォルト車両がクラウドを上書きするリスクがある
   toast('🎉 30日間の無料体験を開始しました');
 }
 
@@ -2874,6 +2900,10 @@ function showVehicleNameInput(existingName) {
   if (rateSection) rateSection.style.display = 'block';
   const vRate = document.getElementById('v-rate');
   if (vRate) vRate.value = '';
+  const vBase = document.getElementById('v-base');
+  if (vBase) vBase.value = '';
+  const vCap = document.getElementById('v-cap');
+  if (vCap) vCap.value = '';
   const vPreview = document.getElementById('v-rate-preview');
   if (vPreview) vPreview.textContent = '';
   // 追加モードでも一覧と追加ボタンを非表示
@@ -2902,6 +2932,20 @@ function hideVehicleNameInput() {
 function selectVehicleOwnership(btn) {
   document.querySelectorAll('.vehicle-ownership-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+}
+
+function updateVehicleFormRatePreview() {
+  const rate = parseFloat(document.getElementById('v-rate')?.value) || 0;
+  const base = parseFloat(document.getElementById('v-base')?.value) || 0;
+  const cap  = parseFloat(document.getElementById('v-cap')?.value)  || 0;
+  const preview = document.getElementById('v-rate-preview');
+  if (!preview) return;
+  if (!rate && !base) { preview.textContent = ''; return; }
+  const sampleKm = 100;
+  let cost = base + rate * sampleKm;
+  if (cap > 0 && cost > cap) cost = cap;
+  const capStr = cap > 0 ? `　上限 ¥${cap.toLocaleString()}` : '';
+  preview.textContent = `例）${sampleKm}km走行 → ¥${Math.round(cost).toLocaleString()}${capStr}`;
 }
 
 function addVehicle() {
@@ -3593,7 +3637,7 @@ async function syncToFirestore() {
     setSyncStatus('クラウドバックアップはPROプランの機能です', '#888');
     return;
   }
-  const { db, doc, setDoc, collection, getDocs, writeBatch } = window._fb;
+  const { db, doc, getDoc, setDoc, collection, getDocs, writeBatch } = window._fb;
   if (isSyncing) return;
   isSyncing = true;
   setSyncStatus('同期中...', 'var(--text3)');
@@ -3628,10 +3672,36 @@ async function syncToFirestore() {
     mergedFuel.forEach(r  => batch.set(doc(frRef, String(r.id)), r));
 
     await setDoc(doc(db, 'users', uid, 'meta', 'settings'), settings);
-    await setDoc(doc(db, 'users', uid, 'meta', 'vehicles'), {
-      list: vehicles,
-      activeVehicleId: activeVehicleId || 'default'
-    });
+
+    // 車両データはクラウドと比較して新しい方を優先（上書きではなくマージ）
+    const vSnap = await getDoc(doc(db, 'users', uid, 'meta', 'vehicles'));
+    const cloudVehicles = vSnap.exists() ? vSnap.data() : null;
+    let vehiclesToSave;
+    if (!cloudVehicles || !cloudVehicles.list || cloudVehicles.list.length === 0) {
+      // クラウドに車両データなし → ローカルをそのまま保存
+      vehiclesToSave = { list: vehicles, activeVehicleId: activeVehicleId || 'default' };
+    } else if (vehicles.length <= 1 && vehicles[0]?.id === 'default' && vehicles[0]?.name === '車両1' && cloudVehicles.list.length > 0) {
+      // ローカルがデフォルト車両1台だけ・クラウドに複数台ある → クラウドを優先
+      vehicles = cloudVehicles.list;
+      activeVehicleId = cloudVehicles.activeVehicleId || vehicles[0]?.id || 'default';
+      localStorage.setItem('vehicles', JSON.stringify(vehicles));
+      localStorage.setItem('activeVehicleId', activeVehicleId);
+      updateVehicleSwitcher();
+      vehiclesToSave = cloudVehicles;
+    } else {
+      // 両方にデータあり → 台数が多い方を優先（より多くの設定を保持）
+      vehiclesToSave = vehicles.length >= cloudVehicles.list.length
+        ? { list: vehicles, activeVehicleId: activeVehicleId || 'default' }
+        : (() => {
+            vehicles = cloudVehicles.list;
+            activeVehicleId = cloudVehicles.activeVehicleId || vehicles[0]?.id || 'default';
+            localStorage.setItem('vehicles', JSON.stringify(vehicles));
+            localStorage.setItem('activeVehicleId', activeVehicleId);
+            updateVehicleSwitcher();
+            return cloudVehicles;
+          })();
+    }
+    await setDoc(doc(db, 'users', uid, 'meta', 'vehicles'), vehiclesToSave);
 
     await batch.commit();
     localStorage.removeItem('pendingSync');
@@ -3719,8 +3789,10 @@ async function restoreFromFirestore(uid) {
     } else if (records.length > 0 || fuelRecords.length > 0) {
       // クラウド空・ローカルにデータあり → アップロード
       await syncToFirestore();
+      loadSettings();
     } else {
       setSyncStatus('同期中', 'var(--text3)');
+      loadSettings();
     }
   } catch(e) {
     console.error('restore error', e);
@@ -4597,9 +4669,7 @@ function setVehicleRate(vehicleId, rateObj) {
 function loadSettings() {
   // 車両別料金を読み込む
   const vrate = getVehicleRate(activeVehicleId);
-  // 料金設定の見出しに現在の車両名を表示
-  const snLabel = document.getElementById('settings-vehicle-name');
-  if (snLabel) snLabel.textContent = getActiveVehicle()?.name || '';
+
   document.getElementById('s-rate').value = vrate.ratePerKm != null ? vrate.ratePerKm : 50;
   document.getElementById('s-base').value = vrate.baseFixed || '';
   document.getElementById('s-cap').value  = vrate.capAmount || '';

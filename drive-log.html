@@ -1671,11 +1671,11 @@
         <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:16px;">
           無料プランのデータはこのブラウザにのみ保存されており、端末の破損やキャッシュクリア等でデータが消失します。PROプランならクラウドに自動バックアップで安心です。またスマホ・PCどこからでもアクセスできます。
         </div>
-        <button onclick="openUpgradeModal('backup')"
+        <button id="backup-form-btn" onclick="openUpgradeModal('backup')"
           style="width:100%;padding:13px;border-radius:10px;background:var(--accent);color:#0f0f0f;font-size:14px;font-weight:800;border:none;cursor:pointer;margin-bottom:4px;">
           30日間 無料でフル機能を試す →
         </button>
-        <div style="text-align:center;font-size:11px;color:var(--text3);">クレジットカード不要</div>
+        <div id="backup-form-sub" style="text-align:center;font-size:11px;color:var(--text3);">クレジットカード不要</div>
       </div>
     </div>
 
@@ -3295,7 +3295,29 @@ function updateAuthUI(user) {
     if (backupFormEl)   backupFormEl.style.display   = 'block';
   }
 
+  // バックアップ欄の全ボタンを体験済みフラグで統一更新
+  _updateAllBackupBtns();
   renderPlanSection();
+}
+
+function _updateAllBackupBtns() {
+  const used = isTrialAlreadyUsed() || (window._userPlan && (window._userPlan.tier === 'trial_ended'));
+  const ids = [
+    { btn: 'backup-upgrade-btn', sub: 'backup-upgrade-sub' },
+    { btn: 'backup-form-btn',    sub: 'backup-form-sub'    },
+  ];
+  ids.forEach(({ btn, sub }) => {
+    const b = document.getElementById(btn);
+    const s = document.getElementById(sub);
+    if (!b) return;
+    if (used) {
+      b.textContent = 'PROプランにアップグレード →';
+      if (s) s.textContent = '';
+    } else {
+      b.textContent = '30日間 無料でフル機能を試す →';
+      if (s) s.textContent = 'クレジットカード不要';
+    }
+  });
 }
 
 // ── AUTH MODE ──

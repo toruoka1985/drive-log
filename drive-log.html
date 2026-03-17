@@ -2396,6 +2396,7 @@ async function startTrialFromModal() {
 
 // ── アップグレードモーダル内インラインサインアップ ──
 let _trialSignupMode = 'signup'; // 'signup' or 'login'
+let _pendingTrialStart = false; // モーダル登録後のトライアル開始待ちフラグ
 
 function showTrialSignupForm() {
   document.getElementById('trial-default-view').style.display = 'none';
@@ -2463,28 +2464,10 @@ async function submitTrialSignup() {
     } else {
       cred = await signInWithEmailAndPassword(auth, email, password);
     }
-    // ログイン成功 → トライアル開始
-    // onAuthStateChangedが発火するが、ここで即座に開始
-    const uid = cred.user.uid;
-    await restoreFromFirestore(uid);
-    // 体験済みチェック
-    if (isTrialAlreadyUsed() || (window._userPlan && (window._userPlan.tier === 'trial' || window._userPlan.tier === 'pro'))) {
-      closeUpgradeModal();
-      backToTrialDefault();
-      if (window._userPlan.tier === 'trial' || window._userPlan.tier === 'pro') {
-        toast('すでにPROプランまたは無料体験中です');
-      } else {
-        toast('このアカウントはすでに無料体験済みです。有料プランをご検討ください。');
-      }
-      return;
-    }
-    if (window._userPlan && window._userPlan.tier === 'trial_ended') {
-      closeUpgradeModal();
-      backToTrialDefault();
-      toast('無料体験は1回のみです。有料プランをご選択ください。');
-      return;
-    }
-    await startTrial(uid);
+    // ログイン成功
+    // onAuthStateChangedが発火してrestoreFromFirestoreが呼ばれるのを待つ
+    // その後にトライアル開始するためフラグを立てる
+    _pendingTrialStart = true;
     closeUpgradeModal();
     backToTrialDefault();
   } catch(e) {
@@ -3339,6 +3322,21 @@ function initFirebase() {
     currentUser = user;
     if (user) {
       await restoreFromFirestore(user.uid);
+      // モーダルからの登録直後にトライアル開始
+      if (_pendingTrialStart) {
+        _pendingTrialStart = false;
+        if (!isTrialAlreadyUsed() &&
+            window._userPlan &&
+            window._userPlan.tier !== 'trial' &&
+            window._userPlan.tier !== 'pro' &&
+            window._userPlan.tier !== 'trial_ended') {
+          await startTrial(user.uid);
+        } else if (window._userPlan && (window._userPlan.tier === 'trial' || window._userPlan.tier === 'pro')) {
+          toast('すでにPROプランまたは無料体験中です');
+        } else {
+          toast('無料体験は1回のみです。有料プランをご選択ください。');
+        }
+      }
       checkTrialExpiry();
       updateTrialBanner();
       window.addEventListener('online', () => {

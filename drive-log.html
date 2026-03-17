@@ -2440,6 +2440,13 @@ function showTrialSignupForm() {
 function backToTrialDefault() {
   document.getElementById('trial-signup-view').style.display = 'none';
   document.getElementById('trial-default-view').style.display = 'block';
+  // ボタンを必ずリセット
+  const btn = document.getElementById('trial-cta-btn');
+  if (btn) {
+    btn.disabled = false;
+    const p = window._userPlan || {};
+    btn.textContent = (p.tier === 'trial_ended') ? 'PROプランにアップグレード →' : '30日間 無料でフル機能を試す →';
+  }
 }
 
 function switchTrialTab(mode) {

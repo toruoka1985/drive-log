@@ -4000,9 +4000,10 @@ function renderSummary() {
     const idx = sorted.findIndex(r => r.id === f.id);
     const prevFuel = idx > 0 ? sorted[idx - 1] : null;
     const prevDate = prevFuel?.date || null;
+    const prevTiming = prevFuel?.timing || 'after';
     const inclSameDayF = f.timing === 'after' || !f.timing;
     const inRange = activeRecs.filter(r =>
-      (prevDate ? (r.date >= prevDate) : true) &&
+      (prevDate ? ((prevTiming === 'after' ? r.date > prevDate : (prevTimingAdj === 'after' ? r.date > prevDate : (prevTimingP === 'after' ? r.date > prevDate : (prevTimingAlloc === 'after' ? r.date > prevDate : (prevTimingM === 'after' ? r.date > prevDate : (prevTimingInv === 'after' ? r.date > prevDate : r.date >= prevDate))))))) : true) &&
       (inclSameDayF ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s, r) => s + r.km, 0);
@@ -4062,9 +4063,10 @@ function renderSummary() {
       const idxF = sortedF.findIndex(r => r.id === f.id);
       const prevFuelF = idxF > 0 ? sortedF[idxF - 1] : null;
       const prevDateF = prevFuelF?.date || null;
+      const prevTimingF = prevFuelF?.timing || 'after';
       const inclSameDayFF = f.timing === 'after' || !f.timing;
       const inRangeF = activeRecs.filter(r =>
-        (prevDateF ? (r.date >= prevDateF) : true) &&
+        (prevDateF ? ((prevTimingF === 'after' ? r.date > prevDateF : (prevTimingCSV === 'after' ? r.date > prevDateF : (prevTimingInvF === 'after' ? r.date > prevDateF : r.date >= prevDateF)))) : true) &&
         (inclSameDayFF ? r.date <= f.date : r.date < f.date)
       );
       const totalKmF = inRangeF.reduce((s, r) => s + r.km, 0);
@@ -4116,6 +4118,7 @@ function renderSummary() {
     const idx = sorted.findIndex(r => r.id === f.id);
     const prevFuelAdj = idx > 0 ? sorted[idx-1] : null;
     const prevDate = prevFuelAdj?.date || null;
+    const prevTimingAdj = prevFuelAdj?.timing || 'after';
     const inclSameDayAdj = f.timing === 'after' || !f.timing;
     const inRange = activeRecs.filter(r =>
       (prevDate ? (r.date >= prevDate) : true) &&
@@ -4387,6 +4390,7 @@ function getPrevFuelRatio(sortedFuels, currentIdx, activeRecs) {
     const f = sortedFuels[i];
     const prevFuelP = i > 0 ? sortedFuels[i - 1] : null;
     const prevDate = prevFuelP?.date || null;
+    const prevTimingP = prevFuelP?.timing || 'after';
     const inclSameDay = f.timing === 'after' || !f.timing;
     const inRange = activeRecs.filter(r =>
       (prevDate ? (r.date >= prevDate) : true) &&
@@ -4420,6 +4424,7 @@ function calcFuelAlloc(fuel) {
   const idx = sorted.findIndex(f => f.id === fuel.id);
   const prevFuelAlloc = idx > 0 ? sorted[idx - 1] : null;
   const prevDate = prevFuelAlloc?.date || null;
+  const prevTimingAlloc = prevFuelAlloc?.timing || 'after';
   const includeSameDay = fuel.timing === 'after' || !fuel.timing;
   const inRange = activeRecs.filter(r =>
     (prevDate ? (r.date >= prevDate) : true) &&
@@ -4538,6 +4543,7 @@ function calcCarryover(targetY, targetM) {
       const idx = sorted.findIndex(r => r.id === f.id);
       const prevFuelM = idx > 0 ? sorted[idx-1] : null;
       const prevDate = prevFuelM?.date || null;
+      const prevTimingM = prevFuelM?.timing || 'after';
       const inclSameDayM = f.timing === 'after' || !f.timing;
       const inRange = activeR.filter(r =>
         (prevDate ? (r.date >= prevDate) : true) &&
@@ -4588,9 +4594,10 @@ function calcCarryover(targetY, targetM) {
       const idx2 = sorted2.findIndex(r => r.id === f2.id);
       const prevFuel2 = idx2 > 0 ? sorted2[idx2-1] : null;
       const prevDate2 = prevFuel2?.date || null;
+      const prevTiming2 = prevFuel2?.timing || 'after';
       const incl2 = f2.timing === 'after' || !f2.timing;
       const inRange2 = activeR.filter(r =>
-        (prevDate2 ? (r.date >= prevDate2) : true) &&
+        (prevDate2 ? ((prevTiming2 === 'after' ? r.date > prevDate2 : r.date >= prevDate2)) : true) &&
         (incl2 ? r.date <= f2.date : r.date < f2.date) &&
         r.date.startsWith(mk)
       );
@@ -4638,6 +4645,7 @@ async function exportCSV() {
     const idxF = sortedF.findIndex(r => r.id === f.id);
     const prevFuelCSV = idxF > 0 ? sortedF[idxF-1] : null;
     const prevDateF = prevFuelCSV?.date || null;
+    const prevTimingCSV = prevFuelCSV?.timing || 'after';
     const inclF = f.timing === 'after' || !f.timing;
     const inRange = csvActiveRecs.filter(r =>
       (prevDateF ? (r.date >= prevDateF) : true) &&
@@ -4970,6 +4978,7 @@ async function exportInvoice() {
     const idx = sorted.findIndex(r => r.id === f.id);
     const prevFuelInv = idx > 0 ? sorted[idx-1] : null;
     const prevDate = prevFuelInv?.date || null;
+    const prevTimingInv = prevFuelInv?.timing || 'after';
     const inclSameDayInv = f.timing === 'after' || !f.timing;
     const inRange = activeRecsInv.filter(r =>
       (prevDate ? (r.date >= prevDate) : true) &&
@@ -5077,9 +5086,10 @@ async function exportInvoice() {
         const idxF2 = sortedF2.findIndex(r => r.id === f.id);
         const prevFuelF2 = idxF2 > 0 ? sortedF2[idxF2-1] : null;
         const prevDateF2 = prevFuelF2?.date || null;
+        const prevTimingF2 = prevFuelF2?.timing || 'after';
         const inclF2 = f.timing === 'after' || !f.timing;
         const inRangeF2 = activeRecsInv.filter(r =>
-          (prevDateF2 ? (r.date >= prevDateF2) : true) &&
+          (prevDateF2 ? ((prevTimingF2 === 'after' ? r.date > prevDateF2 : r.date >= prevDateF2)) : true) &&
           (inclF2 ? r.date <= f.date : r.date < f.date)
         );
         const totalKmF2 = inRangeF2.reduce((s,r) => s+r.km, 0);
@@ -5221,6 +5231,7 @@ async function exportInvoice() {
       const idxF = sortedF.findIndex(r => r.id === f.id);
       const prevFuelInvF = idxF > 0 ? sortedF[idxF-1] : null;
       const prevDateF = prevFuelInvF?.date || null;
+      const prevTimingInvF = prevFuelInvF?.timing || 'after';
       const inclF = f.timing === 'after' || !f.timing;
       const inRangeF = activeRecsInv.filter(r =>
         (prevDateF ? (r.date >= prevDateF) : true) &&

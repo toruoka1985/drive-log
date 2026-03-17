@@ -4007,6 +4007,8 @@ function renderSummary() {
       (inclSameDayF ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s, r) => s + r.km, 0);
+    // DEBUG
+    console.log('[fuelShare]', f.date, f.category, 'prevDate:', prevDate, 'prevTiming:', prevTiming, 'inRange:', inRange.map(r=>r.date+' '+r.category+' '+r.km+'km'), 'totalKm:', totalKm);
     if (totalKm === 0) {
       // 走行記録なし → 直近の走行ある給油の比率を引き継ぐ
       const prev = getPrevFuelRatio(sorted, idx, activeRecs);

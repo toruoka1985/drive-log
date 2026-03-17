@@ -1569,21 +1569,85 @@
     <div class="settings-section-label" style="margin-top:28px">プラン</div>
     <div id="plan-section"></div>
 
-    <div class="settings-section-label" style="margin-top:28px">クラウドバックアップ</div>
+    <!-- ── アカウントセクション ── -->
+    <div class="settings-section-label" style="margin-top:28px">アカウント</div>
 
-    <!-- ① PRO・ログイン済み -->
+    <!-- 確認中 -->
+    <div id="auth-checking" style="font-size:13px;color:var(--text3);padding:14px 0;">確認中...</div>
+
+    <!-- ログイン済み -->
     <div id="auth-loggedin" style="display:none;">
-      <div id="auth-status-wrap" style="margin-bottom:12px;padding:14px 16px;background:var(--card);border-radius:12px;font-size:13px;color:var(--text2);"></div>
-      <div id="sync-status" style="margin-bottom:10px;font-size:12px;color:var(--text3);text-align:center;min-height:18px;"></div>
-      <button class="settings-save-btn" onclick="handleSignOut()" style="background:var(--card);color:var(--text2);font-size:13px;">
-        ログアウト
-      </button>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+        <div id="auth-status-wrap" style="font-size:13px;color:var(--text2);margin-bottom:10px;"></div>
+        <div id="sync-status" style="font-size:12px;color:var(--text3);text-align:center;min-height:18px;margin-bottom:10px;"></div>
+        <button class="settings-save-btn" onclick="handleSignOut()" style="background:var(--surface2);color:var(--text2);font-size:13px;">
+          ログアウト
+        </button>
+      </div>
     </div>
 
-    <!-- ② FREE・ログイン済み（バックアップ不可、アップグレード誘導） -->
+    <!-- 未ログイン：ログイン/新規登録フォーム -->
+    <div id="auth-form" style="display:none;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:4px;">
+        <!-- ログイン / 新規登録タブ -->
+        <div id="auth-tabs" style="display:flex;gap:8px;margin-bottom:16px;">
+          <button id="tab-login" onclick="switchAuthMode('login')"
+            style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:var(--accent);color:#0f0f0f;">
+            ログイン
+          </button>
+          <button id="tab-register" onclick="switchAuthMode('register')"
+            style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:var(--card);color:var(--text2);">
+            新規登録
+          </button>
+        </div>
+
+        <form id="auth-form-inner" onsubmit="handleEmailAuth();return false;" autocomplete="on">
+          <div class="field">
+            <label>メールアドレス</label>
+            <input type="email" id="auth-email" name="email"
+              inputmode="email" placeholder="example@mail.com"
+              autocomplete="email" autocapitalize="none" autocorrect="off">
+          </div>
+          <div class="field" id="auth-email-confirm-wrap" style="display:none;">
+            <label>メールアドレス（確認）</label>
+            <input type="email" id="auth-email-confirm" name="email-confirm"
+              inputmode="email" placeholder="もう一度入力してください"
+              autocomplete="off" autocapitalize="none" autocorrect="off">
+          </div>
+          <div class="field">
+            <label>パスワード</label>
+            <input type="password" id="auth-password" name="password"
+              placeholder="6文字以上" autocomplete="current-password">
+          </div>
+          <div id="auth-error" style="font-size:12px;color:#e57373;margin-bottom:10px;min-height:16px;"></div>
+          <button type="submit" id="auth-submit-btn" class="submit-btn">ログイン</button>
+        </form>
+
+        <div id="auth-reset-wrap">
+          <button id="auth-reset-btn" onclick="handlePasswordReset()"
+            style="display:block;width:100%;margin-top:12px;padding:10px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">
+            パスワードを忘れた場合
+          </button>
+          <p style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.6;text-align:center;">
+            パスワードリセットメールが届かない場合は、迷惑メールフォルダをご確認ください。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── クラウドバックアップセクション ── -->
+    <div class="settings-section-label" style="margin-top:28px">クラウドバックアップ</div>
+
+    <!-- PRO：同期状態表示（auth-loggedinと連動してJS側で制御） -->
+    <div id="auth-loggedin-backup" style="display:none;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">
+        <div id="sync-status-backup" style="font-size:12px;color:var(--accent);font-weight:700;">● クラウド同期中</div>
+      </div>
+    </div>
+
+    <!-- FREE / 未ログイン：訴求カード -->
     <div id="auth-free-loggedin" style="display:none;">
-      <!-- FREE+ログイン済み：訴求カード -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 16px;margin-bottom:10px;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 16px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div style="font-size:12px;color:var(--text3);" id="auth-free-email"></div>
           <span style="font-size:10px;font-family:'DM Mono',monospace;background:var(--surface2);color:var(--text3);padding:2px 8px;border-radius:20px;border:1px solid var(--border);">FREE</span>
@@ -1596,19 +1660,14 @@
           style="width:100%;padding:13px;border-radius:10px;background:var(--accent);color:#0f0f0f;font-size:14px;font-weight:800;border:none;cursor:pointer;margin-bottom:4px;">
           30日間 無料でフル機能を試す →
         </button>
-        <div id="backup-upgrade-sub" style="text-align:center;font-size:11px;color:var(--text3);margin-bottom:12px;">クレジットカード不要</div>
-        <button onclick="handleSignOut()"
-          style="display:block;width:100%;padding:10px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">
-          ログアウト
-        </button>
+        <div id="backup-upgrade-sub" style="text-align:center;font-size:11px;color:var(--text3);">クレジットカード不要</div>
       </div>
-
     </div>
 
-    <!-- ③ 未ログイン：訴求カードのみ表示 -->
-    <div id="auth-form" style="display:none;">
+    <!-- 未ログイン：訴求カード -->
+    <div id="backup-form" style="display:none;">
       <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 16px;">
-        <div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:8px;">☁️ データをクラウドで守る</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:8px;">☁️ データをクラウドで守る</div>
         <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:16px;">
           無料プランのデータはこのブラウザにのみ保存されており、端末の破損やキャッシュクリア等でデータが消失します。PROプランならクラウドに自動バックアップで安心です。またスマホ・PCどこからでもアクセスできます。
         </div>
@@ -1618,22 +1677,7 @@
         </button>
         <div style="text-align:center;font-size:11px;color:var(--text3);">クレジットカード不要</div>
       </div>
-
-      <!-- 非表示フォーム（パスワードマネージャー認識用・DOM上は残す） -->
-      <form id="auth-form-inner" onsubmit="handleEmailAuth();return false;" autocomplete="on" style="display:none;">
-        <input type="email" id="auth-email" name="email" autocomplete="email" autocapitalize="none" autocorrect="off">
-        <input type="email" id="auth-email-confirm" name="email-confirm" autocomplete="off">
-        <input type="password" id="auth-password" name="password" autocomplete="current-password">
-        <div id="auth-email-confirm-wrap"></div>
-        <div id="auth-tabs"></div>
-        <div id="auth-error"></div>
-        <button type="submit" id="auth-submit-btn"></button>
-        <div id="auth-reset-wrap"><button id="auth-reset-btn" onclick="handlePasswordReset()"></button></div>
-      </form>
     </div>
-
-    <!-- 確認中 -->
-    <div id="auth-checking" style="font-size:13px;color:var(--text3);padding:14px 0;">確認中...</div>
 
     <!-- ホーム画面追加 -->
     <div class="settings-section-label" style="margin-top:28px">このアプリについて</div>
@@ -3170,72 +3214,72 @@ function setAuthError(msg) {
 }
 
 function updateAuthUI(user) {
-  const checking        = document.getElementById('auth-checking');
-  const loggedinEl      = document.getElementById('auth-loggedin');       // PRO+ログイン済み
-  const freeLoggedinEl  = document.getElementById('auth-free-loggedin');  // FREE+ログイン済み
-  const form            = document.getElementById('auth-form');            // 未ログイン
-  const statusWrap      = document.getElementById('auth-status-wrap');
-  if (!checking || !loggedinEl || !form) return;
+  const checking       = document.getElementById('auth-checking');
+  const loggedinEl     = document.getElementById('auth-loggedin');      // アカウント：ログイン済み
+  const form           = document.getElementById('auth-form');           // アカウント：未ログインフォーム
+  const freeLoggedinEl = document.getElementById('auth-free-loggedin'); // バックアップ：FREE訴求
+  const backupFormEl   = document.getElementById('backup-form');         // バックアップ：未ログイン訴求
+  const loggedinBackup = document.getElementById('auth-loggedin-backup');// バックアップ：PRO同期表示
+  const statusWrap     = document.getElementById('auth-status-wrap');
+  if (!checking) return;
 
   checking.style.display = 'none';
 
-  if (user) {
-    // ── ログイン済み ──
-    form.style.display = 'none';
+  // ── アカウントセクション ──
+  if (user || (_devPlanOverride && isPro())) {
+    // ログイン済み or DEV PRO：メアド＋ログアウト表示
+    if (loggedinEl) loggedinEl.style.display = 'block';
+    if (form)       form.style.display       = 'none';
+    if (statusWrap) {
+      const email = user ? user.email : 'DEV MODE';
+      const badge = isPro()
+        ? `<span style="color:var(--accent);font-size:11px;font-weight:700;">● クラウド同期中</span>`
+        : `<span style="font-size:10px;font-family:'DM Mono',monospace;background:var(--surface2);color:var(--text3);padding:2px 8px;border-radius:20px;border:1px solid var(--border);">FREE</span>`;
+      statusWrap.innerHTML = `
+        <div style="font-weight:600;color:var(--text1);margin-bottom:6px;">${email}</div>
+        <div>${badge}</div>`;
+    }
+  } else {
+    // 未ログイン：ログイン/新規登録フォーム
+    if (loggedinEl) loggedinEl.style.display = 'none';
+    if (form)       form.style.display       = 'block';
+    switchAuthMode('login');
+  }
 
-    if (isPro()) {
-      // PRO: 同期ステータス＋ログアウト
-      loggedinEl.style.display     = 'block';
-      if (freeLoggedinEl) freeLoggedinEl.style.display = 'none';
-      if (statusWrap) {
-        statusWrap.innerHTML = `
-          <div style="font-weight:600;color:var(--text1);margin-bottom:4px;">${user.email}</div>
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="color:var(--accent);font-size:11px;font-weight:700;">● クラウド同期中</span>
-          </div>`;
-      }
-    } else {
-      // FREE: アップグレード誘導
-      loggedinEl.style.display = 'none';
-      if (freeLoggedinEl) {
-        freeLoggedinEl.style.display = 'block';
-        const emailEl = document.getElementById('auth-free-email');
-        if (emailEl) emailEl.textContent = user.email;
-        // 体験済みならボタン文言を変更
-        const backupBtn = document.getElementById('backup-upgrade-btn');
-        const backupSub = document.getElementById('backup-upgrade-sub');
-        const p = window._userPlan || {};
-        if (backupBtn) {
-          if (p.tier === 'trial_ended') {
-            backupBtn.textContent = 'PROプランにアップグレード →';
-            if (backupSub) backupSub.textContent = '';
-          } else {
-            backupBtn.textContent = '30日間 無料でフル機能を試す →';
-            if (backupSub) backupSub.textContent = 'クレジットカード不要';
-          }
+  // ── クラウドバックアップセクション ──
+  const p = window._userPlan || {};
+  if (isPro()) {
+    // PRO：同期中表示
+    if (loggedinBackup) loggedinBackup.style.display = 'block';
+    if (freeLoggedinEl) freeLoggedinEl.style.display = 'none';
+    if (backupFormEl)   backupFormEl.style.display   = 'none';
+  } else if (user) {
+    // FREE+ログイン：訴求カード（メアド付き）
+    if (loggedinBackup) loggedinBackup.style.display = 'none';
+    if (freeLoggedinEl) {
+      freeLoggedinEl.style.display = 'block';
+      const emailEl = document.getElementById('auth-free-email');
+      if (emailEl) emailEl.textContent = user.email;
+      const backupBtn = document.getElementById('backup-upgrade-btn');
+      const backupSub = document.getElementById('backup-upgrade-sub');
+      if (backupBtn) {
+        if (p.tier === 'trial_ended') {
+          backupBtn.textContent = 'PROプランにアップグレード →';
+          if (backupSub) backupSub.textContent = '';
+        } else {
+          backupBtn.textContent = '30日間 無料でフル機能を試す →';
+          if (backupSub) backupSub.textContent = 'クレジットカード不要';
         }
       }
     }
+    if (backupFormEl) backupFormEl.style.display = 'none';
   } else {
-    // ── 未ログイン ──
-    loggedinEl.style.display = 'none';
+    // 未ログイン：訴求カード（メアドなし）
+    if (loggedinBackup) loggedinBackup.style.display = 'none';
     if (freeLoggedinEl) freeLoggedinEl.style.display = 'none';
-    if (_devPlanOverride && isPro()) {
-      // DEVでPROに上書き中：PRO表示（ログイン欄を隠す）
-      form.style.display = 'none';
-      loggedinEl.style.display = 'block';
-      const statusWrap = document.getElementById('auth-status-wrap');
-      if (statusWrap) {
-        statusWrap.innerHTML = `
-          <div style="font-weight:600;color:var(--text1);margin-bottom:4px;">DEV MODE</div>
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="color:var(--accent);font-size:11px;font-weight:700;">● クラウド同期中（DEV）</span>
-          </div>`;
-      }
-    } else {
-      form.style.display = 'block';
-    }
+    if (backupFormEl)   backupFormEl.style.display   = 'block';
   }
+
   renderPlanSection();
 }
 

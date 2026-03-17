@@ -209,6 +209,7 @@
   /* 車両名義ボタン */
   .vehicle-ownership-btn { transition: all .15s; }
   .vehicle-ownership-btn.active { background: rgba(200,245,58,.15); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .s-ownership-btn.active { background: rgba(200,245,58,.15); border-color: var(--accent); color: var(--accent); font-weight: 700; }
 
   /* distance preview */
   .dist-preview {
@@ -1574,7 +1575,6 @@
       <button class="seg-btn s-ownership-btn" data-o="個人事業" onclick="selectSettingsOwnership(this)" style="flex:1;padding:10px 4px;font-size:13px;">個人事業</button>
       <button class="seg-btn s-ownership-btn" data-o="私用"    onclick="selectSettingsOwnership(this)" style="flex:1;padding:10px 4px;font-size:13px;">私用</button>
     </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">未設定のままにすることもできます</div>
 
     <div class="settings-section-label" style="margin-top:20px">請求書の名称</div>
     <div class="field">
@@ -4700,10 +4700,8 @@ function loadSettings() {
 
 
 function selectSettingsOwnership(btn) {
-  const isActive = btn.classList.contains('active');
   document.querySelectorAll('.s-ownership-btn').forEach(b => b.classList.remove('active'));
-  // 同じボタンを押したら選択解除（未設定に戻す）
-  if (!isActive) btn.classList.add('active');
+  btn.classList.add('active');
   saveSettingsOwnership();
 }
 

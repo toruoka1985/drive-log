@@ -3998,10 +3998,12 @@ function renderSummary() {
   monthFuels.forEach(f => {
     const sorted = [...activeFuelRecs].sort((a, b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
-    const prevDate = idx > 0 ? sorted[idx - 1].date : null;
+    const prevFuel = idx > 0 ? sorted[idx - 1] : null;
+    const prevDate = prevFuel?.date || null;
+    const prevTiming = prevFuel?.timing || 'after';
     const inclSameDayF = f.timing === 'after' || !f.timing;
     const inRange = activeRecs.filter(r =>
-      (prevDate ? r.date > prevDate : true) &&
+      (prevDate ? (prevTiming === 'after' ? r.date >= prevDate : r.date > prevDate) : true) &&
       (inclSameDayF ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s, r) => s + r.km, 0);
@@ -4058,10 +4060,12 @@ function renderSummary() {
       const cat = f.category || '私用';
       const sortedF = [...activeFuelRecs].sort((a, b) => a.date.localeCompare(b.date));
       const idxF = sortedF.findIndex(r => r.id === f.id);
-      const prevDateF = idxF > 0 ? sortedF[idxF - 1].date : null;
+      const prevFuelF = idxF > 0 ? sortedF[idxF - 1] : null;
+      const prevDateF = prevFuelF?.date || null;
+      const prevTimingF = prevFuelF?.timing || 'after';
       const inclSameDayFF = f.timing === 'after' || !f.timing;
       const inRangeF = activeRecs.filter(r =>
-        (prevDateF ? r.date > prevDateF : true) &&
+        (prevDateF ? (prevTimingF === 'after' ? r.date >= prevDateF : r.date > prevDateF) : true) &&
         (inclSameDayFF ? r.date <= f.date : r.date < f.date)
       );
       const totalKmF = inRangeF.reduce((s, r) => s + r.km, 0);
@@ -4111,10 +4115,12 @@ function renderSummary() {
   monthFuels.forEach(f => {
     const sorted = [...activeFuelRecs].sort((a,b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
-    const prevDate = idx > 0 ? sorted[idx-1].date : null;
+    const prevFuelAdj = idx > 0 ? sorted[idx-1] : null;
+    const prevDate = prevFuelAdj?.date || null;
+    const prevTimingAdj = prevFuelAdj?.timing || 'after';
     const inclSameDayAdj = f.timing === 'after' || !f.timing;
     const inRange = activeRecs.filter(r =>
-      (prevDate ? r.date > prevDate : true) &&
+      (prevDate ? (prevTimingAdj === 'after' ? r.date >= prevDate : r.date > prevDate) : true) &&
       (inclSameDayAdj ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s,r) => s+r.km, 0);
@@ -4381,10 +4387,12 @@ function getPrevFuelRatio(sortedFuels, currentIdx, activeRecs) {
   // currentIdxより前の給油を新しい順に遡る
   for (let i = currentIdx - 1; i >= 0; i--) {
     const f = sortedFuels[i];
-    const prevDate = i > 0 ? sortedFuels[i - 1].date : null;
+    const prevFuelP = i > 0 ? sortedFuels[i - 1] : null;
+    const prevDate = prevFuelP?.date || null;
+    const prevTimingP = prevFuelP?.timing || 'after';
     const inclSameDay = f.timing === 'after' || !f.timing;
     const inRange = activeRecs.filter(r =>
-      (prevDate ? r.date > prevDate : true) &&
+      (prevDate ? (prevTimingP === 'after' ? r.date >= prevDate : r.date > prevDate) : true) &&
       (inclSameDay ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s, r) => s + r.km, 0);
@@ -4413,10 +4421,12 @@ function calcFuelAlloc(fuel) {
   const activeRecs = getActiveRecords();
   const sorted = [...activeFuelRecs].sort((a, b) => a.date.localeCompare(b.date));
   const idx = sorted.findIndex(f => f.id === fuel.id);
-  const prevDate = idx > 0 ? sorted[idx - 1].date : null;
+  const prevFuelAlloc = idx > 0 ? sorted[idx - 1] : null;
+  const prevDate = prevFuelAlloc?.date || null;
+  const prevTimingAlloc = prevFuelAlloc?.timing || 'after';
   const includeSameDay = fuel.timing === 'after' || !fuel.timing;
   const inRange = activeRecs.filter(r =>
-    (prevDate ? r.date > prevDate : true) &&
+    (prevDate ? (prevTimingAlloc === 'after' ? r.date >= prevDate : r.date > prevDate) : true) &&
     (includeSameDay ? r.date <= fuel.date : r.date < fuel.date)
   );
   const totalKm    = inRange.reduce((s, r) => s + r.km, 0);
@@ -4530,10 +4540,12 @@ function calcCarryover(targetY, targetM) {
     mFuels.forEach(f => {
       const sorted = [...activeFR].sort((a,b) => a.date.localeCompare(b.date));
       const idx = sorted.findIndex(r => r.id === f.id);
-      const prevDate = idx > 0 ? sorted[idx-1].date : null;
+      const prevFuelM = idx > 0 ? sorted[idx-1] : null;
+      const prevDate = prevFuelM?.date || null;
+      const prevTimingM = prevFuelM?.timing || 'after';
       const inclSameDayM = f.timing === 'after' || !f.timing;
       const inRange = activeR.filter(r =>
-        (prevDate ? r.date > prevDate : true) &&
+        (prevDate ? (prevTimingM === 'after' ? r.date >= prevDate : r.date > prevDate) : true) &&
         (inclSameDayM ? r.date <= f.date : r.date < f.date)
       );
       const totalKm = inRange.reduce((s,r) => s + r.km, 0);
@@ -4579,10 +4591,12 @@ function calcCarryover(targetY, targetM) {
     mFuels.forEach(f2 => {
       const sorted2 = [...activeFR].sort((a,b) => a.date.localeCompare(b.date));
       const idx2 = sorted2.findIndex(r => r.id === f2.id);
-      const prevDate2 = idx2 > 0 ? sorted2[idx2-1].date : null;
+      const prevFuel2 = idx2 > 0 ? sorted2[idx2-1] : null;
+      const prevDate2 = prevFuel2?.date || null;
+      const prevTiming2 = prevFuel2?.timing || 'after';
       const incl2 = f2.timing === 'after' || !f2.timing;
       const inRange2 = activeR.filter(r =>
-        (prevDate2 ? r.date > prevDate2 : true) &&
+        (prevDate2 ? (prevTiming2 === 'after' ? r.date >= prevDate2 : r.date > prevDate2) : true) &&
         (incl2 ? r.date <= f2.date : r.date < f2.date) &&
         r.date.startsWith(mk)
       );
@@ -4628,10 +4642,12 @@ async function exportCSV() {
   const fuelRows = csvActiveFuel.map(f => {
     const sortedF = [...csvActiveFuel];
     const idxF = sortedF.findIndex(r => r.id === f.id);
-    const prevDateF = idxF > 0 ? sortedF[idxF-1].date : null;
+    const prevFuelCSV = idxF > 0 ? sortedF[idxF-1] : null;
+    const prevDateF = prevFuelCSV?.date || null;
+    const prevTimingCSV = prevFuelCSV?.timing || 'after';
     const inclF = f.timing === 'after' || !f.timing;
     const inRange = csvActiveRecs.filter(r =>
-      (prevDateF ? r.date > prevDateF : true) &&
+      (prevDateF ? (prevTimingCSV === 'after' ? r.date >= prevDateF : r.date > prevDateF) : true) &&
       (inclF ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s,r) => s+r.km, 0);
@@ -4959,10 +4975,12 @@ async function exportInvoice() {
   monthFuelsInv.forEach(f => {
     const sorted = [...activeFuelRecsInv].sort((a,b) => a.date.localeCompare(b.date));
     const idx = sorted.findIndex(r => r.id === f.id);
-    const prevDate = idx > 0 ? sorted[idx-1].date : null;
+    const prevFuelInv = idx > 0 ? sorted[idx-1] : null;
+    const prevDate = prevFuelInv?.date || null;
+    const prevTimingInv = prevFuelInv?.timing || 'after';
     const inclSameDayInv = f.timing === 'after' || !f.timing;
     const inRange = activeRecsInv.filter(r =>
-      (prevDate ? r.date > prevDate : true) &&
+      (prevDate ? (prevTimingInv === 'after' ? r.date >= prevDate : r.date > prevDate) : true) &&
       (inclSameDayInv ? r.date <= f.date : r.date < f.date)
     );
     const totalKm = inRange.reduce((s,r) => s+r.km, 0);
@@ -5065,10 +5083,12 @@ async function exportInvoice() {
       monthFuelsInv.forEach(f => {
         const sortedF2 = [...activeFuelRecsInv].sort((a,b) => a.date.localeCompare(b.date));
         const idxF2 = sortedF2.findIndex(r => r.id === f.id);
-        const prevDateF2 = idxF2 > 0 ? sortedF2[idxF2-1].date : null;
+        const prevFuelF2 = idxF2 > 0 ? sortedF2[idxF2-1] : null;
+        const prevDateF2 = prevFuelF2?.date || null;
+        const prevTimingF2 = prevFuelF2?.timing || 'after';
         const inclF2 = f.timing === 'after' || !f.timing;
         const inRangeF2 = activeRecsInv.filter(r =>
-          (prevDateF2 ? r.date > prevDateF2 : true) &&
+          (prevDateF2 ? (prevTimingF2 === 'after' ? r.date >= prevDateF2 : r.date > prevDateF2) : true) &&
           (inclF2 ? r.date <= f.date : r.date < f.date)
         );
         const totalKmF2 = inRangeF2.reduce((s,r) => s+r.km, 0);
@@ -5208,10 +5228,12 @@ async function exportInvoice() {
       // 按分計算
       const sortedF = [...activeFuelRecsInv].sort((a,b) => a.date.localeCompare(b.date));
       const idxF = sortedF.findIndex(r => r.id === f.id);
-      const prevDateF = idxF > 0 ? sortedF[idxF-1].date : null;
+      const prevFuelInvF = idxF > 0 ? sortedF[idxF-1] : null;
+      const prevDateF = prevFuelInvF?.date || null;
+      const prevTimingInvF = prevFuelInvF?.timing || 'after';
       const inclF = f.timing === 'after' || !f.timing;
       const inRangeF = activeRecsInv.filter(r =>
-        (prevDateF ? r.date > prevDateF : true) &&
+        (prevDateF ? (prevTimingInvF === 'after' ? r.date >= prevDateF : r.date > prevDateF) : true) &&
         (inclF ? r.date <= f.date : r.date < f.date)
       );
       const totalKmF = inRangeF.reduce((s,r) => s+r.km, 0);

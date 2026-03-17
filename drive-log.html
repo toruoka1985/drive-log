@@ -4897,25 +4897,7 @@ async function exportInvoice() {
   if (monthRecs.length === 0 && monthFuelsInvoice.length === 0) {
     toast('対象データがありません'); return;
   }
-  if (monthRecs.length === 0 && monthFuelsInvoice.length > 0) {
-    // 給油記録のみ → grandTotalを計算してマイナスなら持ち越しメッセージ
-    const _fuelOnlyAdjust = monthFuelsInvoice.reduce((sum, f) => {
-      const fc = f.category || '私用';
-      if (!isPersonalVehicle && fc !== '法人') return sum - f.amount;
-      if (isPersonalVehicle && fc === '法人') return sum - f.amount;
-      return sum;
-    }, 0);
-    if (_fuelOnlyAdjust <= 0) {
-      await showConfirm({
-        title: '精算額がマイナスです',
-        msg: 'ガソリン代は翌月に合わせて精算します。',
-        ok: '閉じる',
-        cancel: null,
-      });
-      return;
-    }
-    // プラスの場合は通常の請求書フローへ継続
-  }
+  // 走行記録なし・給油記録のみの場合も通常フローで発行（マイナスなら請求書内に注記）
 
   const corpKm   = corpRecs.reduce((s,r) => s + r.km, 0);
   const corpCost = corpRecs.reduce((s,r) => s + r.cost, 0);
@@ -5148,7 +5130,12 @@ async function exportInvoice() {
 
   const footerTotal = grandTotalInvoice;
 
-  const totalStr = footerTotal >= 0 ? '¥\u200B' + footerTotal.toLocaleString() : '−¥' + Math.abs(footerTotal).toLocaleString();
+  const totalStr = footerTotal >= 0
+    ? '¥\u200B' + footerTotal.toLocaleString()
+    : '−¥' + Math.abs(footerTotal).toLocaleString();
+  const carryNote = footerTotal < 0
+    ? '<div style="font-size:11px;color:#e57373;margin-top:6px;font-family:sans-serif;">翌月に繰り越して精算します</div>'
+    : '';
 
   // ── 使用比率計算書用：区分別サマリーセクション ──
   const ratioSection = ''; // 使用比率テーブルは明細に統合済み
@@ -5559,6 +5546,7 @@ async function exportInvoice() {
 '    <div class="tb-period">' + y + '年' + m + '月分</div>\n' +
 '  </div>\n' +
 '  <div class="tb-amount">' + totalStr + '</div>\n' +
+'  ' + carryNote + '\n' +
 '</div>\n' : '') +
 
 '<div class="section-label">利用明細 — Detail</div>\n' +

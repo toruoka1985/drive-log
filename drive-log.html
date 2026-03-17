@@ -2342,6 +2342,21 @@ function openUpgradeModal(reason) {
     };
     msg.textContent = msgs[reason] || 'この機能は PROプランでご利用いただけます。';
   }
+  // 体験済み or trial_ended → 有料プランを主役に切り替え
+  const trialUsed = isTrialAlreadyUsed() || (window._userPlan && window._userPlan.tier === 'trial_ended');
+  const ctaBtn    = document.getElementById('trial-cta-btn');
+  const ctaSub    = ctaBtn ? ctaBtn.nextElementSibling : null;
+  const paidLabel = document.getElementById('trial-paid-label');
+  if (trialUsed) {
+    // 体験済み：無料体験ボタン・サブテキスト・「すでに決めた方」ラベルを非表示にして有料プランを主役に
+    if (ctaBtn) { ctaBtn.style.display = 'none'; }
+    if (ctaSub) ctaSub.style.display = 'none';
+    if (paidLabel) paidLabel.style.display = 'none';
+  } else {
+    if (ctaBtn) { ctaBtn.textContent = '30日間 無料で試す →'; ctaBtn.onclick = startTrialFromModal; ctaBtn.style.display = ''; }
+    if (ctaSub) ctaSub.style.display = '';
+    if (paidLabel) paidLabel.style.display = '';
+  }
   el.classList.add('show');
 }
 
@@ -5513,7 +5528,7 @@ function escHtml(s) {
       </div>
 
       <!-- ② 有料プランを選ぶ（サブ）-->
-      <div style="text-align:center;font-size:11px;color:var(--text3);margin-bottom:10px;">すでに決めた方はこちら</div>
+      <div id="trial-paid-label" style="text-align:center;font-size:11px;color:var(--text3);margin-bottom:10px;">すでに決めた方はこちら</div>
       <div class="plan-choice-wrap" style="margin-bottom:12px;">
         <button class="plan-choice-btn" onclick="startCheckout('monthly')">
           <div class="price-main">¥400</div>

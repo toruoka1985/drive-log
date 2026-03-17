@@ -2488,7 +2488,7 @@ function backToTrialDefault() {
   if (btn) {
     btn.disabled = false;
     const p = window._userPlan || {};
-    btn.textContent = (p.tier === 'trial_ended') ? 'PROプランにアップグレード →' : '30日間 無料でフル機能を試す →';
+    btn.textContent = (p.tier === 'trial_ended' || isTrialAlreadyUsed()) ? 'PROプランにアップグレード →' : '30日間 無料でフル機能を試す →';
   }
 }
 
@@ -2642,8 +2642,8 @@ function renderPlanSection() {
       ${pro && p.tier !== 'trial' ? '' : `
       <button class="upgrade-btn" onclick="openUpgradeModal('backup')"
         style="width:100%;padding:14px;border-radius:12px;background:var(--accent);color:#0f0f0f;font-weight:700;font-size:14px;border:none;cursor:pointer;margin-top:12px;">
-        ${p.tier === 'trial' ? 'PROプランを見る' : p.tier === 'trial_ended' ? 'PROプランにアップグレード →' : '30日間 無料でフル機能を試す →'}
-        ${p.tier === 'free' ? '<span style="font-size:11px;font-weight:400;display:block;margin-top:4px;">クレジットカード不要</span>' : ''}
+        ${p.tier === 'trial' ? 'PROプランを見る' : (p.tier === 'trial_ended' || isTrialAlreadyUsed()) ? 'PROプランにアップグレード →' : '30日間 無料でフル機能を試す →'}
+        ${(p.tier === 'free' && !isTrialAlreadyUsed()) ? '<span style="font-size:11px;font-weight:400;display:block;margin-top:4px;">クレジットカード不要</span>' : ''}
       </button>`}
     </div>
   `;

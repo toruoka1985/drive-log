@@ -1582,105 +1582,53 @@
 
     <!-- ② FREE・ログイン済み（バックアップ不可、アップグレード誘導） -->
     <div id="auth-free-loggedin" style="display:none;">
-      <!-- 警告バナー：バックアップ停止中 -->
-      <div style="background:rgba(229,115,115,.1);border:1px solid rgba(229,115,115,.4);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;">
-        <span style="font-size:18px;flex-shrink:0;line-height:1.4;">⚠️</span>
-        <div>
-          <div style="font-size:13px;font-weight:700;color:#e57373;margin-bottom:3px;">バックアップ停止中</div>
-          <div style="font-size:12px;color:var(--text2);line-height:1.7;">
-            現在のデータはブラウザにのみ保存されており、履歴の削除でデータが消失してしまうことがあります。これらからのデータ保護や別端末への機種変更などにはクラウド同期が可能なPROプランをご検討ください。
-          </div>
-        </div>
-      </div>
-      <!-- アカウント情報 -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+      <!-- FREE+ログイン済み：訴求カード -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 16px;margin-bottom:10px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div style="font-size:12px;color:var(--text3);" id="auth-free-email"></div>
           <span style="font-size:10px;font-family:'DM Mono',monospace;background:var(--surface2);color:var(--text3);padding:2px 8px;border-radius:20px;border:1px solid var(--border);">FREE</span>
         </div>
-        <div style="font-size:12px;color:var(--text3);line-height:1.7;padding:10px 12px;background:var(--surface2);border-radius:8px;margin-bottom:12px;">
-          PROプランにアップグレードすると<br>
-          自動バックアップが有効になります。
+        <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:8px;">☁️ データをクラウドで守る</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:16px;">
+          無料プランのデータはこのブラウザにのみ保存されており、端末の破損やキャッシュクリア等でデータが消失します。PROプランならクラウドに自動バックアップで安心です。またスマホ・PCどこからでもアクセスできます。
         </div>
-        <button class="settings-save-btn" onclick="openUpgradeModal('backup')" style="font-size:13px;margin-bottom:8px;">
-          今すぐバックアップを有効にする
+        <button onclick="openUpgradeModal('backup')"
+          style="width:100%;padding:13px;border-radius:10px;background:var(--accent);color:#0f0f0f;font-size:14px;font-weight:800;border:none;cursor:pointer;margin-bottom:12px;">
+          30日間 無料で試す →
         </button>
-        <button class="settings-save-btn" onclick="handleSignOut()" style="background:var(--card);color:var(--text3);font-size:12px;">
+        <button onclick="handleSignOut()"
+          style="display:block;width:100%;padding:10px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">
           ログアウト
         </button>
       </div>
 
     </div>
 
-    <!-- ③ 未ログイン（新規登録のみ表示・有料誘導） -->
+    <!-- ③ 未ログイン：訴求カードのみ表示 -->
     <div id="auth-form" style="display:none;">
-
-      <!-- 未ログイン時の誘導カード -->
-      <div id="auth-unlogged-banner" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;">
-        <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:6px;">アカウント登録でデータを保護</div>
-        <div style="font-size:12px;color:var(--text3);line-height:1.7;margin-bottom:14px;">
-          ブラウザのキャッシュ削除でデータが消えるのを防げます。<br>
-          30日間の無料体験でクラウドバックアップが使えます。
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 16px;">
+        <div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:8px;">☁️ データをクラウドで守る</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:16px;">
+          無料プランのデータはこのブラウザにのみ保存されており、端末の破損やキャッシュクリア等でデータが消失します。PROプランならクラウドに自動バックアップで安心です。またスマホ・PCどこからでもアクセスできます。
         </div>
-        <button class="settings-save-btn" onclick="switchAuthMode('register')" style="font-size:13px;margin-bottom:8px;">
-          無料体験を始める（アカウント作成）
+        <button onclick="openUpgradeModal('backup')"
+          style="width:100%;padding:13px;border-radius:10px;background:var(--accent);color:#0f0f0f;font-size:14px;font-weight:800;border:none;cursor:pointer;margin-bottom:10px;">
+          30日間 無料で試す →
         </button>
-        <button onclick="switchAuthMode('login')"
-          style="display:block;width:100%;padding:10px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">
-          すでにアカウントをお持ちの方
-        </button>
+        <div style="text-align:center;font-size:11px;color:var(--text3);">クレジットカード不要</div>
       </div>
 
-      <!-- モード切替タブ（ログイン選択時のみ表示） -->
-      <div id="auth-tabs" style="display:none;gap:8px;margin-bottom:20px;">
-        <button id="tab-login"    onclick="switchAuthMode('login')"
-          style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:var(--accent);color:#0f0f0f;">
-          ログイン
-        </button>
-        <button id="tab-register" onclick="switchAuthMode('register')"
-          style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:var(--card);color:var(--text2);">
-          新規登録
-        </button>
-      </div>
-
-      <!-- 入力フォーム（formタグ + name属性でiOSパスワードアプリに対応） -->
-      <form id="auth-form-inner" onsubmit="handleEmailAuth();return false;" autocomplete="on">
-
-        <div class="field">
-          <label>メールアドレス</label>
-          <input type="email" id="auth-email" name="email"
-            inputmode="email" placeholder="example@mail.com"
-            autocomplete="email" autocapitalize="none" autocorrect="off">
-        </div>
-
-        <div class="field" id="auth-email-confirm-wrap" style="display:none;">
-          <label>メールアドレス（確認）</label>
-          <input type="email" id="auth-email-confirm" name="email-confirm"
-            inputmode="email" placeholder="もう一度入力してください"
-            autocomplete="off" autocapitalize="none" autocorrect="off">
-        </div>
-
-        <div class="field">
-          <label>パスワード</label>
-          <input type="password" id="auth-password" name="password"
-            placeholder="6文字以上" autocomplete="current-password">
-        </div>
-
-        <div id="auth-error" style="font-size:12px;color:#e57373;margin-bottom:10px;min-height:16px;"></div>
-        <button type="submit" id="auth-submit-btn" class="submit-btn">ログイン</button>
-
+      <!-- 非表示フォーム（パスワードマネージャー認識用・DOM上は残す） -->
+      <form id="auth-form-inner" onsubmit="handleEmailAuth();return false;" autocomplete="on" style="display:none;">
+        <input type="email" id="auth-email" name="email" autocomplete="email" autocapitalize="none" autocorrect="off">
+        <input type="email" id="auth-email-confirm" name="email-confirm" autocomplete="off">
+        <input type="password" id="auth-password" name="password" autocomplete="current-password">
+        <div id="auth-email-confirm-wrap"></div>
+        <div id="auth-tabs"></div>
+        <div id="auth-error"></div>
+        <button type="submit" id="auth-submit-btn"></button>
+        <div id="auth-reset-wrap"><button id="auth-reset-btn" onclick="handlePasswordReset()"></button></div>
       </form>
-
-      <!-- パスワードリセット（ログインモードのみ表示） -->
-      <div id="auth-reset-wrap">
-        <button id="auth-reset-btn" onclick="handlePasswordReset()"
-          style="display:block;width:100%;margin-top:12px;padding:10px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">
-          パスワードを忘れた場合
-        </button>
-        <p style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.6;text-align:center;">
-          パスワードリセットメールが届かない場合は、迷惑メールフォルダをご確認ください。
-        </p>
-      </div>
     </div>
 
     <!-- 確認中 -->
@@ -2355,11 +2303,12 @@ function openUpgradeModal(reason) {
 
 // ── アカウント削除 ──
 function showDeleteAccountModal() {
-  if (!currentUser) {
-    toast('ログインが必要です');
-    return;
-  }
-  document.getElementById('delete-account-password').value = '';
+  // ログイン状態に関わらず表示（モーダル内でメール+パスワードで認証）
+  const emailInput = document.getElementById('delete-account-email');
+  const pwdInput   = document.getElementById('delete-account-password');
+  // ログイン済みならメールを自動補完
+  if (emailInput) emailInput.value = currentUser?.email || '';
+  if (pwdInput)   pwdInput.value = '';
   document.getElementById('delete-account-error').textContent = '';
   const btn = document.getElementById('delete-account-btn');
   if (btn) { btn.textContent = 'アカウントを削除する'; btn.disabled = false; }
@@ -2372,12 +2321,13 @@ function closeDeleteAccountModal() {
 }
 
 async function executeDeleteAccount() {
+  const email    = (document.getElementById('delete-account-email')?.value || '').trim();
   const password = document.getElementById('delete-account-password').value.trim();
-  const errEl = document.getElementById('delete-account-error');
-  const btn = document.getElementById('delete-account-btn');
+  const errEl    = document.getElementById('delete-account-error');
+  const btn      = document.getElementById('delete-account-btn');
 
-  if (!password) {
-    errEl.textContent = 'パスワードを入力してください';
+  if (!email || !password) {
+    errEl.textContent = 'メールアドレスとパスワードを入力してください';
     return;
   }
 
@@ -2386,11 +2336,17 @@ async function executeDeleteAccount() {
   errEl.textContent = '';
 
   try {
-    const { auth, EmailAuthProvider, reauthenticateWithCredential, deleteUser, db, collection, getDocs, deleteDoc, doc } = window._fb;
+    const { auth, EmailAuthProvider, reauthenticateWithCredential, signInWithEmailAndPassword, deleteUser, db, collection, getDocs, deleteDoc, doc } = window._fb;
 
-    // 再認証
-    const credential = EmailAuthProvider.credential(currentUser.email, password);
-    await reauthenticateWithCredential(currentUser, credential);
+    // ログイン済みなら再認証、未ログインならサインイン
+    if (currentUser) {
+      const credential = EmailAuthProvider.credential(email, password);
+      await reauthenticateWithCredential(currentUser, credential);
+    } else {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      // signIn後currentUserが更新される前なので直接使う
+      currentUser = cred.user;
+    }
 
     const uid = currentUser.uid;
 
@@ -2421,7 +2377,9 @@ async function executeDeleteAccount() {
   } catch(e) {
     console.error('deleteAccount error', e);
     if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
-      errEl.textContent = 'パスワードが正しくありません';
+      errEl.textContent = 'メールアドレスまたはパスワードが正しくありません';
+    } else if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-email') {
+      errEl.textContent = 'このメールアドレスは登録されていません';
     } else if (e.code === 'auth/too-many-requests') {
       errEl.textContent = 'しばらくしてから再試行してください';
     } else {
@@ -2634,7 +2592,7 @@ function renderPlanSection() {
       <button class="upgrade-btn" onclick="openUpgradeModal('backup')"
         style="width:100%;padding:14px;border-radius:12px;background:var(--accent);color:#0f0f0f;font-weight:700;font-size:14px;border:none;cursor:pointer;margin-top:12px;">
         ${p.tier === 'trial' ? 'PROプランを見る' : '30日間 無料で試す →'}
-        ${p.tier !== 'trial' ? '<span style="font-size:11px;font-weight:400;display:block;margin-top:2px;">クレジットカード不要</span>' : ''}
+        ${p.tier !== 'trial' ? '<span style="font-size:11px;font-weight:400;display:block;margin-top:4px;">PROプランの全機能を30日間無料で体験 · カード不要</span>' : ''}
       </button>`}
     </div>
   `;
@@ -3239,23 +3197,10 @@ function updateAuthUI(user) {
       }
     }
   } else {
-    // ── 未ログイン: 新規登録を前面に出す ──
+    // ── 未ログイン: 訴求カードを表示 ──
     loggedinEl.style.display = 'none';
     if (freeLoggedinEl) freeLoggedinEl.style.display = 'none';
     form.style.display = 'block';
-    setAuthError('');
-    // 未ログイン時はバナーを表示し、タブは非表示にしてアカウント作成を促す
-    const banner = document.getElementById('auth-unlogged-banner');
-    const tabs   = document.getElementById('auth-tabs');
-    const fields = document.getElementById('auth-fields');
-    if (banner) banner.style.display = 'block';
-    if (tabs)   tabs.style.display   = 'none';
-    if (fields) fields.style.display = 'none';
-    // formは常時表示（パスワードマネージャー認識のため）
-    const formInner = document.getElementById('auth-form-inner');
-    if (formInner) { formInner.style.visibility = 'visible'; formInner.style.height = 'auto'; formInner.style.overflow = 'visible'; }
-    // フォームは新規登録モードで準備しておく
-    switchAuthMode('register');
   }
   renderPlanSection();
 }
@@ -3273,19 +3218,11 @@ function switchAuthMode(mode) {
   const confirmInput = document.getElementById('auth-email-confirm');
   const submitBtn   = document.getElementById('auth-submit-btn');
   const resetWrap   = document.getElementById('auth-reset-wrap');
-  const banner      = document.getElementById('auth-unlogged-banner');
   const tabs        = document.getElementById('auth-tabs');
 
   const pwInput = document.getElementById('auth-password');
-  // ログインを選んだ場合はバナーを隠してタブを表示
-  if (mode === 'login' && banner && tabs) {
-    banner.style.display = 'none';
-    tabs.style.display   = 'flex';
-  }
-  // 新規登録の場合もタブを表示
-  if (mode === 'register' && tabs) {
-    tabs.style.display = 'flex';
-  }
+  // タブは常時表示
+  if (tabs) tabs.style.display = 'flex';
 
   if (mode === 'login') {
     if (tabLogin)    { tabLogin.style.background = 'var(--accent)'; tabLogin.style.color = '#0f0f0f'; }
@@ -5455,8 +5392,10 @@ function escHtml(s) {
     <div style="padding:24px 20px;font-size:13px;color:var(--text2);line-height:1.9;">
       <p style="color:var(--text1);font-weight:600;margin-bottom:12px;">アカウントを削除しますか？</p>
       <p style="margin-bottom:16px;color:#e57373;">この操作は取り消せません。クラウドに保存されたすべてのデータが削除されます。</p>
-      <p style="margin-bottom:8px;">確認のため、パスワードを入力してください。</p>
-      <input id="delete-account-password" type="password" placeholder="パスワード"
+      <p style="margin-bottom:8px;">登録したメールアドレスとパスワードを入力してください。</p>
+      <input id="delete-account-email" type="email" placeholder="メールアドレス" autocomplete="email"
+        style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text1);font-size:14px;box-sizing:border-box;margin-bottom:8px;">
+      <input id="delete-account-password" type="password" placeholder="パスワード" autocomplete="current-password"
         style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text1);font-size:14px;box-sizing:border-box;margin-bottom:8px;">
       <div id="delete-account-error" style="color:#e57373;font-size:12px;min-height:18px;margin-bottom:12px;"></div>
       <button id="delete-account-btn" onclick="executeDeleteAccount()"

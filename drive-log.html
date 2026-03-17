@@ -208,8 +208,12 @@
   .seg-btn[data-v="before"].active, .seg-btn[data-v="after"].active { background: rgba(200,245,58,.12); border-color: var(--accent); color: var(--accent); }
   /* 車両名義ボタン */
   .vehicle-ownership-btn { transition: all .15s; }
-  .vehicle-ownership-btn.active { background: rgba(200,245,58,.15); border-color: var(--accent); color: var(--accent); font-weight: 700; }
-  .s-ownership-btn.active { background: rgba(200,245,58,.15); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .vehicle-ownership-btn[data-o="法人"].active    { background: rgba(58,245,180,.12); border-color: var(--corp); color: var(--corp); font-weight: 700; }
+  .vehicle-ownership-btn[data-o="個人事業"].active { background: rgba(245,162,58,.12); border-color: var(--self); color: var(--self); font-weight: 700; }
+  .vehicle-ownership-btn[data-o="私用"].active    { background: rgba(136,136,136,.12); border-color: var(--priv); color: var(--priv); font-weight: 700; }
+  .s-ownership-btn[data-o="法人"].active    { background: rgba(58,245,180,.12); border-color: var(--corp); color: var(--corp); font-weight: 700; }
+  .s-ownership-btn[data-o="個人事業"].active { background: rgba(245,162,58,.12); border-color: var(--self); color: var(--self); font-weight: 700; }
+  .s-ownership-btn[data-o="私用"].active    { background: rgba(136,136,136,.12); border-color: var(--priv); color: var(--priv); font-weight: 700; }
 
   /* distance preview */
   .dist-preview {

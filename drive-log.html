@@ -2645,6 +2645,20 @@ window.addEventListener('DOMContentLoaded', () => {
   renderPlanSection();
   updateDevPlanStatus();
   initPwaBanner();
+
+  // ── 前面復帰時に同期（他端末での変更を取り込む） ──
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && currentUser && isPro() && navigator.onLine) {
+      syncToFirestore();
+    }
+  });
+
+  // ── 5分ごとの定期同期 ──
+  setInterval(() => {
+    if (currentUser && isPro() && navigator.onLine && !isSyncing && !isRestoring) {
+      syncToFirestore();
+    }
+  }, 5 * 60 * 1000);
   ['s-rate','s-base','s-cap'].forEach(id => {
     document.getElementById(id).addEventListener('input', updateRatePreview);
     document.getElementById(id).addEventListener('change', saveSettings);
@@ -2718,6 +2732,8 @@ function showPage(name, btn) {
   if (name === 'history') renderHistory();
   if (name === 'summary') renderSummary();
   if (name === 'settings') updateAuthUI(currentUser);
+  // タブ移動時に同期を試みる
+  if (currentUser && isPro() && navigator.onLine) syncToFirestore();
 }
 
 // ── CATEGORY ──

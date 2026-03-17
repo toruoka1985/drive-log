@@ -2770,7 +2770,8 @@ let vehicles = JSON.parse(localStorage.getItem('vehicles') || '[]');
 let activeVehicleId = localStorage.getItem('activeVehicleId') || null;
 
 function getActiveVehicle() {
-  return vehicles.find(v => v.id === activeVehicleId) || vehicles[0] || null;
+  const alive = vehicles.filter(v => !v.deletedAt);
+  return alive.find(v => v.id === activeVehicleId) || alive[0] || null;
 }
 
 function getActiveRecords() {
@@ -2815,6 +2816,15 @@ function saveVehicles() {
 }
 
 function updateVehicleSwitcher() {
+  // activeVehicleIdが削除済み車両を指していたら生存車両に切り替え
+  if (activeVehicleId) {
+    const active = vehicles.find(v => v.id === activeVehicleId);
+    if (active?.deletedAt) {
+      const alive = vehicles.filter(v => !v.deletedAt);
+      activeVehicleId = alive[0]?.id || '';
+      localStorage.setItem('activeVehicleId', activeVehicleId);
+    }
+  }
   const v = getActiveVehicle();
   const name      = v ? v.name : '車両未設定';
   const ownership = v?.ownership || '';
@@ -2847,7 +2857,8 @@ function renderVehicleList() {
   const list = document.getElementById('vehicle-list');
   if (!list) return;
   const pro = isPro();
-  list.innerHTML = vehicles.map(v => {
+  const aliveVehicles = vehicles.filter(v => !v.deletedAt);
+  list.innerHTML = aliveVehicles.map(v => {
     const isActive  = v.id === activeVehicleId;
     const locked    = !pro && !isActive; // フリープランで現在車両以外はロック
     const ownershipLabel = v.ownership || '未設定';
@@ -2981,8 +2992,8 @@ function addVehicle() {
   if (!name) { toast('車両名を入力してください'); return; }
   const ownershipBtn = document.querySelector('.vehicle-ownership-btn.active');
   const ownership = ownershipBtn?.dataset.o || '法人';
-  const id = 'v_' + Date.now();
-  vehicles.push({ id, name, ownership, createdAt: Date.now() });
+  const id = crypto.randomUUID();
+  vehicles.push({ id, name, ownership, createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null });
   // 料金設定を保存
   const rateInput = document.getElementById('v-rate');
   const rateVal = parseFloat(rateInput?.value) || 50;
@@ -3028,6 +3039,7 @@ function saveVehicleEdit() {
   if (v) {
     v.name = name;
     // ownershipは名前編集では変更しない（設定タブで変更）
+    v.updatedAt = Date.now();
     saveVehicles();
     updateVehicleSwitcher();
   }
@@ -3038,7 +3050,7 @@ function saveVehicleEdit() {
 }
 
 async function deleteVehicle(id) {
-  if (vehicles.length <= 1) { toast('最後の車両は削除できません'); return; }
+  if (vehicles.filter(v => !v.deletedAt).length <= 1) { toast('最後の車両は削除できません'); return; }
   const v = vehicles.find(v => v.id === id);
   const ok = await showConfirm({
     title:  `「${v?.name}」を削除しますか？`,
@@ -3047,29 +3059,49 @@ async function deleteVehicle(id) {
     cancel: 'キャンセル',
   });
   if (!ok) return;
-  vehicles = vehicles.filter(v => v.id !== id);
-  if (activeVehicleId === id) activeVehicleId = vehicles[0].id;
+  const delV = vehicles.find(v => v.id === id);
+  if (delV) {
+    delV.deletedAt = Date.now();
+    delV.updatedAt = Date.now();
+  }
+  // activeVehicleIdが削除対象なら最初の生存車両に切り替え
+  if (activeVehicleId === id) {
+    const alive = vehicles.filter(v => !v.deletedAt);
+    activeVehicleId = alive[0]?.id || '';
+  }
   saveVehicles();
   updateVehicleSwitcher();
   renderVehicleList();
 }
 
 function initVehicles() {
-  // 既存データのマイグレーション：ownershipフィールドがない車両に''を付与
+  // マイグレーション①: ownershipフィールドがない車両に''を付与
   vehicles = vehicles.map(v => v.ownership !== undefined ? v : { ...v, ownership: '' });
+  // マイグレーション②: updatedAt・deletedAtがない車両に付与
+  vehicles = vehicles.map(v => ({
+    ...v,
+    updatedAt: v.updatedAt || v.createdAt || Date.now(),
+    deletedAt: v.deletedAt || null,
+  }));
+
+  const aliveVehicles = vehicles.filter(v => !v.deletedAt);
 
   // 既存データの移行：vehicleIdがない記録に'default'を付与
-  if (vehicles.length === 0) {
-    const defaultVehicle = { id: 'default', name: '車両1', ownership: '', createdAt: Date.now() };
+  if (aliveVehicles.length === 0) {
+    const defaultVehicle = {
+      id: crypto.randomUUID(),
+      name: '車両1', ownership: '',
+      createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null
+    };
     vehicles.push(defaultVehicle);
-    activeVehicleId = 'default';
-    // 既存記録にvehicleIdを付与
-    records = records.map(r => r.vehicleId ? r : { ...r, vehicleId: 'default' });
-    fuelRecords = fuelRecords.map(r => r.vehicleId ? r : { ...r, vehicleId: 'default' });
+    activeVehicleId = defaultVehicle.id;
+    // 既存記録にvehicleIdを付与（'default'idとの後方互換）
+    records = records.map(r => r.vehicleId ? r : { ...r, vehicleId: defaultVehicle.id });
+    fuelRecords = fuelRecords.map(r => r.vehicleId ? r : { ...r, vehicleId: defaultVehicle.id });
     save();
     saveVehicles();
-  } else if (!activeVehicleId || !vehicles.find(v => v.id === activeVehicleId)) {
-    activeVehicleId = vehicles[0].id;
+  } else if (!activeVehicleId || !aliveVehicles.find(v => v.id === activeVehicleId)) {
+    activeVehicleId = aliveVehicles[0].id;
   }
   updateVehicleSwitcher();
 }
@@ -3692,35 +3724,40 @@ async function syncToFirestore() {
 
     await setDoc(doc(db, 'users', uid, 'meta', 'settings'), settings);
 
-    // 車両データはクラウドと比較して新しい方を優先（上書きではなくマージ）
+    // 車両データ: idベースでunionマージ、同じidはupdatedAt優先
     const vSnap = await getDoc(doc(db, 'users', uid, 'meta', 'vehicles'));
     const cloudVehicles = vSnap.exists() ? vSnap.data() : null;
-    let vehiclesToSave;
+    let mergedVehicles;
     if (!cloudVehicles || !cloudVehicles.list || cloudVehicles.list.length === 0) {
-      // クラウドに車両データなし → ローカルをそのまま保存
-      vehiclesToSave = { list: vehicles, activeVehicleId: activeVehicleId || 'default' };
-    } else if (vehicles.length <= 1 && vehicles[0]?.id === 'default' && vehicles[0]?.name === '車両1' && cloudVehicles.list.length > 0) {
-      // ローカルがデフォルト車両1台だけ・クラウドに複数台ある → クラウドを優先
-      vehicles = cloudVehicles.list;
-      activeVehicleId = cloudVehicles.activeVehicleId || vehicles[0]?.id || 'default';
-      localStorage.setItem('vehicles', JSON.stringify(vehicles));
-      localStorage.setItem('activeVehicleId', activeVehicleId);
-      updateVehicleSwitcher();
-      vehiclesToSave = cloudVehicles;
+      // クラウドに車両データなし → ローカルをそのまま
+      mergedVehicles = vehicles;
     } else {
-      // 両方にデータあり → 台数が多い方を優先（より多くの設定を保持）
-      vehiclesToSave = vehicles.length >= cloudVehicles.list.length
-        ? { list: vehicles, activeVehicleId: activeVehicleId || 'default' }
-        : (() => {
-            vehicles = cloudVehicles.list;
-            activeVehicleId = cloudVehicles.activeVehicleId || vehicles[0]?.id || 'default';
-            localStorage.setItem('vehicles', JSON.stringify(vehicles));
-            localStorage.setItem('activeVehicleId', activeVehicleId);
-            updateVehicleSwitcher();
-            return cloudVehicles;
-          })();
+      // idをキーにマージ: 同じidはupdatedAtが新しい方を優先
+      const map = new Map();
+      // まずクラウドを入れる
+      cloudVehicles.list.forEach(v => map.set(v.id, v));
+      // ローカルで上書き（updatedAtが新しければ）
+      vehicles.forEach(v => {
+        const cloud = map.get(v.id);
+        if (!cloud || (v.updatedAt || 0) >= (cloud.updatedAt || 0)) {
+          map.set(v.id, v);
+        }
+      });
+      mergedVehicles = Array.from(map.values());
+      // マージ結果をローカルにも反映
+      vehicles = mergedVehicles;
+      localStorage.setItem('vehicles', JSON.stringify(vehicles));
+      const alive = vehicles.filter(v => !v.deletedAt);
+      if (!activeVehicleId || !alive.find(v => v.id === activeVehicleId)) {
+        activeVehicleId = alive[0]?.id || '';
+        localStorage.setItem('activeVehicleId', activeVehicleId);
+      }
+      updateVehicleSwitcher();
     }
-    await setDoc(doc(db, 'users', uid, 'meta', 'vehicles'), vehiclesToSave);
+    await setDoc(doc(db, 'users', uid, 'meta', 'vehicles'), {
+      list: mergedVehicles,
+      activeVehicleId: activeVehicleId || ''
+    });
 
     await batch.commit();
     localStorage.removeItem('pendingSync');
@@ -3780,14 +3817,31 @@ async function restoreFromFirestore(uid) {
 
     // 車両データは走行記録の有無に関わらず常に復元する
     if (cloudVehicles?.list) {
-      vehicles = cloudVehicles.list;
-      activeVehicleId = cloudVehicles.activeVehicleId || vehicles[0]?.id || 'default';
+      // idベースでunionマージ（syncToFirestoreと同じロジック）
+      const map = new Map();
+      cloudVehicles.list.forEach(v => map.set(v.id, v));
+      vehicles.forEach(v => {
+        const cloud = map.get(v.id);
+        if (!cloud || (v.updatedAt || 0) >= (cloud.updatedAt || 0)) {
+          map.set(v.id, v);
+        }
+      });
+      vehicles = Array.from(map.values());
+      const alive = vehicles.filter(v => !v.deletedAt);
+      const savedActive = cloudVehicles.activeVehicleId;
+      activeVehicleId = (savedActive && alive.find(v => v.id === savedActive))
+        ? savedActive
+        : (alive[0]?.id || '');
       localStorage.setItem('vehicles', JSON.stringify(vehicles));
       localStorage.setItem('activeVehicleId', activeVehicleId);
       updateVehicleSwitcher();
     }
     if (cloudSettings) settings = cloudSettings;
 
+    // ⚠️ 既知の制限: 異なるアカウント間でのデータマージ防止は未実装。
+    // 同一端末でアカウントを切り替えた場合、ローカルに残った前ユーザーのデータと
+    // 新ユーザーのクラウドデータがマージされる可能性がある。
+    // 実運用上は1端末1アカウントが前提のため、現時点では対処しない。
     if (cloudDrive.length > 0 || cloudFuel.length > 0) {
       // クラウドに走行記録あり → ローカルとマージ
       const mergedDrive = gcDeletedRecords(mergeRecordArrays(records, cloudDrive));
@@ -4718,6 +4772,7 @@ function saveSettingsOwnership() {
   const v = getActiveVehicle();
   if (!v) return;
   v.ownership = ownership;
+  v.updatedAt = Date.now();
   saveVehicles();
   updateVehicleSwitcher();
   if (isPro()) syncToFirestore();

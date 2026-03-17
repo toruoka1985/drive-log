@@ -2057,9 +2057,8 @@ function devSetPlan(tier) {
   updateTrialBanner();
   updateAuthUI(currentUser);
   updateDevPlanStatus();
-  if (tier === 'pro' && currentUser) {
-    restoreFromFirestore(currentUser.uid);
-  }
+  // DEVオーバーライド中（pro/free）はFirestoreを参照しない
+  // noneのときだけ実際のplanをFirestoreから取り直す（上のelse分岐で既に呼んでいる）
   toast('DEV: プランを ' + (tier === 'none' ? '未設定（実際のプランを使用）' : tier.toUpperCase()) + ' に変更しました');
 }
 
@@ -3218,10 +3217,24 @@ function updateAuthUI(user) {
       }
     }
   } else {
-    // ── 未ログイン: 訴求カードを表示 ──
+    // ── 未ログイン ──
     loggedinEl.style.display = 'none';
     if (freeLoggedinEl) freeLoggedinEl.style.display = 'none';
-    form.style.display = 'block';
+    if (_devPlanOverride && isPro()) {
+      // DEVでPROに上書き中：PRO表示（ログイン欄を隠す）
+      form.style.display = 'none';
+      loggedinEl.style.display = 'block';
+      const statusWrap = document.getElementById('auth-status-wrap');
+      if (statusWrap) {
+        statusWrap.innerHTML = `
+          <div style="font-weight:600;color:var(--text1);margin-bottom:4px;">DEV MODE</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="color:var(--accent);font-size:11px;font-weight:700;">● クラウド同期中（DEV）</span>
+          </div>`;
+      }
+    } else {
+      form.style.display = 'block';
+    }
   }
   renderPlanSection();
 }

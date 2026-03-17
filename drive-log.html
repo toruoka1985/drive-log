@@ -4580,7 +4580,7 @@ function calcCarryover(targetY, targetM) {
         if (fc !== '法人') { fuelAdjustM -= f.amount; }
       }
     });
-    // ガソリン消費分を加算（小計に含まれる分）
+    // ガソリン消費分を加算（renderSummaryと同じロジック：月またぎ走行も含む）
     let fuelShareM = 0;
     mFuels.forEach(f2 => {
       const sorted2 = [...activeFR].sort((a,b) => a.date.localeCompare(b.date));
@@ -4589,10 +4589,10 @@ function calcCarryover(targetY, targetM) {
       const prevDate2 = prevFuel2?.date || null;
       const prevTiming2 = prevFuel2?.timing || 'after';
       const incl2 = f2.timing === 'after' || !f2.timing;
+      // r.date.startsWith(mk) を除外して月またぎ走行も対象にする
       const inRange2 = activeR.filter(r =>
         (prevDate2 ? ((prevTiming2 === 'after' ? r.date > prevDate2 : r.date >= prevDate2)) : true) &&
-        (incl2 ? r.date <= f2.date : r.date < f2.date) &&
-        r.date.startsWith(mk)
+        (incl2 ? r.date <= f2.date : r.date < f2.date)
       );
       const totalKm2 = inRange2.reduce((s,r) => s+r.km, 0);
       if (totalKm2 > 0) {
@@ -4601,6 +4601,15 @@ function calcCarryover(targetY, targetM) {
           const catKm2 = inRange2.filter(r=>r.category===cat).reduce((s,r)=>s+r.km,0);
           fuelShareM += Math.round(f2.amount * catKm2 / totalKm2);
         });
+      } else {
+        // 走行記録なし → getPrevFuelRatioで前回比率を引き継ぐ（renderSummaryと同じ）
+        const prev2 = getPrevFuelRatio(sorted2, idx2, activeR);
+        if (prev2 && prev2.totalKm > 0) {
+          const targetCats = _isPersonalVehicleCO ? ['法人'] : ['個人事業','私用'];
+          targetCats.forEach(cat => {
+            fuelShareM += Math.round(f2.amount * (prev2.catKm[cat]||0) / prev2.totalKm);
+          });
+        }
       }
     });
     const net = driveTotal + fuelShareM + fuelAdjustM;

@@ -2260,7 +2260,7 @@ function openUpgradeModal(reason) {
     const msgs = {
       vehicle: '複数台の車両管理は PROプランの機能です。',
       invoice: '請求書の追加発行は PROプランの機能です。\nフリープランは月に1回まで発行できます。',
-      backup:  'クラウドバックアップは PROプランの機能です。',
+      backup:  'クラウドバックアップ・マルチデバイス同期は PROプランの機能です。',
       csv:     '全履歴のCSV出力は PROプランの機能です。',
       trial:   '無料体験中はすべての機能をご利用いただけます。\n体験終了後はPROプランへのアップグレードをご検討ください。',
     };
@@ -2318,6 +2318,7 @@ function renderPlanSection() {
         <div>${pro ? ok : ng} 全履歴のCSV出力</div>
         <div>${pro ? ok : ng} 複数台の車両管理</div>
         <div>${pro ? ok : ng} クラウドバックアップ</div>
+        <div>${pro ? ok : ng} マルチデバイス同期</div>
       </div>
       ${pro && p.tier !== 'trial' ? '' : `
       <button class="upgrade-btn" onclick="openUpgradeModal('backup')"
@@ -5102,6 +5103,7 @@ function escHtml(s) {
       <div><span style="color:var(--accent)">✓</span> 請求書を何度でも発行</div>
       <div><span style="color:var(--accent)">✓</span> 全履歴のCSV出力</div>
       <div><span style="color:var(--accent)">✓</span> クラウドバックアップ</div>
+      <div><span style="color:var(--accent)">✓</span> マルチデバイス同期（スマホ・PC）</div>
       <div><span style="color:var(--accent)">✓</span> 今後追加される全機能</div>
     </div>
     <!-- 月額・年額 選択 -->
@@ -5133,6 +5135,7 @@ function escHtml(s) {
       <div><span style="color:var(--accent)">✓</span> 請求書を何度でも発行</div>
       <div><span style="color:var(--accent)">✓</span> 全履歴のCSV出力</div>
       <div><span style="color:var(--accent)">✓</span> クラウドバックアップ</div>
+      <div><span style="color:var(--accent)">✓</span> マルチデバイス同期（スマホ・PC）</div>
     </div>
     <div class="plan-choice-wrap">
       <button class="plan-choice-btn" onclick="startCheckout('monthly')">

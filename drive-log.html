@@ -2354,13 +2354,13 @@ function getActiveVehicle() {
 function getActiveRecords() {
   const v = getActiveVehicle();
   if (!v) return records;
-  return records.filter(r => (r.vehicleId || 'default') === v.id);
+  return records.filter(r => !r.deletedAt && (r.vehicleId || 'default') === v.id);
 }
 
 function getActiveFuelRecords() {
   const v = getActiveVehicle();
   if (!v) return fuelRecords;
-  return fuelRecords.filter(r => (r.vehicleId || 'default') === v.id);
+  return fuelRecords.filter(r => !r.deletedAt && (r.vehicleId || 'default') === v.id);
 }
 
 function saveVehicles() {
@@ -2796,7 +2796,9 @@ async function saveRecord() {
     cost,
     customRate: null,
     rateSnapshot,
-    vehicleId: activeVehicleId || 'default'
+    vehicleId: activeVehicleId || 'default',
+    updatedAt: Date.now(),
+    deletedAt: null
   };
 
   records.push(record);
@@ -2824,6 +2826,14 @@ async function saveRecord() {
 }
 
 // ── SAVE/LOAD ──
+// 論理削除されていないレコードのみを返すヘルパー
+function activeRecords() {
+  return records.filter(r => !r.deletedAt);
+}
+function activeFuelRecords() {
+  return fuelRecords.filter(f => !f.deletedAt);
+}
+
 function save() {
   localStorage.setItem('driveRecords', JSON.stringify(records));
   localStorage.setItem('fuelRecords', JSON.stringify(fuelRecords));
@@ -3065,58 +3075,88 @@ function initFirebase() {
   });
 }
 
+// ── マージユーティリティ ──
+// 2つのレコード配列をidでマージ。updatedAt/deletedAtで新しい方を優先
+function mergeRecordArrays(local, cloud) {
+  const map = new Map();
+  // まずローカルを入れる（updatedAt=0で旧データ対応）
+  local.forEach(r => map.set(r.id, { ...r, updatedAt: r.updatedAt || 0 }));
+  // クラウドと比較・マージ
+  cloud.forEach(r => {
+    const cloudTs = r.updatedAt || 0;
+    const localTs = map.has(r.id) ? (map.get(r.id).updatedAt || 0) : -1;
+    if (cloudTs >= localTs) {
+      map.set(r.id, { ...r, updatedAt: cloudTs });
+    }
+  });
+  return Array.from(map.values()).sort((a, b) => a.id - b.id);
+}
+
+// 30日以上前に論理削除されたレコードを物理削除（GC）
+function gcDeletedRecords(arr) {
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  return arr.filter(r => !r.deletedAt || r.deletedAt > cutoff);
+}
+
 async function syncToFirestore() {
-  if (isRestoring) return; // 復元完了前の同期をブロック
+  if (isRestoring) return;
   if (!currentUser || !navigator.onLine) {
     if (currentUser && !navigator.onLine) {
       localStorage.setItem('pendingSync', '1');
     }
     return;
   }
-  if (!currentUser) return; // 未ログインは同期しない
-
-  // フリープランはクラウドバックアップ不可
   if (!isPro()) {
     setSyncStatus('クラウドバックアップはPROプランの機能です', '#888');
     return;
   }
-  const { db, doc, setDoc, collection, getDocs, deleteDoc, writeBatch } = window._fb;
+  const { db, doc, setDoc, collection, getDocs, writeBatch } = window._fb;
   if (isSyncing) return;
   isSyncing = true;
   setSyncStatus('同期中...', 'var(--text3)');
   try {
     const uid = currentUser.uid;
+
+    // ── 最新クラウドデータを取得してマージ（Read-Merge-Write）──
+    const drSnap = await getDocs(collection(db, 'users', uid, 'driveRecords'));
+    const frSnap = await getDocs(collection(db, 'users', uid, 'fuelRecords'));
+    const cloudDrive = drSnap.docs.map(d => d.data());
+    const cloudFuel  = frSnap.docs.map(d => d.data());
+
+    // マージ（タイムスタンプ優先）
+    const mergedDrive = gcDeletedRecords(mergeRecordArrays(records, cloudDrive));
+    const mergedFuel  = gcDeletedRecords(mergeRecordArrays(fuelRecords, cloudFuel));
+
+    // ローカルを更新（他端末の変更を取り込む）
+    records     = mergedDrive;
+    fuelRecords = mergedFuel;
+    localStorage.setItem('driveRecords', JSON.stringify(records));
+    localStorage.setItem('fuelRecords',  JSON.stringify(fuelRecords));
+
+    // Firestoreに書き込み（全件upsert）
     const batch = writeBatch(db);
-
-    // driveRecords を上書き同期
     const drRef = collection(db, 'users', uid, 'driveRecords');
-    const drSnap = await getDocs(drRef);
-    drSnap.forEach(d => batch.delete(d.ref));
-    records.forEach(r => batch.set(doc(drRef, String(r.id)), r));
-
-    // fuelRecords を上書き同期
     const frRef = collection(db, 'users', uid, 'fuelRecords');
-    const frSnap = await getDocs(frRef);
+
+    // 既存を削除してからupsert（GC済みの物理削除も反映）
+    drSnap.forEach(d => batch.delete(d.ref));
     frSnap.forEach(d => batch.delete(d.ref));
-    fuelRecords.forEach(r => batch.set(doc(frRef, String(r.id)), r));
+    mergedDrive.forEach(r => batch.set(doc(drRef, String(r.id)), r));
+    mergedFuel.forEach(r  => batch.set(doc(frRef, String(r.id)), r));
 
-    // settings
     await setDoc(doc(db, 'users', uid, 'meta', 'settings'), settings);
-
-    // vehicles
     await setDoc(doc(db, 'users', uid, 'meta', 'vehicles'), {
       list: vehicles,
       activeVehicleId: activeVehicleId || 'default'
     });
-
-    // plan（ローカルでは上書きしない・Firestoreが正）
-    // planはStripe Webhookで書き込むため、ここではreadのみ
 
     await batch.commit();
     localStorage.removeItem('pendingSync');
     const now = new Date();
     const hm  = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
     setSyncStatus(`同期済み　${hm}`, 'var(--text3)');
+    renderHistory();
+    renderSummary();
   } catch(e) {
     console.error('sync error', e);
     localStorage.setItem('pendingSync', '1');
@@ -3163,9 +3203,11 @@ async function restoreFromFirestore(uid) {
     const cloudFuel  = frSnap.docs.map(d => d.data());
 
     if (cloudDrive.length > 0 || cloudFuel.length > 0) {
-      // クラウドにデータあり → クラウドを正とする（復元）
-      records     = cloudDrive.sort((a, b) => a.id - b.id);
-      fuelRecords = cloudFuel.sort((a, b) => a.id - b.id);
+      // クラウドにデータあり → ローカルとマージ
+      const mergedDrive = gcDeletedRecords(mergeRecordArrays(records, cloudDrive));
+      const mergedFuel  = gcDeletedRecords(mergeRecordArrays(fuelRecords, cloudFuel));
+      records     = mergedDrive;
+      fuelRecords = mergedFuel;
       if (cloudSettings) settings = cloudSettings;
       if (cloudVehicles?.list) {
         vehicles = cloudVehicles.list;
@@ -3173,7 +3215,7 @@ async function restoreFromFirestore(uid) {
         localStorage.setItem('vehicles', JSON.stringify(vehicles));
         localStorage.setItem('activeVehicleId', activeVehicleId);
       }
-      updateVehicleSwitcher(); // 右上ボタンを復元後の車両名に更新
+      updateVehicleSwitcher();
       renderPlanSection();
       localStorage.setItem('driveRecords',  JSON.stringify(records));
       localStorage.setItem('fuelRecords',   JSON.stringify(fuelRecords));
@@ -3181,7 +3223,7 @@ async function restoreFromFirestore(uid) {
       renderHistory();
       renderSummary();
       loadSettings();
-      setSyncStatus('クラウドから復元しました ✓', 'var(--accent)');
+      setSyncStatus('同期しました ✓', 'var(--accent)');
       setTimeout(() => {
         const now = new Date();
         const hm  = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -3609,14 +3651,14 @@ function closeModal() {
 }
 function confirmDelete() {
   const target = records.find(r => r.id === deleteTargetId);
-  records = records.filter(r => r.id !== deleteTargetId);
-  save();
   if (target) {
-    const dy = new Date(target.date).getFullYear();
-    const dm = new Date(target.date).getMonth() + 1;
+    target.deletedAt = Date.now();
+    target.updatedAt = Date.now();
   }
+  save();
   closeModal();
   renderHistory();
+  renderSummary();
   toast('削除しました');
 }
 
@@ -3785,14 +3827,15 @@ function saveFuel() {
       const oldY = parseInt(oldFuel.date.slice(0,4)), oldM = parseInt(oldFuel.date.slice(5,7));
       const timing = getFuelTiming();
       fuelRecords[idx] = { id: editingFuelId, date, amount, category: cat, timing,
-        vehicleId: oldFuel.vehicleId || activeVehicleId || 'default' };
+        vehicleId: oldFuel.vehicleId || activeVehicleId || 'default',
+        updatedAt: Date.now(), deletedAt: null };
       save();
       toast('給油を更新しました ✓');
     }
   } else {
     // 新規モード
     const timing = getFuelTiming();
-    const fuel = { id: Date.now(), date, amount, category: cat, timing, vehicleId: activeVehicleId || 'default' };
+    const fuel = { id: Date.now(), date, amount, category: cat, timing, vehicleId: activeVehicleId || 'default', updatedAt: Date.now(), deletedAt: null };
     fuelRecords.push(fuel);
     save();
     toast('給油を記録しました ✓');
@@ -3806,11 +3849,11 @@ function saveFuel() {
 
 function deleteFuel(id) {
   const fuel = fuelRecords.find(f => f.id === id);
-  fuelRecords = fuelRecords.filter(f => f.id !== id);
-  save();
   if (fuel) {
-    const fy = parseInt(fuel.date.slice(0,4)), fm = parseInt(fuel.date.slice(5,7));
+    fuel.deletedAt = Date.now();
+    fuel.updatedAt = Date.now();
   }
+  save();
   renderHistory();
   renderSummary();
   updateInvoiceBtn();
@@ -3830,8 +3873,8 @@ function calcMonthFuelNet(y, m) {
 function calcCarryover(targetY, targetM) {
   // アクティブ車両のデータのみで計算
   const vid = getActiveVehicle()?.id || activeVehicleId || 'default';
-  const activeR = records.filter(r => (r.vehicleId || 'default') === vid);
-  const activeFR = fuelRecords.filter(f => (f.vehicleId || 'default') === vid);
+  const activeR = records.filter(r => !r.deletedAt && (r.vehicleId || 'default') === vid);
+  const activeFR = fuelRecords.filter(f => !f.deletedAt && (f.vehicleId || 'default') === vid);
 
   const allDates = [
     ...activeR.map(r => r.date.slice(0,7)),
@@ -3938,8 +3981,8 @@ async function exportCSV() {
 
   // ── 走行記録シート（アクティブ車両のみ） ──
   const activeV = getActiveVehicle();
-  const csvDriveRecs = records.filter(r => (r.vehicleId || 'default') === (activeV?.id || 'default'));
-  const csvFuelRecs  = fuelRecords.filter(f => (f.vehicleId || 'default') === (activeV?.id || 'default'));
+  const csvDriveRecs = records.filter(r => !r.deletedAt && (r.vehicleId || 'default') === (activeV?.id || 'default'));
+  const csvFuelRecs  = fuelRecords.filter(f => !f.deletedAt && (f.vehicleId || 'default') === (activeV?.id || 'default'));
 
   const driveHeader = '種別,日付,目的,費用区分,開始オドメーター,終了オドメーター,走行距離(km),金額(円)';
   const driveRows = [...csvDriveRecs].sort((a,b) => a.date.localeCompare(b.date)).map(r =>
@@ -3949,7 +3992,7 @@ async function exportCSV() {
   // ── 給油記録シート ──
   const fuelHeader = '種別,日付,給油名義,タイミング,合計金額(円),法人按分(円),個人事業按分(円),私用按分(円)';
   const csvActiveFuel = [...csvFuelRecs].sort((a,b) => a.date.localeCompare(b.date));
-  const csvActiveRecs = records.filter(r => (r.vehicleId || 'default') === (getActiveVehicle()?.id || 'default'));
+  const csvActiveRecs = records.filter(r => !r.deletedAt && (r.vehicleId || 'default') === (getActiveVehicle()?.id || 'default'));
   const fuelRows = csvActiveFuel.map(f => {
     const sortedF = [...csvActiveFuel];
     const idxF = sortedF.findIndex(r => r.id === f.id);
@@ -4022,6 +4065,7 @@ function getDocumentType(y, m) {
   const ownership = v?.ownership || '法人';
   // アクティブ車両のみに絞る
   const monthRecs = records.filter(r =>
+    !r.deletedAt &&
     r.date.startsWith(key) &&
     (r.vehicleId || 'default') === (v?.id || activeVehicleId || 'default')
   );
@@ -4164,6 +4208,7 @@ async function exportInvoice() {
   const activeVehicle    = getActiveVehicle();
   // アクティブ車両のみに絞る
   const monthRecs = records.filter(r =>
+    !r.deletedAt &&
     r.date.startsWith(key) &&
     (r.vehicleId || 'default') === (activeVehicle?.id || activeVehicleId || 'default')
   );
@@ -4207,6 +4252,7 @@ async function exportInvoice() {
   // ── 給油按分（請求書用） ──
   // 各名義カードの小計表示用：名義ごとのガソリン按分負担額
   const monthFuelsInv = fuelRecords.filter(f =>
+    !f.deletedAt &&
     f.date.startsWith(key) &&
     (f.vehicleId || 'default') === (activeVehicle?.id || activeVehicleId || 'default')
   );
@@ -4224,6 +4270,7 @@ async function exportInvoice() {
     (f.vehicleId || 'default') === (activeVehicle?.id || activeVehicleId || 'default')
   );
   const activeRecsInv = records.filter(r =>
+    !r.deletedAt &&
     (r.vehicleId || 'default') === (activeVehicle?.id || activeVehicleId || 'default')
   );
 

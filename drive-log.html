@@ -2353,13 +2353,13 @@ function getActiveVehicle() {
 
 function getActiveRecords() {
   const v = getActiveVehicle();
-  if (!v) return records;
+  if (!v) return records.filter(r => !r.deletedAt);
   return records.filter(r => !r.deletedAt && (r.vehicleId || 'default') === v.id);
 }
 
 function getActiveFuelRecords() {
   const v = getActiveVehicle();
-  if (!v) return fuelRecords;
+  if (!v) return fuelRecords.filter(r => !r.deletedAt);
   return fuelRecords.filter(r => !r.deletedAt && (r.vehicleId || 'default') === v.id);
 }
 
@@ -3627,7 +3627,7 @@ function saveEdit() {
 
 
   records = records.map(r =>
-    r.id === editTargetId ? { ...r, purpose, category: cat } : r
+    r.id === editTargetId ? { ...r, purpose, category: cat, updatedAt: Date.now() } : r
   );
 
   save();
@@ -4267,6 +4267,7 @@ async function exportInvoice() {
 
   // アクティブ車両の全給油・走行（按分計算用）
   const activeFuelRecsInv = fuelRecords.filter(f =>
+    !f.deletedAt &&
     (f.vehicleId || 'default') === (activeVehicle?.id || activeVehicleId || 'default')
   );
   const activeRecsInv = records.filter(r =>

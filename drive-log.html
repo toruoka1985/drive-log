@@ -4705,19 +4705,30 @@ function getDocumentType(y, m) {
   const key = y + '-' + String(m).padStart(2,'0');
   const v = getActiveVehicle();
   const ownership = v?.ownership || '法人';
+  const vid = v?.id || activeVehicleId || 'default';
   // アクティブ車両のみに絞る
   const monthRecs = records.filter(r =>
     !r.deletedAt &&
     r.date.startsWith(key) &&
-    (r.vehicleId || 'default') === (v?.id || activeVehicleId || 'default')
+    (r.vehicleId || 'default') === vid
+  );
+  const monthFuels = fuelRecords.filter(f =>
+    !f.deletedAt &&
+    f.date.startsWith(key) &&
+    (f.vehicleId || 'default') === vid
   );
 
+  // 請求書の条件：
+  // 法人名義車：走行またはガソリンに個人事業・私用が1つでもある
+  // 個人名義車：走行またはガソリンに法人が1つでもある
   if (ownership === '法人') {
-    const hasPersonal = monthRecs.some(r => r.category === '個人事業' || r.category === '私用');
-    return hasPersonal ? 'invoice' : 'ratio';
+    const hasPersonalRec  = monthRecs.some(r => r.category === '個人事業' || r.category === '私用');
+    const hasPersonalFuel = monthFuels.some(f => f.category === '個人事業' || f.category === '私用');
+    return (hasPersonalRec || hasPersonalFuel) ? 'invoice' : 'ratio';
   } else {
-    const hasCorpUse = monthRecs.some(r => r.category === '法人');
-    return hasCorpUse ? 'invoice' : 'ratio';
+    const hasCorpRec  = monthRecs.some(r => r.category === '法人');
+    const hasCorpFuel = monthFuels.some(f => f.category === '法人');
+    return (hasCorpRec || hasCorpFuel) ? 'invoice' : 'ratio';
   }
 }
 

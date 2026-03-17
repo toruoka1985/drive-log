@@ -1712,6 +1712,13 @@
         id="dev-btn-none">未設定</button>
     </div>
     <div id="dev-plan-status" style="margin-top:8px;font-size:11px;color:var(--text3);text-align:center;font-family:'DM Mono',monospace;"></div>
+    <div style="margin-top:10px;border-top:1px dashed var(--border);padding-top:10px;">
+      <button onclick="devResetTrialFlag()"
+        style="width:100%;padding:8px;border-radius:8px;border:1px solid #e57373;background:transparent;color:#e57373;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Mono',monospace;letter-spacing:.05em;">
+        🔄 無料体験フラグをリセット
+      </button>
+      <div id="dev-trial-status" style="margin-top:6px;font-size:10px;color:var(--text3);text-align:center;font-family:'DM Mono',monospace;"></div>
+    </div>
   </div>
 
   <!-- 法的ページリンク -->
@@ -2105,6 +2112,45 @@ function devSetPlan(tier) {
     restoreFromFirestore(currentUser.uid);
   }
   toast('DEV: プランを ' + (tier === 'none' ? '未設定（実際のプランを使用）' : tier.toUpperCase()) + ' に変更しました');
+}
+
+async function devResetTrialFlag() {
+  const statusEl = document.getElementById('dev-trial-status');
+  statusEl.textContent = 'リセット中...';
+
+  // ローカルフラグをクリア
+  localStorage.removeItem('driveLogTrialUsed');
+
+  // クラウドフラグをクリア（ログイン中のみ）
+  if (currentUser) {
+    try {
+      const { db, doc, setDoc } = window._fb;
+      const uid = currentUser.uid;
+      const p = window._userPlan || {};
+      // planのtrialUsedをfalseに、tierをfreeに戻す
+      const resetPlan = {
+        tier: 'free',
+        trialStartedAt: null,
+        trialEndsAt: null,
+        expiresAt: null,
+        trialUsed: false,
+      };
+      await setDoc(doc(db, 'users', uid, 'meta', 'plan'), resetPlan);
+      window._userPlan = resetPlan;
+      renderPlanSection();
+      updateTrialBanner();
+      statusEl.style.color = 'var(--accent)';
+      statusEl.textContent = '✓ ローカル＋クラウド両方リセット完了';
+    } catch(e) {
+      console.error('dev reset error', e);
+      statusEl.style.color = '#e57373';
+      statusEl.textContent = '⚠ クラウドリセット失敗（ローカルのみ）';
+    }
+  } else {
+    statusEl.style.color = 'var(--text3)';
+    statusEl.textContent = '✓ ローカルリセット完了（未ログイン）';
+  }
+  setTimeout(() => { statusEl.textContent = ''; }, 4000);
 }
 
 function updateDevPlanStatus() {

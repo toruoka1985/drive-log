@@ -5118,8 +5118,8 @@ function escHtml(s) {
 </script>
 
 <!-- ── 法的ページ モーダル ── -->
-<div id="legalModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;overflow-y:auto;">
-  <div style="max-width:600px;margin:0 auto;min-height:100%;background:var(--surface);padding:0 0 40px;">
+<div id="legalModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;overflow-y:auto;padding-top:env(safe-area-inset-top);">
+  <div style="max-width:600px;margin:0 auto;min-height:100%;background:var(--surface);padding:0 0 calc(40px + env(safe-area-inset-bottom));">
     <div style="position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;z-index:10;">
       <span id="legal-modal-title" style="font-size:15px;font-weight:700;color:var(--text1);"></span>
       <button onclick="closeLegalPage()" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;line-height:1;padding:4px;">✕</button>

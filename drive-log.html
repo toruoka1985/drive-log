@@ -3759,27 +3759,27 @@ async function restoreFromFirestore(uid) {
     const cloudDrive = drSnap.docs.map(d => d.data());
     const cloudFuel  = frSnap.docs.map(d => d.data());
 
+    // 車両データは走行記録の有無に関わらず常に復元する
+    if (cloudVehicles?.list) {
+      vehicles = cloudVehicles.list;
+      activeVehicleId = cloudVehicles.activeVehicleId || vehicles[0]?.id || 'default';
+      localStorage.setItem('vehicles', JSON.stringify(vehicles));
+      localStorage.setItem('activeVehicleId', activeVehicleId);
+      updateVehicleSwitcher();
+    }
+    if (cloudSettings) settings = cloudSettings;
+
     if (cloudDrive.length > 0 || cloudFuel.length > 0) {
-      // クラウドにデータあり → ローカルとマージ
+      // クラウドに走行記録あり → ローカルとマージ
       const mergedDrive = gcDeletedRecords(mergeRecordArrays(records, cloudDrive));
       const mergedFuel  = gcDeletedRecords(mergeRecordArrays(fuelRecords, cloudFuel));
       records     = mergedDrive;
       fuelRecords = mergedFuel;
-      if (cloudSettings) settings = cloudSettings;
-      if (cloudVehicles?.list) {
-        vehicles = cloudVehicles.list;
-        activeVehicleId = cloudVehicles.activeVehicleId || vehicles[0]?.id || 'default';
-        localStorage.setItem('vehicles', JSON.stringify(vehicles));
-        localStorage.setItem('activeVehicleId', activeVehicleId);
-      }
-      updateVehicleSwitcher();
-      renderPlanSection();
       localStorage.setItem('driveRecords',  JSON.stringify(records));
       localStorage.setItem('fuelRecords',   JSON.stringify(fuelRecords));
       localStorage.setItem('driveSettings', JSON.stringify(settings));
       renderHistory();
       renderSummary();
-      loadSettings();
       setSyncStatus('同期しました ✓', 'var(--accent)');
       setTimeout(() => {
         const now = new Date();
@@ -3787,13 +3787,13 @@ async function restoreFromFirestore(uid) {
         setSyncStatus(`同期済み　${hm}`, 'var(--text3)');
       }, 3000);
     } else if (records.length > 0 || fuelRecords.length > 0) {
-      // クラウド空・ローカルにデータあり → アップロード
+      // クラウド空・ローカルに走行記録あり → アップロード
       await syncToFirestore();
-      loadSettings();
     } else {
       setSyncStatus('同期中', 'var(--text3)');
-      loadSettings();
     }
+    renderPlanSection();
+    loadSettings();
   } catch(e) {
     console.error('restore error', e);
     setSyncStatus('同期失敗', '#e57373');

@@ -2364,10 +2364,8 @@ async function executeDeleteAccount() {
 // アップグレードモーダルから無料体験を開始
 async function startTrialFromModal() {
   if (!currentUser) {
-    // 未ログイン → ログインを促す
-    closeUpgradeModal();
-    toast('無料体験にはログインが必要です。設定タブからログインしてください。');
-    showPage('settings', document.querySelector('nav button:last-child'));
+    // 未ログイン → モーダル内に登録フォームを展開
+    showTrialSignupForm();
     return;
   }
   const p = window._userPlan;
@@ -2396,9 +2394,128 @@ async function startTrialFromModal() {
   }
 }
 
+// ── アップグレードモーダル内インラインサインアップ ──
+let _trialSignupMode = 'signup'; // 'signup' or 'login'
+
+function showTrialSignupForm() {
+  document.getElementById('trial-default-view').style.display = 'none';
+  document.getElementById('trial-signup-view').style.display = 'block';
+  document.getElementById('trial-email').value = '';
+  document.getElementById('trial-password').value = '';
+  document.getElementById('trial-auth-error').textContent = '';
+  switchTrialTab('signup');
+}
+
+function backToTrialDefault() {
+  document.getElementById('trial-signup-view').style.display = 'none';
+  document.getElementById('trial-default-view').style.display = 'block';
+}
+
+function switchTrialTab(mode) {
+  _trialSignupMode = mode;
+  const signupBtn = document.getElementById('trial-tab-signup');
+  const loginBtn  = document.getElementById('trial-tab-login');
+  const pwdInput  = document.getElementById('trial-password');
+  const submitBtn = document.getElementById('trial-submit-btn');
+  if (mode === 'signup') {
+    signupBtn.style.background = 'var(--accent)';
+    signupBtn.style.color = '#0f0f0f';
+    signupBtn.style.border = 'none';
+    loginBtn.style.background = 'var(--surface2)';
+    loginBtn.style.color = 'var(--text2)';
+    loginBtn.style.border = '1px solid var(--border)';
+    pwdInput.placeholder = 'パスワード（8文字以上）';
+    pwdInput.autocomplete = 'new-password';
+    submitBtn.textContent = '登録して無料体験を開始 →';
+  } else {
+    loginBtn.style.background = 'var(--accent)';
+    loginBtn.style.color = '#0f0f0f';
+    loginBtn.style.border = 'none';
+    signupBtn.style.background = 'var(--surface2)';
+    signupBtn.style.color = 'var(--text2)';
+    signupBtn.style.border = '1px solid var(--border)';
+    pwdInput.placeholder = 'パスワード';
+    pwdInput.autocomplete = 'current-password';
+    submitBtn.textContent = 'ログインして無料体験を開始 →';
+  }
+  document.getElementById('trial-auth-error').textContent = '';
+}
+
+async function submitTrialSignup() {
+  const email    = document.getElementById('trial-email').value.trim();
+  const password = document.getElementById('trial-password').value;
+  const errEl    = document.getElementById('trial-auth-error');
+  const btn      = document.getElementById('trial-submit-btn');
+
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'メールアドレスとパスワードを入力してください'; return; }
+  if (_trialSignupMode === 'signup' && password.length < 8) {
+    errEl.textContent = 'パスワードは8文字以上で入力してください'; return;
+  }
+
+  btn.textContent = '処理中...'; btn.disabled = true;
+
+  try {
+    const { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = window._fb;
+    let cred;
+    if (_trialSignupMode === 'signup') {
+      cred = await createUserWithEmailAndPassword(auth, email, password);
+    } else {
+      cred = await signInWithEmailAndPassword(auth, email, password);
+    }
+    // ログイン成功 → トライアル開始
+    // onAuthStateChangedが発火するが、ここで即座に開始
+    const uid = cred.user.uid;
+    await restoreFromFirestore(uid);
+    // 体験済みチェック
+    if (isTrialAlreadyUsed() || (window._userPlan && (window._userPlan.tier === 'trial' || window._userPlan.tier === 'pro'))) {
+      closeUpgradeModal();
+      backToTrialDefault();
+      if (window._userPlan.tier === 'trial' || window._userPlan.tier === 'pro') {
+        toast('すでにPROプランまたは無料体験中です');
+      } else {
+        toast('このアカウントはすでに無料体験済みです。有料プランをご検討ください。');
+      }
+      return;
+    }
+    if (window._userPlan && window._userPlan.tier === 'trial_ended') {
+      closeUpgradeModal();
+      backToTrialDefault();
+      toast('無料体験は1回のみです。有料プランをご選択ください。');
+      return;
+    }
+    await startTrial(uid);
+    closeUpgradeModal();
+    backToTrialDefault();
+  } catch(e) {
+    console.error('trial signup error', e);
+    const code = e.code || '';
+    if (code === 'auth/email-already-in-use') {
+      errEl.textContent = 'このメールアドレスはすでに登録済みです。ログインタブをお試しください。';
+    } else if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+      errEl.textContent = 'メールアドレスまたはパスワードが正しくありません';
+    } else if (code === 'auth/user-not-found') {
+      errEl.textContent = 'このメールアドレスは登録されていません。新規登録タブをお試しください。';
+    } else if (code === 'auth/invalid-email') {
+      errEl.textContent = 'メールアドレスの形式が正しくありません';
+    } else if (code === 'auth/weak-password') {
+      errEl.textContent = 'パスワードは8文字以上で入力してください';
+    } else if (code === 'auth/too-many-requests') {
+      errEl.textContent = 'しばらくしてから再試行してください';
+    } else {
+      errEl.textContent = 'エラーが発生しました。再度お試しください。';
+    }
+  } finally {
+    btn.textContent = _trialSignupMode === 'signup' ? '登録して無料体験を開始 →' : 'ログインして無料体験を開始 →';
+    btn.disabled = false;
+  }
+}
+
 function closeUpgradeModal() {
   const el = document.getElementById('upgradeModalOverlay');
   if (el) el.classList.remove('show');
+  // フォームをデフォルト表示に戻す
+  setTimeout(() => backToTrialDefault(), 300);
 }
 
 function renderPlanSection() {
@@ -5287,32 +5404,65 @@ function escHtml(s) {
       <div><span style="color:var(--accent)">✓</span> 今後追加される全機能</div>
     </div>
 
-    <!-- ① 無料体験ボタン（主役）-->
-    <button onclick="startTrialFromModal()" id="trial-cta-btn"
-      style="width:100%;padding:16px;border-radius:12px;background:var(--accent);color:#0f0f0f;font-size:16px;font-weight:800;border:none;cursor:pointer;margin-bottom:8px;letter-spacing:.02em;">
-      30日間 無料で試す →
-    </button>
-    <div style="text-align:center;font-size:11px;color:var(--text3);margin-bottom:18px;">
-      クレジットカード不要・いつでもキャンセル可
+    <!-- ① 無料体験ボタン（主役）/ ログイン済みのみ表示 -->
+    <div id="trial-default-view">
+      <button onclick="startTrialFromModal()" id="trial-cta-btn"
+        style="width:100%;padding:16px;border-radius:12px;background:var(--accent);color:#0f0f0f;font-size:16px;font-weight:800;border:none;cursor:pointer;margin-bottom:8px;letter-spacing:.02em;">
+        30日間 無料で試す →
+      </button>
+      <div style="text-align:center;font-size:11px;color:var(--text3);margin-bottom:18px;">
+        クレジットカード不要・いつでもキャンセル可
+      </div>
+
+      <!-- ② 有料プランを選ぶ（サブ）-->
+      <div style="text-align:center;font-size:11px;color:var(--text3);margin-bottom:10px;">すでに決めた方はこちら</div>
+      <div class="plan-choice-wrap" style="margin-bottom:12px;">
+        <button class="plan-choice-btn" onclick="startCheckout('monthly')">
+          <div class="price-main">¥400</div>
+          <div class="price-sub">月額</div>
+        </button>
+        <button class="plan-choice-btn recommended" onclick="startCheckout('yearly')">
+          <div class="badge-rec">25%OFF</div>
+          <div class="price-main">¥3,600</div>
+          <div class="price-sub">年額・¥300/月</div>
+        </button>
+      </div>
+
+      <button onclick="closeUpgradeModal()" style="width:100%;padding:12px;border-radius:12px;background:var(--surface2);color:var(--text2);font-size:14px;border:1px solid var(--border);cursor:pointer;">
+        閉じる
+      </button>
     </div>
 
-    <!-- ② 有料プランを選ぶ（サブ）-->
-    <div style="text-align:center;font-size:11px;color:var(--text3);margin-bottom:10px;">すでに決めた方はこちら</div>
-    <div class="plan-choice-wrap" style="margin-bottom:12px;">
-      <button class="plan-choice-btn" onclick="startCheckout('monthly')">
-        <div class="price-main">¥400</div>
-        <div class="price-sub">月額</div>
+    <!-- ③ 未ログイン時のインライン登録フォーム -->
+    <div id="trial-signup-view" style="display:none;">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.7;">
+        無料体験にはアカウントが必要です。<br>メールアドレスとパスワードを入力してください。
+      </p>
+      <!-- 新規登録 / ログイン タブ切り替え -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button id="trial-tab-signup" onclick="switchTrialTab('signup')"
+          style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#0f0f0f;font-weight:700;font-size:13px;cursor:pointer;">
+          新規登録
+        </button>
+        <button id="trial-tab-login" onclick="switchTrialTab('login')"
+          style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:13px;cursor:pointer;">
+          ログイン
+        </button>
+      </div>
+      <input id="trial-email" type="email" placeholder="メールアドレス" autocomplete="email"
+        style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text1);font-size:14px;box-sizing:border-box;margin-bottom:8px;">
+      <input id="trial-password" type="password" placeholder="パスワード（8文字以上）" autocomplete="new-password"
+        style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text1);font-size:14px;box-sizing:border-box;margin-bottom:6px;">
+      <div id="trial-auth-error" style="color:#e57373;font-size:12px;min-height:18px;margin-bottom:10px;"></div>
+      <button id="trial-submit-btn" onclick="submitTrialSignup()"
+        style="width:100%;padding:14px;border-radius:12px;background:var(--accent);color:#0f0f0f;font-size:15px;font-weight:800;border:none;cursor:pointer;margin-bottom:12px;">
+        登録して無料体験を開始 →
       </button>
-      <button class="plan-choice-btn recommended" onclick="startCheckout('yearly')">
-        <div class="badge-rec">25%OFF</div>
-        <div class="price-main">¥3,600</div>
-        <div class="price-sub">年額・¥300/月</div>
+      <button onclick="backToTrialDefault()"
+        style="width:100%;padding:10px;border-radius:12px;background:none;color:var(--text3);font-size:12px;border:none;cursor:pointer;">
+        ← 戻る
       </button>
     </div>
-
-    <button onclick="closeUpgradeModal()" style="width:100%;padding:12px;border-radius:12px;background:var(--surface2);color:var(--text2);font-size:14px;border:1px solid var(--border);cursor:pointer;">
-      閉じる
-    </button>
   </div>
 </div>
 

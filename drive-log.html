@@ -2172,9 +2172,13 @@ async function startTrial(uid) {
     trialStartedAt: now,
     trialEndsAt:    trialEndsAt,
     expiresAt:      null,
+    trialUsed:      true,  // クラウドフラグ
   };
   window._userPlan = planData;
+  // クラウドフラグを保存
   await setDoc(doc(db, 'users', uid, 'meta', 'plan'), planData);
+  // ローカルフラグを保存（別メール新規アカウント対策）
+  setLocalTrialUsed();
   renderPlanSection();
   updateTrialBanner();
   toast('🎉 30日間の無料体験を開始しました');
@@ -2285,8 +2289,8 @@ async function startTrialFromModal() {
     toast('すでにPROプランまたは無料体験中です');
     return;
   }
-  if (p && p.tier === 'trial_ended') {
-    // 体験済み → 有料プランへ誘導
+  // ローカル・クラウド両フラグで体験済みチェック
+  if (isTrialAlreadyUsed() || (p && p.tier === 'trial_ended')) {
     closeUpgradeModal();
     toast('無料体験は1回のみです。有料プランをご選択ください。');
     return;
@@ -2397,6 +2401,29 @@ function getActiveFuelRecords() {
   const v = getActiveVehicle();
   if (!v) return fuelRecords.filter(r => !r.deletedAt);
   return fuelRecords.filter(r => !r.deletedAt && (r.vehicleId || 'default') === v.id);
+}
+
+// ── 無料体験フラグ管理 ──
+// ローカルフラグ：別メール新規アカウント作成でも同一ブラウザなら検出
+const TRIAL_USED_KEY = 'driveLogTrialUsed';
+
+function getLocalTrialUsed() {
+  return localStorage.getItem(TRIAL_USED_KEY) === 'true';
+}
+
+function setLocalTrialUsed() {
+  localStorage.setItem(TRIAL_USED_KEY, 'true');
+}
+
+// クラウドフラグ：cloudPlanのtrialUsedフィールドで管理
+function getCloudTrialUsed() {
+  const p = window._userPlan;
+  return !!(p && p.trialUsed === true);
+}
+
+// どちらか一方でも使用済みならtrue
+function isTrialAlreadyUsed() {
+  return getLocalTrialUsed() || getCloudTrialUsed();
 }
 
 function saveVehicles() {
@@ -3236,6 +3263,10 @@ async function restoreFromFirestore(uid) {
     // plan を反映（DEVモード中はFirestoreのplanで上書きしない）
     if (!_devPlanOverride) {
       window._userPlan = cloudPlan || { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
+    }
+    // クラウドフラグがある場合はローカルフラグにも伝播（別ブラウザ対策）
+    if (cloudPlan && cloudPlan.trialUsed === true) {
+      setLocalTrialUsed();
     }
     renderPlanSection();
 

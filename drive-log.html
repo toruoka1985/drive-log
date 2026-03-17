@@ -2236,6 +2236,8 @@ async function startTrial(uid) {
   setLocalTrialUsed();
   renderPlanSection();
   updateTrialBanner();
+  updateAuthUI(currentUser);  // バックアップ状態を即時更新
+  syncToFirestore();           // 既存データをクラウドに即同期
   toast('🎉 30日間の無料体験を開始しました');
 }
 
@@ -2251,6 +2253,8 @@ function checkTrialExpiry() {
       setDoc(doc(db, 'users', currentUser.uid, 'meta', 'plan'),
         { ...window._userPlan, tier: 'trial_ended' });
     }
+    renderPlanSection();
+    updateAuthUI(currentUser); // バックアップ表示を即時更新
     const today = new Date().toDateString();
     if (localStorage.getItem('trialEndedShown') !== today) {
       localStorage.setItem('trialEndedShown', today);
@@ -2303,11 +2307,32 @@ function startCheckout(planType) {
     toast('決済機能は準備中です。しばらくお待ちください🙏');
     return;
   }
-  // Paddle.js 実装例（審査通過・Paddle.js埋め込み後に有効化）:
+  // ── TODO: Paddle実装時にここを有効化 ──
   // Paddle.Checkout.open({
   //   items: [{ priceId, quantity: 1 }],
   //   customer: { email: currentUser?.email },
-  //   successUrl: location.href + '?checkout=success',
+  //   onComplete: async () => {
+  //     // 決済完了コールバック：Webhook到着を待ちながらplanをポーリング
+  //     // ※ Webhookの到着に数秒〜数十秒かかる場合があるためリトライが必要
+  //     closeUpgradeModal();
+  //     toast('決済が完了しました。プランを更新しています...');
+  //     // 3秒おきに最大5回restoreFromFirestoreを試みる
+  //     let attempts = 0;
+  //     const poll = setInterval(async () => {
+  //       attempts++;
+  //       await restoreFromFirestore(currentUser.uid);
+  //       if (isPro() || attempts >= 5) {
+  //         clearInterval(poll);
+  //         if (isPro()) {
+  //           updateAuthUI(currentUser); // バックアップ停止中→同期中に即更新
+  //           syncToFirestore();          // 既存データをクラウドに即同期
+  //           toast('🎉 PROプランへようこそ！');
+  //         } else {
+  //           toast('プランの更新に時間がかかっています。しばらくお待ちください。');
+  //         }
+  //       }
+  //     }, 3000);
+  //   },
   // });
 }
 
@@ -2464,6 +2489,7 @@ function switchTrialTab(mode) {
   const loginBtn  = document.getElementById('trial-tab-login');
   const pwdInput  = document.getElementById('trial-password');
   const submitBtn = document.getElementById('trial-submit-btn');
+  const confirmWrap = document.getElementById('trial-email-confirm-wrap');
   if (mode === 'signup') {
     signupBtn.style.background = 'var(--accent)';
     signupBtn.style.color = '#0f0f0f';
@@ -2474,6 +2500,7 @@ function switchTrialTab(mode) {
     pwdInput.placeholder = 'パスワード（8文字以上）';
     pwdInput.autocomplete = 'new-password';
     submitBtn.textContent = '登録して無料体験を開始 →';
+    if (confirmWrap) confirmWrap.style.display = 'block';
   } else {
     loginBtn.style.background = 'var(--accent)';
     loginBtn.style.color = '#0f0f0f';
@@ -2484,6 +2511,9 @@ function switchTrialTab(mode) {
     pwdInput.placeholder = 'パスワード';
     pwdInput.autocomplete = 'current-password';
     submitBtn.textContent = 'ログインして無料体験を開始 →';
+    if (confirmWrap) confirmWrap.style.display = 'none';
+    const confirmInput = document.getElementById('trial-email-confirm');
+    if (confirmInput) confirmInput.value = '';
   }
   document.getElementById('trial-auth-error').textContent = '';
 }
@@ -2496,8 +2526,15 @@ async function submitTrialSignup() {
 
   errEl.textContent = '';
   if (!email || !password) { errEl.textContent = 'メールアドレスとパスワードを入力してください'; return; }
-  if (_trialSignupMode === 'signup' && password.length < 8) {
-    errEl.textContent = 'パスワードは8文字以上で入力してください'; return;
+  if (_trialSignupMode === 'signup') {
+    const emailConfirm = document.getElementById('trial-email-confirm')?.value.trim() || '';
+    if (email !== emailConfirm) {
+      errEl.textContent = 'メールアドレスが一致しません';
+      return;
+    }
+    if (password.length < 8) {
+      errEl.textContent = 'パスワードは8文字以上で入力してください'; return;
+    }
   }
 
   btn.textContent = '処理中...'; btn.disabled = true;
@@ -5495,6 +5532,10 @@ function escHtml(s) {
       </div>
       <input id="trial-email" type="email" placeholder="メールアドレス" autocomplete="email"
         style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text1);font-size:14px;box-sizing:border-box;margin-bottom:8px;">
+      <div id="trial-email-confirm-wrap">
+        <input id="trial-email-confirm" type="email" placeholder="メールアドレス（確認）" autocomplete="email"
+          style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text1);font-size:14px;box-sizing:border-box;margin-bottom:8px;">
+      </div>
       <input id="trial-password" type="password" placeholder="パスワード（8文字以上）" autocomplete="new-password"
         style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text1);font-size:14px;box-sizing:border-box;margin-bottom:6px;">
       <div id="trial-auth-error" style="color:#e57373;font-size:12px;min-height:18px;margin-bottom:10px;"></div>

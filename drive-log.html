@@ -3818,9 +3818,16 @@ async function restoreFromFirestore(uid) {
     // 車両データは走行記録の有無に関わらず常に復元する
     if (cloudVehicles?.list) {
       // idベースでunionマージ（syncToFirestoreと同じロジック）
+      // まっさら端末のデフォルト車両（名前'車両1'・名義未設定・記録0件）は捨てる
+      const hasRecord = (vid) =>
+        records.some(r => !r.deletedAt && (r.vehicleId || 'default') === vid) ||
+        fuelRecords.some(r => !r.deletedAt && (r.vehicleId || 'default') === vid);
+      const localVehicles = vehicles.filter(v =>
+        !(v.name === '車両1' && !v.ownership && !hasRecord(v.id) && cloudVehicles.list.length > 0)
+      );
       const map = new Map();
       cloudVehicles.list.forEach(v => map.set(v.id, v));
-      vehicles.forEach(v => {
+      localVehicles.forEach(v => {
         const cloud = map.get(v.id);
         if (!cloud || (v.updatedAt || 0) >= (cloud.updatedAt || 0)) {
           map.set(v.id, v);

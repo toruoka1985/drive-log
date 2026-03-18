@@ -3835,10 +3835,15 @@ async function restoreFromFirestore(uid) {
       });
       vehicles = Array.from(map.values());
       const alive = vehicles.filter(v => !v.deletedAt);
-      const savedActive = cloudVehicles.activeVehicleId;
-      activeVehicleId = (savedActive && alive.find(v => v.id === savedActive))
-        ? savedActive
-        : (alive[0]?.id || '');
+      // ローカルで選択中の車両が生存リストにあればそれを維持する（ユーザー操作を尊重）
+      // ない場合のみクラウドの activeVehicleId、それもなければ先頭車両にフォールバック
+      const localActive = activeVehicleId && alive.find(v => v.id === activeVehicleId);
+      if (!localActive) {
+        const savedActive = cloudVehicles.activeVehicleId;
+        activeVehicleId = (savedActive && alive.find(v => v.id === savedActive))
+          ? savedActive
+          : (alive[0]?.id || '');
+      }
       localStorage.setItem('vehicles', JSON.stringify(vehicles));
       localStorage.setItem('activeVehicleId', activeVehicleId);
       updateVehicleSwitcher();

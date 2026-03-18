@@ -4146,8 +4146,8 @@ function renderSummary() {
           const personalKm = (prev.catKm['個人事業'] || 0) + (prev.catKm['私用'] || 0);
           fuelAdjust += Math.round(f.amount * personalKm / prev.totalKm);
         } else {
-          // 法人名義車・個人払い → 差し引き
-          fuelAdjust -= Math.round(f.amount * (prev.catKm['法人'] || 0) / prev.totalKm);
+          // 法人名義車・個人払い → 全額差し引き（totalKm>0の分岐・請求書・calcCarryoverと統一）
+          fuelAdjust -= f.amount;
         }
       } else {
         const defCat = getVehicleDefaultCat();

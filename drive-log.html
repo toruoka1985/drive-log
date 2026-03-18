@@ -4200,8 +4200,9 @@ function renderSummary() {
   const _v = getActiveVehicle();
   const _ownership = _v?.ownership || '法人';
   let grandNote;
+  const _direction = _ownership === '法人' ? '個人 → 法人への振込金額' : '法人 → 個人への振込金額';
   if (grandTotal < 0) {
-    grandNote = '（次月に持ち越し）';
+    grandNote = _direction + '&ensp;（次月に持ち越し）';
   } else if (_ownership === '法人') {
     grandNote = '個人 → 法人への振込金額';
   } else {

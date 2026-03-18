@@ -5092,6 +5092,9 @@ async function exportInvoice() {
     return share;
   };
 
+  // 各カテゴリの小計を収集（精算テーブル用）
+  const catSubtotals = {};
+
   // 名義ごとのテーブルHTMLを生成（走行0かつガソリン0の名義は非表示）
   let detailTablesHtml = '';
   displayCats.forEach(cat => {
@@ -5100,7 +5103,7 @@ async function exportInvoice() {
     if (recs.length === 0 && share === 0) return; // 走行もガソリンもなければスキップ
     const driveCost = recs.reduce((s,r) => s + r.cost, 0);
     const subtotal  = driveCost + share;
-    const badgeClass = badgeMap[cat] || 'priv';
+    catSubtotals[cat] = subtotal; // 精算テーブル用に保存
     const catKmTotal = recs.reduce((s,r)=>s+r.km,0);
     const catRatioStr = totalKmAll > 0 ? Math.round(catKmTotal / totalKmAll * 100) + '%' : '';
 
@@ -5154,20 +5157,64 @@ async function exportInvoice() {
       '</div>';
   });
 
-  // 精算行・繰越は独立した行テーブルとして追加
-  let adjRows = '';
-  if (isPersonalVehicle) {
-    if (fuelAdjustInv < 0) adjRows +=
-      '<tr class="adj"><td colspan="3">ガソリン代精算（法人払い立替分）</td>' +
-      '<td></td><td class="r">−¥' + Math.abs(fuelAdjustInv).toLocaleString() + '</td></tr>';
-  } else {
-    if (fuelAdjustInvSub < 0) adjRows +=
-      '<tr class="adj"><td colspan="3">ガソリン代精算（個人払い立替分）</td>' +
-      '<td></td><td class="r">−¥' + Math.abs(fuelAdjustInvSub).toLocaleString() + '</td></tr>';
+  // ── 精算テーブル（請求書のみ）──
+  // 支払い方向ラベル：法人名義車→「個人→法人への合計支払額」、個人名義車→「法人→個人への合計支払額」
+  let settlementTableHtml = '';
+  if (isInvoice) {
+    const payerLabel   = isPersonalVehicle ? '法人' : '個人';
+    const receiverLabel = isPersonalVehicle ? '個人' : '法人';
+    const directionLabel = payerLabel + '→' + receiverLabel + 'への合計支払額';
+
+    let settlementRows = '';
+    // 各カテゴリ行
+    displayCats.forEach(cat => {
+      if (catSubtotals[cat] == null) return;
+      settlementRows +=
+        '<tr class="settle-row">' +
+        '<td>' + cat + '</td>' +
+        '<td class="r">¥' + catSubtotals[cat].toLocaleString() + '</td>' +
+        '</tr>';
+    });
+    // ガソリン代精算行
+    const fuelAdj = isPersonalVehicle ? fuelAdjustInv : fuelAdjustInvSub;
+    if (fuelAdj < 0) {
+      const adjLabel = isPersonalVehicle ? 'ガソリン代精算（法人払い立替分）' : 'ガソリン代精算（個人払い立替分）';
+      settlementRows +=
+        '<tr class="settle-row settle-adj">' +
+        '<td>' + adjLabel + '</td>' +
+        '<td class="r" style="color:#c0392b;">−¥' + Math.abs(fuelAdj).toLocaleString() + '</td>' +
+        '</tr>';
+    }
+    // 前月繰越行
+    if (carryInv < 0) {
+      settlementRows +=
+        '<tr class="settle-row settle-adj">' +
+        '<td>前月繰越（払い戻し残高）</td>' +
+        '<td class="r" style="color:#c0392b;">−¥' + Math.abs(carryInv).toLocaleString() + '</td>' +
+        '</tr>';
+    }
+    // 合計行
+    const totalStr2 = grandTotalInvoice >= 0
+      ? '¥' + grandTotalInvoice.toLocaleString()
+      : '−¥' + Math.abs(grandTotalInvoice).toLocaleString();
+    settlementRows +=
+      '<tr class="settle-total">' +
+      '<td>合計支払額</td>' +
+      '<td class="r">' + totalStr2 + '</td>' +
+      '</tr>';
+
+    settlementTableHtml =
+      '<div class="settle-section">' +
+      '<div class="settle-direction">' + directionLabel + '</div>' +
+      '<table class="settle-table">' +
+      '<thead><tr>' +
+      '<th>区分</th>' +
+      '<th class="r">金額</th>' +
+      '</tr></thead>' +
+      '<tbody>' + settlementRows + '</tbody>' +
+      '</table>' +
+      '</div>';
   }
-  if (carryInv < 0) adjRows +=
-    '<tr class="adj"><td colspan="3">前月繰越（払い戻し残高）</td>' +
-    '<td></td><td class="r">−¥' + Math.abs(carryInv).toLocaleString() + '</td></tr>';
 
   // 旧コードとの互換用（detailRowsは使わなくなるが空にしておく）
   let detailRows = '';
@@ -5582,6 +5629,57 @@ async function exportInvoice() {
 '  border-top:2px solid var(--ink);\n' +
 '}\n' +
 '.cat-table tfoot td.r{text-align:right;}\n' +
+'/* ── SETTLEMENT TABLE ── */\n' +
+'.settle-section{\n' +
+'  margin-top:32px;\n' +
+'  margin-bottom:40px;\n' +
+'}\n' +
+'.settle-direction{\n' +
+'  font-family:var(--sans);\n' +
+'  font-size:12px;\n' +
+'  font-weight:600;\n' +
+'  color:var(--ink);\n' +
+'  margin-bottom:8px;\n' +
+'}\n' +
+'.settle-table{\n' +
+'  width:100%;\n' +
+'  border-collapse:collapse;\n' +
+'  font-size:11.5px;\n' +
+'}\n' +
+'.settle-table thead th{\n' +
+'  font-family:var(--mono);\n' +
+'  font-size:9px;\n' +
+'  font-weight:500;\n' +
+'  letter-spacing:.14em;\n' +
+'  text-transform:uppercase;\n' +
+'  color:var(--ink3);\n' +
+'  padding:0 8px 8px;\n' +
+'  border-bottom:1px solid var(--ink);\n' +
+'  text-align:left;\n' +
+'}\n' +
+'.settle-table thead th.r{text-align:right;}\n' +
+'.settle-table tbody tr.settle-row td{\n' +
+'  padding:10px 8px;\n' +
+'  border-bottom:1px solid var(--rule);\n' +
+'}\n' +
+'.settle-table tbody tr.settle-row td.r{text-align:right;font-family:var(--mono);}\n' +
+'.settle-table tbody tr.settle-adj td{\n' +
+'  font-size:11px;\n' +
+'  font-style:italic;\n' +
+'}\n' +
+'.settle-table tbody tr.settle-adj td.r{text-align:right;font-family:var(--mono);}\n' +
+'.settle-table tbody tr.settle-total td{\n' +
+'  padding:12px 8px;\n' +
+'  font-weight:700;\n' +
+'  font-size:13px;\n' +
+'  border-top:2px solid var(--ink);\n' +
+'  border-bottom:none;\n' +
+'}\n' +
+'.settle-table tbody tr.settle-total td.r{\n' +
+'  text-align:right;\n' +
+'  font-family:var(--mono);\n' +
+'  font-size:15px;\n' +
+'}\n' +
 '.note-section{\n' +
 '  border-top:1px solid var(--rule);\n' +
 '  padding-top:28px;\n' +
@@ -5657,14 +5755,7 @@ async function exportInvoice() {
 '<div class="section-label">利用明細 — Detail</div>\n' +
 '<div style="font-size:11px;color:#888;margin:-6px 0 16px;font-family:sans-serif;">対象車両：' + (getActiveVehicle()?.name || '—') + '</div>\n' +
 detailTablesHtml +
-(adjRows ? '<table class="cat-table" style="margin-top:0;">' +
-'<tbody>' + adjRows + '</tbody></table>\n' : '') +
-(isInvoice ? '<table class="cat-table" style="border-top:2px solid var(--ink);margin-top:8px;">' +
-'<tfoot><tr>' +
-'<td colspan="3" style="font-weight:600;padding:12px 8px;">合計振込額</td>' +
-'<td></td>' +
-'<td class="r" style="font-family:var(--mono);font-size:14px;font-weight:600;padding:12px 8px;">' + totalStr + '</td>' +
-'</tr></tfoot></table>\n' : '') +
+settlementTableHtml +
 
 
 '<div class="note-section">\n' +

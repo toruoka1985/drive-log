@@ -5055,95 +5055,123 @@ async function exportInvoice() {
 
   // ── 利用明細：名義別にグループ化して出力 ──
   // 個人事業・私用のガソリン按分を各行の金額には加えず、名義別の小計行に合算表示
-  let detailRows = '';
-  let detailRows2 = '';
-
-  // 明細行を生成：名義に応じてカテゴリを切替
-  const detailCats = isPersonalVehicle ? ['法人'] : ['個人事業', '私用'];
+  // 名義別独立テーブルHTML（各カテゴリごとに<table>を分ける）
   const badgeMap   = { '法人': 'corp', '個人事業': 'self', '私用': 'priv' };
 
   // 請求書：請求対象カテゴリのみ、使用比率計算書：全カテゴリ
+  const detailCats = isPersonalVehicle ? ['法人'] : ['個人事業', '私用'];
   const displayCats = isInvoice ? detailCats : ['法人', '個人事業', '私用'];
+
+  // カテゴリごとのshare計算（計算書用）
+  const calcShareForCat = (cat) => {
+    let share = 0;
+    monthFuelsInv.forEach(f => {
+      const sortedF2 = [...activeFuelRecsInv].sort((a,b) => a.date.localeCompare(b.date));
+      const idxF2 = sortedF2.findIndex(r => r.id === f.id);
+      const prevFuelF2 = idxF2 > 0 ? sortedF2[idxF2-1] : null;
+      const prevDateF2 = prevFuelF2?.date || null;
+      const prevTimingF2 = prevFuelF2?.timing || 'after';
+      const inclF2 = f.timing === 'after' || !f.timing;
+      const inRangeF2 = activeRecsInv.filter(r =>
+        (prevDateF2 ? ((prevTimingF2 === 'after' ? r.date > prevDateF2 : r.date >= prevDateF2)) : true) &&
+        (inclF2 ? r.date <= f.date : r.date < f.date)
+      );
+      const totalKmF2 = inRangeF2.reduce((s,r) => s+r.km, 0);
+      if (totalKmF2 === 0) {
+        const prev2 = getPrevFuelRatio(sortedF2, idxF2, activeRecsInv);
+        if (prev2 && prev2.totalKm > 0) {
+          share += Math.round(f.amount * (prev2.catKm[cat]||0) / prev2.totalKm);
+        } else if (getVehicleDefaultCat() === cat) {
+          share += f.amount;
+        }
+      } else {
+        const catKmF2 = inRangeF2.filter(r=>r.category===cat).reduce((s,r)=>s+r.km,0);
+        share += Math.round(f.amount * catKmF2 / totalKmF2);
+      }
+    });
+    return share;
+  };
+
+  // 名義ごとのテーブルHTMLを生成（走行0かつガソリン0の名義は非表示）
+  let detailTablesHtml = '';
   displayCats.forEach(cat => {
     const recs = monthRecs.filter(r => r.category === cat);
-    // fuelShareInvは請求書用（detailCatsベース）なので計算書用に全カテゴリのshareを計算
-    let share = 0;
-    if (isInvoice) {
-      share = fuelShareInv[cat] || 0;
-    } else {
-      // 使用比率計算書：各カテゴリの給油按分を計算
-      monthFuelsInv.forEach(f => {
-        const sortedF2 = [...activeFuelRecsInv].sort((a,b) => a.date.localeCompare(b.date));
-        const idxF2 = sortedF2.findIndex(r => r.id === f.id);
-        const prevFuelF2 = idxF2 > 0 ? sortedF2[idxF2-1] : null;
-        const prevDateF2 = prevFuelF2?.date || null;
-        const prevTimingF2 = prevFuelF2?.timing || 'after';
-        const inclF2 = f.timing === 'after' || !f.timing;
-        const inRangeF2 = activeRecsInv.filter(r =>
-          (prevDateF2 ? ((prevTimingF2 === 'after' ? r.date > prevDateF2 : r.date >= prevDateF2)) : true) &&
-          (inclF2 ? r.date <= f.date : r.date < f.date)
-        );
-        const totalKmF2 = inRangeF2.reduce((s,r) => s+r.km, 0);
-        if (totalKmF2 === 0) {
-          const prev2 = getPrevFuelRatio(sortedF2, idxF2, activeRecsInv);
-          if (prev2 && prev2.totalKm > 0) {
-            share += Math.round(f.amount * (prev2.catKm[cat]||0) / prev2.totalKm);
-          } else if (getVehicleDefaultCat() === cat) {
-            share += f.amount;
-          }
-        } else {
-          const catKmF2 = inRangeF2.filter(r=>r.category===cat).reduce((s,r)=>s+r.km,0);
-          share += Math.round(f.amount * catKmF2 / totalKmF2);
-        }
-      });
-    }
-    if (recs.length === 0 && share === 0) return;
+    const share = isInvoice ? (fuelShareInv[cat] || 0) : calcShareForCat(cat);
+    if (recs.length === 0 && share === 0) return; // 走行もガソリンもなければスキップ
     const driveCost = recs.reduce((s,r) => s + r.cost, 0);
     const subtotal  = driveCost + share;
     const badgeClass = badgeMap[cat] || 'priv';
+    const catKmTotal = recs.reduce((s,r)=>s+r.km,0);
+    const catRatioStr = totalKmAll > 0 ? Math.round(catKmTotal / totalKmAll * 100) + '%' : '';
+
+    let rows = '';
     recs.forEach(r => {
-      detailRows +=
+      const recRatioStr = totalKmAll > 0 ? Math.round(r.km / totalKmAll * 100) + '%' : '';
+      rows +=
         '<tr>' +
         '<td>' + formatDate(r.date) + '</td>' +
         '<td>' + escHtml(r.purpose) + '</td>' +
-        '<td class="c"><span class="badge ' + badgeClass + '">' + r.category + '</span></td>' +
         '<td class="r">' + r.km.toFixed(1) + '</td>' +
-        '<td class="r"></td>' +
+        '<td class="r" style="color:#888;">' + recRatioStr + '</td>' +
         '<td class="r">¥' + r.cost.toLocaleString() + '</td>' +
         '</tr>';
     });
+    // ガソリン消費按分行
+    if (share > 0) {
+      rows +=
+        '<tr class="fuel-alloc">' +
+        '<td colspan="2" style="color:#999;font-style:italic;">ガソリン消費按分</td>' +
+        '<td class="r" style="color:#999;">—</td>' +
+        '<td class="r" style="color:#999;">—</td>' +
+        '<td class="r" style="color:#999;">¥' + share.toLocaleString() + '</td>' +
+        '</tr>';
+    }
+    // 小計行
     const shareNote = share > 0
-      ? '<span style="font-size:9.5px;font-weight:400;color:#999;margin-left:8px;">走行 ¥' + driveCost.toLocaleString() + ' ＋ ガソリン消費分 ¥' + share.toLocaleString() + '</span>'
+      ? ' <span style="font-size:9px;font-weight:400;color:#999;">走行 ¥' + driveCost.toLocaleString() + ' ＋ ガソリン消費分 ¥' + share.toLocaleString() + '</span>'
       : '';
-    const catKmTotal = recs.reduce((s,r)=>s+r.km,0);
-    const catRatioStr = totalKmAll > 0 ? Math.round(catKmTotal / totalKmAll * 100) + '%' : '';
-    detailRows +=
+    rows +=
       '<tr class="subtotal">' +
-      '<td colspan="3">' + cat + ' 小計' + shareNote + '</td>' +
+      '<td colspan="2">' + cat + '&ensp;小計' + shareNote + '</td>' +
       '<td class="r">' + catKmTotal.toFixed(1) + '</td>' +
       '<td class="r" style="color:#555;">' + catRatioStr + '</td>' +
       '<td class="r">¥' + subtotal.toLocaleString() + '</td>' +
       '</tr>';
+
+    detailTablesHtml +=
+      '<div class="cat-section">' +
+      '<div class="cat-label">' + cat + '</div>' +
+      '<table class="cat-table">' +
+      '<thead><tr>' +
+      '<th>日付</th>' +
+      '<th>目的</th>' +
+      '<th class="r">距離&thinsp;km</th>' +
+      '<th class="r">比率</th>' +
+      '<th class="r">金額</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+      '</table>' +
+      '</div>';
   });
 
-  // 精算行：名義に応じて表示
+  // 精算行・繰越は独立した行テーブルとして追加
+  let adjRows = '';
   if (isPersonalVehicle) {
-    // 個人名義車：法人払い全額を精算行として表示
-    if (fuelAdjustInv < 0) detailRows +=
-      '<tr class="adj">' +
-      '<td colspan="4">ガソリン代精算（法人払い立替分）</td>' +
-      '<td class="r">−¥' + Math.abs(fuelAdjustInv).toLocaleString() + '</td></tr>';
+    if (fuelAdjustInv < 0) adjRows +=
+      '<tr class="adj"><td colspan="3">ガソリン代精算（法人払い立替分）</td>' +
+      '<td></td><td class="r">−¥' + Math.abs(fuelAdjustInv).toLocaleString() + '</td></tr>';
   } else {
-    // 法人名義車：個人払い全額を精算行として表示
-    if (fuelAdjustInvSub < 0) detailRows +=
-      '<tr class="adj">' +
-      '<td colspan="4">ガソリン代精算（個人払い立替分）</td>' +
-      '<td class="r">−¥' + Math.abs(fuelAdjustInvSub).toLocaleString() + '</td></tr>';
+    if (fuelAdjustInvSub < 0) adjRows +=
+      '<tr class="adj"><td colspan="3">ガソリン代精算（個人払い立替分）</td>' +
+      '<td></td><td class="r">−¥' + Math.abs(fuelAdjustInvSub).toLocaleString() + '</td></tr>';
   }
-  if (carryInv < 0) detailRows +=
-    '<tr class="adj">' +
-    '<td colspan="4">前月繰越（払い戻し残高）</td>' +
-    '<td class="r">−¥' + Math.abs(carryInv).toLocaleString() + '</td></tr>';
+  if (carryInv < 0) adjRows +=
+    '<tr class="adj"><td colspan="3">前月繰越（払い戻し残高）</td>' +
+    '<td></td><td class="r">−¥' + Math.abs(carryInv).toLocaleString() + '</td></tr>';
+
+  // 旧コードとの互換用（detailRowsは使わなくなるが空にしておく）
+  let detailRows = '';
+  let detailRows2 = '';
 
   const footerTotal = grandTotalInvoice;
 
@@ -5493,7 +5521,67 @@ async function exportInvoice() {
 '  color:var(--ink);\n' +
 '}\n' +
 'tfoot td.r{text-align:right;}\n' +
-'/* ── NOTE ── */\n' +
+'/* ── CATEGORY TABLES ── */\n' +
+'.cat-section{\n' +
+'  margin-bottom:28px;\n' +
+'}\n' +
+'.cat-label{\n' +
+'  font-family:var(--sans);\n' +
+'  font-size:12px;\n' +
+'  font-weight:600;\n' +
+'  color:var(--ink);\n' +
+'  margin-bottom:6px;\n' +
+'}\n' +
+'.cat-table{\n' +
+'  width:100%;\n' +
+'  border-collapse:collapse;\n' +
+'  font-size:11.5px;\n' +
+'  margin-bottom:0;\n' +
+'}\n' +
+'.cat-table thead th{\n' +
+'  font-family:var(--mono);\n' +
+'  font-size:9px;\n' +
+'  font-weight:500;\n' +
+'  letter-spacing:.14em;\n' +
+'  text-transform:uppercase;\n' +
+'  color:var(--ink3);\n' +
+'  padding:0 8px 8px;\n' +
+'  text-align:left;\n' +
+'  border-bottom:1px solid var(--ink);\n' +
+'}\n' +
+'.cat-table thead th.r{text-align:right;}\n' +
+'.cat-table tbody td{\n' +
+'  padding:9px 8px;\n' +
+'  border-bottom:1px solid var(--rule);\n' +
+'  color:var(--ink);\n' +
+'  vertical-align:middle;\n' +
+'}\n' +
+'.cat-table tbody td.r{text-align:right;font-family:var(--mono);}\n' +
+'.cat-table tbody tr.subtotal td{\n' +
+'  background:var(--bg);\n' +
+'  font-weight:600;\n' +
+'  font-size:11px;\n' +
+'  border-top:1px solid var(--rule);\n' +
+'  border-bottom:1px solid var(--rule);\n' +
+'}\n' +
+'.cat-table tbody tr.subtotal td.r{font-family:var(--mono);}\n' +
+'.cat-table tbody tr.fuel-alloc td{\n' +
+'  font-size:10.5px;\n' +
+'  background:#fafaf8;\n' +
+'}\n' +
+'.cat-table tbody tr.adj td{\n' +
+'  font-size:11px;\n' +
+'  color:var(--ink2);\n' +
+'  font-style:italic;\n' +
+'}\n' +
+'.cat-table tfoot td{\n' +
+'  padding:12px 8px;\n' +
+'  font-family:var(--mono);\n' +
+'  font-size:13px;\n' +
+'  font-weight:500;\n' +
+'  border-top:2px solid var(--ink);\n' +
+'}\n' +
+'.cat-table tfoot td.r{text-align:right;}\n' +
 '.note-section{\n' +
 '  border-top:1px solid var(--rule);\n' +
 '  padding-top:28px;\n' +
@@ -5567,27 +5655,16 @@ async function exportInvoice() {
 '</div>\n' : '') +
 
 '<div class="section-label">利用明細 — Detail</div>\n' +
-'<div style="font-size:11px;color:#888;margin:-6px 0 10px;font-family:sans-serif;">対象車両：' + (getActiveVehicle()?.name || '—') + '</div>\n' +
-'<table>\n' +
-'  <thead>\n' +
-'    <tr>\n' +
-'      <th>日付</th>\n' +
-'      <th>目的</th>\n' +
-'      <th class="c">区分</th>\n' +
-'      <th class="r">距離&thinsp;km</th>\n' +
-'      <th class="r">比率</th>\n' +
-'      <th class="r">金額</th>\n' +
-'    </tr>\n' +
-'  </thead>\n' +
-'  <tbody>' + detailRows + '</tbody>\n' +
-(isInvoice ? '  <tfoot>\n' +
-'    <tr>\n' +
-'      <td colspan="4">' + (isInvoice ? '合計振込額' : '合計') + '</td>\n' +
-'      <td class="r"></td>\n' +
-'      <td class="r">' + totalStr + '</td>\n' +
-'    </tr>\n' +
-'  </tfoot>\n' : '') +
-'</table>\n' +
+'<div style="font-size:11px;color:#888;margin:-6px 0 16px;font-family:sans-serif;">対象車両：' + (getActiveVehicle()?.name || '—') + '</div>\n' +
+detailTablesHtml +
+(adjRows ? '<table class="cat-table" style="margin-top:0;">' +
+'<tbody>' + adjRows + '</tbody></table>\n' : '') +
+(isInvoice ? '<table class="cat-table" style="border-top:2px solid var(--ink);margin-top:8px;">' +
+'<tfoot><tr>' +
+'<td colspan="3" style="font-weight:600;padding:12px 8px;">合計振込額</td>' +
+'<td></td>' +
+'<td class="r" style="font-family:var(--mono);font-size:14px;font-weight:600;padding:12px 8px;">' + totalStr + '</td>' +
+'</tr></tfoot></table>\n' : '') +
 
 
 '<div class="note-section">\n' +

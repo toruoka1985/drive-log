@@ -4638,13 +4638,16 @@ async function exportCSV() {
   const csvDriveRecs = records.filter(r => !r.deletedAt && (r.vehicleId || 'default') === (activeV?.id || 'default'));
   const csvFuelRecs  = fuelRecords.filter(f => !f.deletedAt && (f.vehicleId || 'default') === (activeV?.id || 'default'));
 
-  const driveHeader = '種別,日付,目的,費用区分,開始オドメーター,終了オドメーター,走行距離(km),金額(円)';
+  const vName = activeV?.name || '';
+  const vOwnership = activeV?.ownership || '';
+
+  const driveHeader = '種別,車両名,名義,日付,目的,費用区分,開始オドメーター,終了オドメーター,走行距離(km),金額(円)';
   const driveRows = [...csvDriveRecs].sort((a,b) => a.date.localeCompare(b.date)).map(r =>
-    `走行,${r.date},${r.purpose},${r.category},${r.odoStart},${r.odoEnd},${r.km},${r.cost}`
+    `走行,${vName},${vOwnership},${r.date},${r.purpose},${r.category},${r.odoStart},${r.odoEnd},${r.km},${r.cost}`
   );
 
   // ── 給油記録シート ──
-  const fuelHeader = '種別,日付,給油名義,タイミング,合計金額(円),法人按分(円),個人事業按分(円),私用按分(円)';
+  const fuelHeader = '種別,車両名,名義,日付,給油名義,タイミング,合計金額(円),法人按分(円),個人事業按分(円),私用按分(円)';
   const csvActiveFuel = [...csvFuelRecs].sort((a,b) => a.date.localeCompare(b.date));
   const csvActiveRecs = records.filter(r => !r.deletedAt && (r.vehicleId || 'default') === (getActiveVehicle()?.id || 'default'));
   const fuelRows = csvActiveFuel.map(f => {
@@ -4670,7 +4673,7 @@ async function exportCSV() {
         ca[cat] = Math.round(f.amount * inRange.filter(r=>r.category===cat).reduce((s,r)=>s+r.km,0) / totalKm);
       });
     }
-    return `給油,${f.date},${f.category || ''},${f.timing === 'before' ? '走行前' : '走行後'},${f.amount},${ca['法人']},${ca['個人事業']},${ca['私用']}`;
+    return `給油,${vName},${vOwnership},${f.date},${f.category || ''},${f.timing === 'before' ? '走行前' : '走行後'},${f.amount},${ca['法人']},${ca['個人事業']},${ca['私用']}`;
   });
 
   // ── 統合（走行 → 空行 → 給油） ──
@@ -5135,12 +5138,9 @@ async function exportInvoice() {
         '</tr>';
     }
     // 小計行
-    const shareNote = share > 0
-      ? ' <span style="font-size:9px;font-weight:400;color:#999;">走行 ¥' + driveCost.toLocaleString() + ' ＋ ガソリン消費分 ¥' + share.toLocaleString() + '</span>'
-      : '';
     rows +=
       '<tr class="subtotal">' +
-      '<td colspan="2">' + cat + '&ensp;小計' + shareNote + '</td>' +
+      '<td colspan="2">' + cat + '&ensp;小計</td>' +
       '<td class="r">' + catKmTotal.toFixed(1) + '</td>' +
       '<td class="r" style="color:#555;">' + catRatioStr + '</td>' +
       '<td class="r">¥' + subtotal.toLocaleString() + '</td>' +

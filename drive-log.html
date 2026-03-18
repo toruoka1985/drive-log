@@ -5242,49 +5242,51 @@ async function exportInvoice() {
   let refDetailSection = '';
   if (isInvoice && isPersonalVehicle && (selfRecs.length > 0 || privRecs.length > 0)) {
     const refCats = [['個人事業', selfRecs], ['私用', privRecs]];
-    const badgeMapRef = { '個人事業': 'self', '私用': 'priv' };
-    let refRows = '';
+    let refTablesHtml = '';
     refCats.forEach(([cat, recs]) => {
       if (recs.length === 0) return;
       const km = recs.reduce((s,r) => s+r.km, 0);
       const cost = recs.reduce((s,r) => s+r.cost, 0);
-      const ratio = totalKmAll > 0 ? Math.round(km / totalKmAll * 100) : 0;
-      const badgeClass = badgeMapRef[cat];
+      const ratioStr = totalKmAll > 0 ? Math.round(km / totalKmAll * 100) + '%' : '';
+      let rows = '';
       recs.forEach(r => {
-        refRows +=
+        const recRatioStr = totalKmAll > 0 ? Math.round(r.km / totalKmAll * 100) + '%' : '';
+        rows +=
           '<tr>' +
           '<td>' + formatDate(r.date) + '</td>' +
           '<td>' + escHtml(r.purpose) + '</td>' +
-          '<td class="c"><span class="badge ' + badgeClass + '">' + r.category + '</span></td>' +
-          '<td class="r">' + r.km.toFixed(1) + '</td>' +
-          '<td class="r"></td>' +
-          '<td class="r" style="color:#888;">&#165;' + r.cost.toLocaleString() + '</td>' +
+          '<td class=\"r\">' + r.km.toFixed(1) + '</td>' +
+          '<td class=\"r\" style=\"color:#888;\">' + recRatioStr + '</td>' +
+          '<td class=\"r\" style=\"color:#888;\">¥' + r.cost.toLocaleString() + '</td>' +
           '</tr>';
       });
-      refRows +=
-        '<tr class="subtotal">' +
-        '<td colspan="3">' + cat + ' 小計（参考）</td>' +
-        '<td class="r">' + km.toFixed(1) + '</td>' +
-        '<td class="r" style="color:#555;">' + ratio + '%</td>' +
-        '<td class="r">&#165;' + cost.toLocaleString() + '</td>' +
+      rows +=
+        '<tr class=\"subtotal\">' +
+        '<td colspan=\"2\">' + cat + '&ensp;小計（参考）</td>' +
+        '<td class=\"r\">' + km.toFixed(1) + '</td>' +
+        '<td class=\"r\" style=\"color:#555;\">' + ratioStr + '</td>' +
+        '<td class=\"r\">¥' + cost.toLocaleString() + '</td>' +
         '</tr>';
+      refTablesHtml +=
+        '<div class=\"cat-section\">' +
+        '<div class=\"cat-label\">' + cat + '</div>' +
+        '<table class=\"cat-table\">' +
+        '<thead><tr>' +
+        '<th>日付</th>' +
+        '<th>目的</th>' +
+        '<th class=\"r\">距離&thinsp;km</th>' +
+        '<th class=\"r\">比率</th>' +
+        '<th class=\"r\">金額</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+        '</div>';
     });
     refDetailSection =
-      '<hr style="border:none;border-top:1px solid var(--rule);margin:32px 0 28px;">\n' +
-      '<div class="section-label">&#20491;&#20154;&#20351;&#29992;&#20998;&#65288;&#21442;&#32771;&#65289; &mdash; Personal Use</div>\n' +
-      '<table class="ref-table">\n' +
-      '  <thead>\n' +
-      '    <tr>\n' +
-      '      <th>&#26085;&#20184;</th>\n' +
-      '      <th>&#30446;&#30340;</th>\n' +
-      '      <th class="c">&#21306;&#20998;</th>\n' +
-      '      <th class="r">&#36317;&#31163;&thinsp;km</th>\n' +
-      '      <th class="r">&#27604;&#29575;</th>\n' +
-      '      <th class="r">&#37329;&#39069;</th>\n' +
-      '    </tr>\n' +
-      '  </thead>\n' +
-      '  <tbody>' + refRows + '</tbody>\n' +
-      '</table>\n';
+      '<hr style=\"border:none;border-top:1px solid var(--rule);margin:32px 0 28px;\">\n' +
+      '<div class=\"section-label\">個人使用分（参考） &mdash; Personal Use</div>\n' +
+      '<div class=\"section-sub\">対象車両：' + (getActiveVehicle()?.name || '—') + '</div>\n' +
+      refTablesHtml;
   }
 
   // 給油記録テーブル（請求書・計算書共通）

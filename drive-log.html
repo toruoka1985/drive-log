@@ -5823,7 +5823,7 @@ async function exportInvoice() {
 '</div>\n' : '') +
 
 '<div class="section-label">利用明細 — Detail</div>\n' +
-'<div style="font-size:11px;color:#888;margin:-6px 0 16px;font-family:sans-serif;">対象車両：' + (getActiveVehicle()?.name || '—') + '</div>\n' +
+'<div style="font-size:11px;color:#888;margin:-6px 0 16px;font-family:sans-serif;">対象車両：' + escHtml(getActiveVehicle()?.name || '—') + '</div>\n' +
 detailTablesHtml +
 settlementTableHtml +
 

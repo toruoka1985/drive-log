@@ -1242,6 +1242,7 @@
   document.getElementById('pwa-manifest').href = URL.createObjectURL(blob);
 })();
 </script>
+  <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 </head>
 <body>
 
@@ -2248,11 +2249,17 @@ window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expi
 
 // ── Paddle 商品ID（審査通過後に本番IDへ差し替え） ──
 const PADDLE_CONFIG = {
-  // vendor: 12345,       // TODO: PaddleベンダーID
-  // sandbox: true,       // 開発中はコメントを外す
-  monthly: 'pri_XXXXXXXX_monthly',  // TODO: Paddle月額商品ID
-  yearly:  'pri_XXXXXXXX_yearly',   // TODO: Paddle年額商品ID
+  clientToken: 'test_8c5d62b97f0ae52685fe27b7995',
+  sandbox: true,                               // サンドボックス中はtrue、本番時はfalse
+  monthly: 'pri_01kmcfj0431sx07je4drdgb7v9',  // 月額プラン
+  yearly:  'pri_01kmcexz1v453s8g4xgwc4h9s0',  // 年額プラン
 };
+
+// Paddle初期化
+if (typeof Paddle !== 'undefined' && PADDLE_CONFIG.clientToken) {
+  Paddle.Environment.set(PADDLE_CONFIG.sandbox ? 'sandbox' : 'production');
+  Paddle.Initialize({ token: PADDLE_CONFIG.clientToken });
+}
 
 // Firestore Timestamp / plain object / Date 文字列 → Date に統一
 function _toDate(v) {
@@ -2386,33 +2393,38 @@ function startCheckout(planType) {
     toast('決済機能は準備中です。しばらくお待ちください🙏');
     return;
   }
-  // ── TODO: Paddle実装時にここを有効化 ──
-  // Paddle.Checkout.open({
-  //   items: [{ priceId, quantity: 1 }],
-  //   customer: { email: currentUser?.email },
-  //   onComplete: async () => {
-  //     // 決済完了コールバック：Webhook到着を待ちながらplanをポーリング
-  //     // ※ Webhookの到着に数秒〜数十秒かかる場合があるためリトライが必要
-  //     closeUpgradeModal();
-  //     toast('決済が完了しました。プランを更新しています...');
-  //     // 3秒おきに最大5回restoreFromFirestoreを試みる
-  //     let attempts = 0;
-  //     const poll = setInterval(async () => {
-  //       attempts++;
-  //       await restoreFromFirestore(currentUser.uid);
-  //       if (isPro() || attempts >= 5) {
-  //         clearInterval(poll);
-  //         if (isPro()) {
-  //           updateAuthUI(currentUser); // バックアップ停止中→同期中に即更新
-  //           syncToFirestore();          // 既存データをクラウドに即同期
-  //           toast('🎉 PROプランへようこそ！');
-  //         } else {
-  //           toast('プランの更新に時間がかかっています。しばらくお待ちください。');
-  //         }
-  //       }
-  //     }, 3000);
-  //   },
-  // });
+  if (typeof Paddle === 'undefined') {
+    toast('決済システムの読み込みに失敗しました。ページを再読み込みしてください。');
+    return;
+  }
+  Paddle.Checkout.open({
+    items: [{ priceId, quantity: 1 }],
+    customer: { email: currentUser?.email || '' },
+    settings: {
+      displayMode: 'overlay',
+      theme: 'dark',
+      locale: 'ja',
+    },
+    onComplete: async () => {
+      closeUpgradeModal();
+      toast('決済が完了しました。プランを更新しています...');
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts++;
+        await restoreFromFirestore(currentUser.uid);
+        if (isPro() || attempts >= 5) {
+          clearInterval(poll);
+          if (isPro()) {
+            updateAuthUI(currentUser);
+            syncToFirestore();
+            toast('🎉 PROプランへようこそ！');
+          } else {
+            toast('プランの更新に時間がかかっています。しばらくお待ちください。');
+          }
+        }
+      }, 3000);
+    },
+  });
 }
 
 function openUpgradeModal(reason) {

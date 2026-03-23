@@ -4960,9 +4960,7 @@ async function exportInvoice() {
   // 按分計算の対象カテゴリ：
   //   法人名義車 → 個人事業・私用の消費分を計算（個人→法人請求）
   //   個人名義車 → 法人の消費分を計算（法人→個人請求）
-  const fuelShareInv = isPersonalVehicle
-    ? { '法人': 0 }
-    : { '個人事業': 0, '私用': 0 };
+  const fuelShareInv = { '法人': 0, '個人事業': 0, '私用': 0 }; // 全カテゴリ（参考明細でも使用）
   let fuelAdjustInv = 0;    // 個人名義車用：法人払い→-全額 / 個人払い→+法人按分
   let fuelAdjustInvSub = 0; // 法人名義車用：個人払い→-全額
 
@@ -4996,6 +4994,10 @@ async function exportInvoice() {
         if (isPersonalVehicle) {
           const hojinKm = prev.catKm['法人'] || 0;
           fuelShareInv['法人'] = (fuelShareInv['法人'] || 0) + Math.round(f.amount * hojinKm / prev.totalKm);
+          // 個人事業・私用の按分も参考明細用に計算
+          ['個人事業','私用'].forEach(cat => {
+            fuelShareInv[cat] = (fuelShareInv[cat] || 0) + Math.round(f.amount * (prev.catKm[cat]||0) / prev.totalKm);
+          });
           const fcInv0 = f.category || '私用';
           if (fcInv0 !== '法人') {
             fuelAdjustInv += Math.round(f.amount * hojinKm / prev.totalKm);
@@ -5027,9 +5029,13 @@ async function exportInvoice() {
         }
       }
     } else if (isPersonalVehicle) {
-      // 個人名義車：法人走行分のガソリン按分を計算
+      // 個人名義車：全カテゴリのガソリン按分を計算（法人分は振込計算用、個人事業・私用は参考明細用）
       const hojinKm = inRange.filter(r=>r.category==='法人').reduce((s,r)=>s+r.km,0);
       fuelShareInv['法人'] += Math.round(f.amount * hojinKm / totalKm);
+      ['個人事業','私用'].forEach(cat => {
+        const catKm = inRange.filter(r=>r.category===cat).reduce((s,r)=>s+r.km,0);
+        fuelShareInv[cat] += Math.round(f.amount * catKm / totalKm);
+      });
       const fcInv = f.category || '私用';
       if (fcInv !== '法人') {
         // 個人払い → 法人走行分を上乗せ
@@ -5271,10 +5277,9 @@ async function exportInvoice() {
         '<td class=\"r\" style=\"color:#999;\">¥' + share.toLocaleString() + '</td>' +
         '</tr>';
       // 小計行（走行＋ガソリン消費分）
-      const shareNote = ' <span style=\"font-size:9px;font-weight:400;color:#999;\">走行 ¥' + driveCost.toLocaleString() + ' ＋ ガソリン消費分 ¥' + share.toLocaleString() + '</span>';
       rows +=
         '<tr class=\"subtotal\">' +
-        '<td colspan=\"2\">' + cat + '&ensp;小計（参考）' + shareNote + '</td>' +
+        '<td colspan=\"2\">' + cat + '&ensp;小計（参考）</td>' +
         '<td class=\"r\">' + km.toFixed(1) + '</td>' +
         '<td class=\"r\" style=\"color:#555;\">' + ratioStr + '</td>' +
         '<td class=\"r\">¥' + subtotal.toLocaleString() + '</td>' +

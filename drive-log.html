@@ -2448,6 +2448,13 @@ function openUpgradeModal(reason) {
 }
 
 // ── アカウント削除 ──
+function showFuelAllocExplain() {
+  document.getElementById('fuelAllocExplainOverlay').style.display = 'block';
+}
+function closeFuelAllocExplain() {
+  document.getElementById('fuelAllocExplainOverlay').style.display = 'none';
+}
+
 function showDeleteAccountModal() {
   // ログイン状態に関わらず表示（モーダル内でメール+パスワードで認証）
   const emailInput = document.getElementById('delete-account-email');
@@ -4133,6 +4140,9 @@ function renderSummary() {
         <span class="sc-km">${monthFuels.length}回</span>
       </div>
       ${fuelRows}
+      <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
+        <button onclick="showFuelAllocExplain()" style="background:none;border:none;padding:0;color:var(--text3);font-size:9px;cursor:pointer;text-decoration:underline;text-underline-offset:2px;letter-spacing:.02em;opacity:.6;">ガソリン代の按分方法について</button>
+      </div>
     </div>`;
   }
 
@@ -6002,6 +6012,67 @@ function escHtml(s) {
       <button onclick="closeLegalPage()" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;line-height:1;padding:4px;">✕</button>
     </div>
     <div id="legal-modal-body" style="padding:24px 20px;font-size:13px;color:var(--text2);line-height:1.9;"></div>
+  </div>
+</div>
+
+<!-- ── ガソリン代按分説明モーダル ── -->
+<div id="fuelAllocExplainOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;overflow-y:auto;padding-top:env(safe-area-inset-top);" onclick="if(event.target===this)closeFuelAllocExplain()">
+  <div style="max-width:480px;margin:0 auto;min-height:100%;background:var(--surface);padding:0 0 calc(40px + env(safe-area-inset-bottom));">
+    <div style="position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;z-index:10;">
+      <span style="font-size:15px;font-weight:700;color:var(--text1);">ガソリン代の按分方法</span>
+      <button onclick="closeFuelAllocExplain()" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;line-height:1;padding:4px;">✕</button>
+    </div>
+    <div style="padding:24px 20px;font-size:13px;color:var(--text2);line-height:1.9;">
+
+      <p style="color:var(--text1);font-weight:600;margin-bottom:16px;">ガソリン代は「走行距離の比率」で按分します</p>
+
+      <div style="background:var(--surface2);border-radius:12px;padding:16px;margin-bottom:20px;">
+        <div style="font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.05em;margin-bottom:8px;">例</div>
+        <div style="font-size:13px;color:var(--text1);line-height:2;">
+          給油 ¥10,000　走行後に給油<br>
+          　法人 200km　個人事業 150km　私用 50km<br>
+          　合計 400km
+        </div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:13px;line-height:2;">
+          法人の負担　→　¥10,000 × 200/400 = <strong style="color:var(--text1);">¥5,000</strong><br>
+          個人事業の負担　→　¥10,000 × 150/400 = <strong style="color:var(--text1);">¥3,750</strong><br>
+          私用の負担　→　¥10,000 × 50/400 = <strong style="color:var(--text1);">¥1,250</strong>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <div style="font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.05em;margin-bottom:10px;">どの走行を対象にするか</div>
+        <p style="margin-bottom:10px;">按分は「<strong style="color:var(--text1);">前回の給油日〜今回の給油日</strong>」の間に走った距離で計算します。タンクに入れたガソリンで走った分だけを対象にするためです。</p>
+        <div style="background:var(--surface2);border-radius:10px;padding:14px;">
+          <div style="display:flex;gap:10px;margin-bottom:10px;">
+            <span style="color:#4fa8e0;flex-shrink:0;">⛽</span>
+            <div><strong style="color:var(--text1);">走行後に給油</strong>（デフォルト）<br>給油した日の走行まで含みます。今日走ってから帰りに給油するケースに相当します。</div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <span style="color:#4fa8e0;flex-shrink:0;">⛽</span>
+            <div><strong style="color:var(--text1);">走行前に給油</strong><br>給油した日の走行は含みません。朝イチで給油してから走り始めるケースに相当します。</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <div style="font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.05em;margin-bottom:10px;">走行記録がない場合</div>
+        <p>該当期間に走行記録がないときは、<strong style="color:var(--text1);">直前の給油時点の比率をそのまま引き継ぎ</strong>ます。車の使われ方が変わっていないと仮定した場合の合理的な推定です。直前の比率もない場合は、車両の名義区分に100%割り当てます。</p>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:10px;padding:14px;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:6px;">💡 振込額への影響</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.8;">
+          個人が立て替えた場合→法人負担分だけ法人に請求<br>
+          法人が立て替えた場合→個人負担分だけ個人が法人へ追加支払い
+        </div>
+      </div>
+
+      <button onclick="closeFuelAllocExplain()"
+        style="width:100%;padding:13px;border:none;background:var(--surface2);color:var(--text2);border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:24px;">
+        閉じる
+      </button>
+    </div>
   </div>
 </div>
 

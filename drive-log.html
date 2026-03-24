@@ -922,6 +922,7 @@
     z-index: 400;
     align-items: flex-end;
     justify-content: center;
+    overflow-y: auto;
   }
   .plan-modal-overlay.show { display: flex; }
   .plan-modal {
@@ -929,6 +930,8 @@
     border-radius: 20px 20px 0 0;
     width: 100%;
     max-width: 480px;
+    max-height: 92dvh;
+    overflow-y: auto;
     padding: 28px 24px calc(env(safe-area-inset-bottom) + 24px);
   }
   .plan-modal-title {
@@ -2398,6 +2401,11 @@ function closeTrialEndedModal() {
 
 // ── Paddle チェックアウト ──
 function startCheckout(planType) {
+  // 未ログインの場合はログイン/登録フォームを表示
+  if (!currentUser) {
+    showTrialSignupForm();
+    return;
+  }
   const priceId = PADDLE_CONFIG[planType];
   if (!priceId || priceId.includes('XXXXXXXX')) {
     toast('決済機能は準備中です。しばらくお待ちください🙏');

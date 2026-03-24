@@ -3235,6 +3235,9 @@ window.addEventListener('DOMContentLoaded', () => {
   updateDevPlanStatus();
   initPwaBanner();
 
+  // ── 利用規約等からの「戻る」リンク用フラグ ──
+  sessionStorage.setItem('drive_log_app', '1');
+
   // ── 前面復帰時に同期（他端末での変更を取り込む） ──
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && currentUser && isPro() && navigator.onLine) {

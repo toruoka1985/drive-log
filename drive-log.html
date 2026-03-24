@@ -2845,10 +2845,10 @@ async function executeCancelPlan() {
   try {
     const isSandbox = PADDLE_CONFIG.sandbox;
     const baseUrl = isSandbox
-      ? 'https://paddlewebhook-dk5edqikda-uc.a.run.app'
-      : 'https://paddlewebhook-dk5edqikda-uc.a.run.app';
+      ? 'https://getcancelurl-dk5edqikda-uc.a.run.app'
+      : 'https://getcancelurl-dk5edqikda-uc.a.run.app';
 
-    const res = await fetch(`${baseUrl}/getCancelUrl`, {
+    const res = await fetch(`${baseUrl}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ customerId, subscriptionId }),

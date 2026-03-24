@@ -2831,15 +2831,42 @@ async function executeCancelPlan() {
   btn.textContent = '処理中...';
   btn.disabled = true;
 
-  // ── TODO: Paddle実装時にここを有効化 ──
-  // PaddleのサブスクリプションキャンセルAPIを呼び出す
-  // await paddle.subscriptions.cancel(window._userPlan.subscriptionId);
-  // キャンセル後もexpiresAt（期間末）まではPROを維持
-  // Webhook受信後にtierを 'canceling' に更新してUI反映
+  const p = window._userPlan;
+  const customerId = p?.customerId;
+  const subscriptionId = p?.subscriptionId;
 
-  // 現時点：ダミー動作（Paddleカスタマーポータルへ誘導）
-  closeCancelPlanModal();
-  toast('Paddleカスタマーポータルを開きます（準備中）');
+  if (!customerId || !subscriptionId) {
+    toast('サブスクリプション情報が見つかりません。');
+    btn.textContent = '解約を申請する';
+    btn.disabled = false;
+    return;
+  }
+
+  try {
+    const isSandbox = PADDLE_CONFIG.sandbox;
+    const baseUrl = isSandbox
+      ? 'https://paddlewebhook-dk5edqikda-uc.a.run.app'
+      : 'https://paddlewebhook-dk5edqikda-uc.a.run.app';
+
+    const res = await fetch(`${baseUrl}/getCancelUrl`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerId, subscriptionId }),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok || !json.cancelUrl) {
+      throw new Error(json.error || 'URLの取得に失敗しました');
+    }
+
+    closeCancelPlanModal();
+    window.open(json.cancelUrl, '_blank');
+
+  } catch (e) {
+    console.error('executeCancelPlan error:', e);
+    toast('解約ページの読み込みに失敗しました。しばらくしてから再試行してください。');
+  }
 
   btn.textContent = '解約を申請する';
   btn.disabled = false;

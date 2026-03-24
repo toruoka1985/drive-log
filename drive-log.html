@@ -2464,16 +2464,17 @@ function openUpgradeModal(reason) {
   const trialUsed = isTrialAlreadyUsed() || (window._userPlan && window._userPlan.tier === 'trial_ended');
   const ctaBtn    = document.getElementById('trial-cta-btn');
   const ctaSub    = ctaBtn ? ctaBtn.nextElementSibling : null;
-  const paidLabel = document.getElementById('trial-paid-label');
+  const paidSection = document.getElementById('trial-paid-section');
   if (trialUsed) {
-    // 体験済み：無料体験ボタン・サブテキスト・「すでに決めた方」ラベルを非表示にして有料プランを主役に
+    // 体験済み：無料体験ボタンを非表示・有料プランセクションを主役に
     if (ctaBtn) { ctaBtn.style.display = 'none'; }
     if (ctaSub) ctaSub.style.display = 'none';
-    if (paidLabel) paidLabel.style.display = 'none';
+    if (paidSection) paidSection.style.display = 'block';
   } else {
+    // 体験未使用：無料体験ボタンを主役・有料プランセクションを非表示
     if (ctaBtn) { ctaBtn.textContent = '30日間 無料で試す →'; ctaBtn.onclick = startTrialFromModal; ctaBtn.style.display = ''; }
     if (ctaSub) ctaSub.style.display = '';
-    if (paidLabel) paidLabel.style.display = '';
+    if (paidSection) paidSection.style.display = 'none';
   }
   el.classList.add('show');
 }
@@ -2625,10 +2626,18 @@ function backToTrialDefault() {
   document.getElementById('trial-default-view').style.display = 'block';
   // ボタンを必ずリセット
   const btn = document.getElementById('trial-cta-btn');
+  const trialUsed = isTrialAlreadyUsed() || (window._userPlan?.tier === 'trial_ended');
+  const paidSection = document.getElementById('trial-paid-section');
   if (btn) {
     btn.disabled = false;
-    const p = window._userPlan || {};
-    btn.textContent = (p.tier === 'trial_ended' || isTrialAlreadyUsed()) ? 'PROプランにアップグレード →' : '30日間 無料でフル機能を試す →';
+    if (trialUsed) {
+      btn.style.display = 'none';
+      if (paidSection) paidSection.style.display = 'block';
+    } else {
+      btn.textContent = '30日間 無料でフル機能を試す →';
+      btn.style.display = '';
+      if (paidSection) paidSection.style.display = 'none';
+    }
   }
 }
 
@@ -6202,7 +6211,7 @@ function escHtml(s) {
         クレジットカード不要・いつでもキャンセル可
       </div>
 
-      <!-- ② 有料プランを選ぶ（サブ）-->
+      <!-- ② 有料プランを選ぶ（サブ）--><div id="trial-paid-section">
       <div id="trial-paid-label" style="text-align:center;font-size:11px;color:var(--text3);margin-bottom:10px;">すでに決めた方はこちら</div>
       <div class="plan-choice-wrap" style="margin-bottom:12px;">
         <button class="plan-choice-btn" onclick="startCheckout('monthly')">
@@ -6214,6 +6223,7 @@ function escHtml(s) {
           <div class="price-main">¥3,600</div>
           <div class="price-sub">年額・¥300/月</div>
         </button>
+      </div>
       </div>
 
       <button onclick="closeUpgradeModal()" style="width:100%;padding:12px;border-radius:12px;background:var(--surface2);color:var(--text2);font-size:14px;border:1px solid var(--border);cursor:pointer;">

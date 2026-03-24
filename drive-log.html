@@ -2258,7 +2258,17 @@ const PADDLE_CONFIG = {
 // Paddle初期化
 if (typeof Paddle !== 'undefined' && PADDLE_CONFIG.clientToken) {
   Paddle.Environment.set(PADDLE_CONFIG.sandbox ? 'sandbox' : 'production');
-  Paddle.Initialize({ token: PADDLE_CONFIG.clientToken });
+  Paddle.Initialize({
+    token: PADDLE_CONFIG.clientToken,
+    eventCallback: function(event) {
+      if (event.name === 'checkout.completed') {
+        closeUpgradeModal();
+        toast('決済が完了しました。プランを更新しています...');
+        window._checkoutStarted = false;
+        pollForProPlan();
+      }
+    }
+  });
 }
 
 // Firestore Timestamp / plain object / Date 文字列 → Date に統一
@@ -2405,17 +2415,6 @@ function startCheckout(planType) {
       displayMode: 'overlay',
       theme: 'dark',
       locale: 'ja',
-    },
-    onComplete: async () => {
-      closeUpgradeModal();
-      toast('決済が完了しました。プランを更新しています...');
-      pollForProPlan();
-    },
-    onClose: async () => {
-      // 決済完了後に手動で閉じた場合もプラン反映を試みる
-      if (!isPro()) {
-        pollForProPlan();
-      }
     },
   });
 }

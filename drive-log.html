@@ -3563,10 +3563,11 @@ function _updateAllBackupBtns() {
       };
       if (sForm) sForm.textContent = '';
     } else {
-      // FREE（体験未使用）
-      bForm.textContent = '30日間 無料でフル機能を試す →';
+      // FREE：体験済みかどうかでボタンテキストを変える
+      const trialUsedForm = isTrialAlreadyUsed() || tier === 'trial_ended';
+      bForm.textContent = trialUsedForm ? 'PROプランにアップグレード →' : '30日間 無料でフル機能を試す →';
       bForm.onclick = () => openUpgradeModal('backup');
-      if (sForm) sForm.textContent = 'クレジットカード不要';
+      if (sForm) sForm.textContent = trialUsedForm ? '' : 'クレジットカード不要';
     }
   }
 }

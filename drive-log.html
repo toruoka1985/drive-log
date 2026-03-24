@@ -2726,7 +2726,7 @@ function renderPlanSection() {
     tierLabel = '無料体験中';
     tierSub   = days > 0 ? `残り ${days} 日` : '本日終了';
     badgeClass = 'pro';
-  } else if (p.tier === 'pro') {
+  } else if (p.tier === 'pro' && pro) {
     tierLabel  = 'PRO プラン';
     tierSub    = '全機能をご利用いただけます';
     badgeClass = 'pro';

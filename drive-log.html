@@ -2439,6 +2439,25 @@ function pollForProPlan() {
 }
 
 function openUpgradeModal(reason) {
+  // 未ログインの場合はログイン/登録フォームにスクロール
+  if (!currentUser) {
+    // 設定タブに切り替えてフォームへスクロール
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+    const settingsTab = document.querySelector('.tab-btn[data-tab="settings"]');
+    const settingsContent = document.getElementById('tab-settings');
+    if (settingsTab) settingsTab.classList.add('active');
+    if (settingsContent) settingsContent.style.display = 'block';
+    setTimeout(() => {
+      const formEl = document.getElementById('auth-form');
+      if (formEl) {
+        formEl.style.display = 'block';
+        formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+    return;
+  }
+
   const el = document.getElementById('upgradeModalOverlay');
   if (!el) return;
   const msg = document.getElementById('upgrade-reason-msg');
@@ -3514,20 +3533,13 @@ function updateAuthUI(user) {
 function _updateAllBackupBtns() {
   const tier     = window._userPlan ? window._userPlan.tier : 'free';
   const loggedIn = !!currentUser;
-  const isPROorTrial = tier === 'pro' || tier === 'trial';
-
-  // ── クラウドバックアップ欄の表示パターン ──
-  // PRO/trial + ログイン済み → 同期中表示（auth-loggedin-backupで制御済み）
-  // PRO/trial + ログアウト中 → 「ログインしてクラウド同期する」
-  // FREE + 体験未使用       → 「30日間 無料でフル機能を試す」
-  // FREE + 体験済み         → 「PROプランにアップグレード」
+  const isPROorTrial = isPro() || tier === 'trial';
+  const trialUsed = isTrialAlreadyUsed() || tier === 'trial_ended';
 
   // FREE+ログイン済みカード（backup-upgrade-btn）
-  // このカードはFREE+ログイン時のみ表示される
   const bUpgrade = document.getElementById('backup-upgrade-btn');
   const sUpgrade = document.getElementById('backup-upgrade-sub');
   if (bUpgrade) {
-    const trialUsed = isTrialAlreadyUsed() || tier === 'trial_ended';
     bUpgrade.textContent = trialUsed ? 'PROプランにアップグレード →' : '30日間 無料でフル機能を試す →';
     if (sUpgrade) sUpgrade.textContent = trialUsed ? '' : 'クレジットカード不要';
     bUpgrade.onclick = () => openUpgradeModal('backup');
@@ -3537,19 +3549,16 @@ function _updateAllBackupBtns() {
   const bForm = document.getElementById('backup-form-btn');
   const sForm = document.getElementById('backup-form-sub');
   if (bForm) {
-    if (isPROorTrial && !loggedIn) {
-      // PRO/trial でログアウト中 → ログイン促進
-      bForm.textContent = 'ログインしてクラウド同期する →';
-      bForm.onclick = () => {
-        const el = document.getElementById('auth-form');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      };
-      if (sForm) sForm.textContent = '';
+    if (!loggedIn) {
+      // 未ログイン → ボタンテキストは体験済みフラグで決定、押下時はログインフォームへ
+      bForm.textContent = trialUsed ? 'PROプランにアップグレード →' : '30日間 無料でフル機能を試す →';
+      bForm.onclick = () => openUpgradeModal('backup'); // openUpgradeModal内で未ログインを検知してフォームへ
+      if (sForm) sForm.textContent = trialUsed ? '' : 'クレジットカード不要';
     } else {
-      // FREE（体験未使用）
-      bForm.textContent = '30日間 無料でフル機能を試す →';
+      // ログイン済みFREE → 通常のアップグレード
+      bForm.textContent = trialUsed ? 'PROプランにアップグレード →' : '30日間 無料でフル機能を試す →';
       bForm.onclick = () => openUpgradeModal('backup');
-      if (sForm) sForm.textContent = 'クレジットカード不要';
+      if (sForm) sForm.textContent = trialUsed ? '' : 'クレジットカード不要';
     }
   }
 }

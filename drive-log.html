@@ -2408,23 +2408,34 @@ function startCheckout(planType) {
     onComplete: async () => {
       closeUpgradeModal();
       toast('決済が完了しました。プランを更新しています...');
-      let attempts = 0;
-      const poll = setInterval(async () => {
-        attempts++;
-        await restoreFromFirestore(currentUser.uid);
-        if (isPro() || attempts >= 5) {
-          clearInterval(poll);
-          if (isPro()) {
-            updateAuthUI(currentUser);
-            syncToFirestore();
-            toast('🎉 PROプランへようこそ！');
-          } else {
-            toast('プランの更新に時間がかかっています。しばらくお待ちください。');
-          }
-        }
-      }, 3000);
+      pollForProPlan();
+    },
+    onClose: async () => {
+      // 決済完了後に手動で閉じた場合もプラン反映を試みる
+      if (!isPro()) {
+        pollForProPlan();
+      }
     },
   });
+}
+
+function pollForProPlan() {
+  let attempts = 0;
+  const poll = setInterval(async () => {
+    attempts++;
+    await restoreFromFirestore(currentUser.uid);
+    if (isPro() || attempts >= 5) {
+      clearInterval(poll);
+      if (isPro()) {
+        closeUpgradeModal();
+        updateAuthUI(currentUser);
+        syncToFirestore();
+        toast('🎉 PROプランへようこそ！');
+      } else if (attempts >= 5) {
+        toast('プランの更新に時間がかかっています。しばらくお待ちください。');
+      }
+    }
+  }, 3000);
 }
 
 function openUpgradeModal(reason) {

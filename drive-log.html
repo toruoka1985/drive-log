@@ -1721,36 +1721,6 @@
       <span style="margin-left:auto;color:var(--text2);font-size:16px;">›</span>
     </button>
 
-  <!-- テスト用プラン切り替え（開発時のみ） -->
-  <div id="dev-plan-toggle" style="margin-top:32px;padding:14px 16px;background:var(--card);border-radius:12px;border:1px dashed var(--border);">
-    <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:.1em;margin-bottom:10px;">DEV · プランテスト</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-      <button onclick="devSetPlan('pro')"
-        style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;"
-        id="dev-btn-pro">PRO</button>
-      <button onclick="devSetPlan('free')"
-        style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;"
-        id="dev-btn-free">FREE</button>
-      <button onclick="devSetPlan('none')"
-        style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;"
-        id="dev-btn-none">未設定</button>
-    </div>
-    <div id="dev-plan-status" style="margin-top:8px;font-size:11px;color:var(--text3);text-align:center;font-family:'DM Mono',monospace;"></div>
-    <div style="margin-top:10px;border-top:1px dashed var(--border);padding-top:10px;">
-      <button onclick="devResetTrialFlag()"
-        style="width:100%;padding:8px;border-radius:8px;border:1px solid #e57373;background:transparent;color:#e57373;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Mono',monospace;letter-spacing:.05em;">
-        🔄 無料体験フラグをリセット
-      </button>
-      <div id="dev-trial-status" style="margin-top:6px;font-size:10px;color:var(--text3);text-align:center;font-family:'DM Mono',monospace;"></div>
-    </div>
-    <div style="margin-top:8px;border-top:1px dashed var(--border);padding-top:10px;">
-      <button onclick="devExpireTrial()"
-        style="width:100%;padding:8px;border-radius:8px;border:1px solid #ffb74d;background:transparent;color:#ffb74d;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Mono',monospace;letter-spacing:.05em;">
-        ⏩ 無料体験を期限切れにする
-      </button>
-      <div id="dev-expire-status" style="margin-top:6px;font-size:10px;color:var(--text3);text-align:center;font-family:'DM Mono',monospace;"></div>
-    </div>
-  </div>
 
   <!-- 法的ページリンク -->
   <div style="margin-top:40px;padding:0 4px 8px;text-align:center;display:flex;justify-content:center;gap:20px;flex-wrap:wrap;">
@@ -2110,182 +2080,6 @@ function showLegalPage(type) {
 
 function closeLegalPage() {
   document.getElementById('legalModalOverlay').style.display = 'none';
-}
-
-// ── DEV: テスト用プラン切り替え ──
-let _devPlanOverride = false; // DEVモード中はFirestoreのplanで上書きしない
-
-function devSetPlan(tier) {
-  if (tier === 'pro') {
-    const future = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-    window._userPlan = { tier: 'pro', trialStartedAt: null, trialEndsAt: null, expiresAt: future };
-    _devPlanOverride = true;
-    localStorage.setItem('dev_plan_override', 'pro');
-  } else if (tier === 'free') {
-    window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
-    _devPlanOverride = true;
-    localStorage.setItem('dev_plan_override', 'free');
-  } else {
-    // 未設定：上書きを解除してFirestoreの実際のplanに戻す
-    _devPlanOverride = false;
-    localStorage.removeItem('dev_plan_override');
-    if (currentUser) {
-      restoreFromFirestore(currentUser.uid);
-    } else {
-      window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
-    }
-  }
-  renderPlanSection();
-  updateTrialBanner();
-  updateAuthUI(currentUser);
-  updateDevPlanStatus();
-  // DEVオーバーライド中（pro/free）はFirestoreを参照しない
-  // noneのときだけ実際のplanをFirestoreから取り直す（上のelse分岐で既に呼んでいる）
-  toast('DEV: プランを ' + (tier === 'none' ? '未設定（実際のプランを使用）' : tier.toUpperCase()) + ' に変更しました');
-}
-
-async function devExpireTrial() {
-  const statusEl = document.getElementById('dev-expire-status');
-  statusEl.textContent = '処理中...';
-
-  if (!currentUser) {
-    statusEl.style.color = '#e57373';
-    statusEl.textContent = '⚠ ログインが必要です';
-    return;
-  }
-  const p = window._userPlan || {};
-  if (p.tier !== 'trial') {
-    statusEl.style.color = '#e57373';
-    statusEl.textContent = '⚠ 無料体験中ではありません（tier=' + p.tier + '）';
-    setTimeout(() => { statusEl.textContent = ''; }, 3000);
-    return;
-  }
-
-  try {
-    const { db, doc, setDoc } = window._fb;
-    const uid = currentUser.uid;
-    // trialEndsAtを1秒前に設定して即期限切れにする
-    const expired = new Date(Date.now() - 1000);
-    const newPlan = { ...p, trialEndsAt: expired };
-    await setDoc(doc(db, 'users', uid, 'meta', 'plan'), newPlan);
-    window._userPlan = newPlan;
-    // 期限チェックを即時実行
-    checkTrialExpiry();
-    renderPlanSection();
-    updateAuthUI(currentUser);
-    statusEl.style.color = 'var(--accent)';
-    statusEl.textContent = '✓ 期限切れに設定しました';
-  } catch(e) {
-    console.error(e);
-    statusEl.style.color = '#e57373';
-    statusEl.textContent = '❌ エラー: ' + e.message;
-  }
-  setTimeout(() => { statusEl.textContent = ''; }, 4000);
-}
-
-async function devResetTrialFlag() {
-  const statusEl = document.getElementById('dev-trial-status');
-  statusEl.textContent = 'リセット中...';
-
-  // ローカルフラグをクリア
-  localStorage.removeItem('driveLogTrialUsed');
-
-  // クラウドフラグをクリア（ログイン中のみ）
-  if (currentUser) {
-    try {
-      const { db, doc, setDoc } = window._fb;
-      const uid = currentUser.uid;
-      const p = window._userPlan || {};
-      // planのtrialUsedをfalseに、tierをfreeに戻す
-      const resetPlan = {
-        tier: 'free',
-        trialStartedAt: null,
-        trialEndsAt: null,
-        expiresAt: null,
-        trialUsed: false,
-      };
-      await setDoc(doc(db, 'users', uid, 'meta', 'plan'), resetPlan);
-      window._userPlan = resetPlan;
-      renderPlanSection();
-      updateTrialBanner();
-      statusEl.style.color = 'var(--accent)';
-      statusEl.textContent = '✓ ローカル＋クラウド両方リセット完了';
-    } catch(e) {
-      console.error('dev reset error', e);
-      statusEl.style.color = '#e57373';
-      statusEl.textContent = '⚠ クラウドリセット失敗（ローカルのみ）';
-    }
-  } else {
-    statusEl.style.color = 'var(--text3)';
-    statusEl.textContent = '✓ ローカルリセット完了（未ログイン）';
-  }
-  setTimeout(() => { statusEl.textContent = ''; }, 4000);
-}
-
-function updateDevPlanStatus() {
-  const saved = localStorage.getItem('dev_plan_override');
-  const status = document.getElementById('dev-plan-status');
-  if (!status) return;
-  const btns = { pro: document.getElementById('dev-btn-pro'), free: document.getElementById('dev-btn-free'), none: document.getElementById('dev-btn-none') };
-  // ボタンのハイライト
-  Object.entries(btns).forEach(([k, btn]) => {
-    if (!btn) return;
-    const active = saved === k || (!saved && k === 'none');
-    btn.style.background = active ? 'var(--accent)' : 'var(--surface2)';
-    btn.style.color = active ? '#0f0f0f' : 'var(--text2)';
-    btn.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
-  });
-  status.textContent = saved ? ('保存済: ' + saved.toUpperCase()) : '実際のプランを使用中';
-}
-
-// ── PLAN ──
-// window._userPlan = {
-//   tier: 'free' | 'trial' | 'trial_ended' | 'pro',
-//   trialStartedAt: Timestamp | null,
-//   trialEndsAt:    Timestamp | null,
-//   expiresAt:      Timestamp | null,  // PRO課金の有効期限
-// }
-window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
-
-// ── Paddle 商品ID（審査通過後に本番IDへ差し替え） ──
-const PADDLE_CONFIG = {
-  clientToken: 'test_8c5d62b97f0ae52685fe27b7995',
-  sandbox: true,                               // サンドボックス中はtrue、本番時はfalse
-  monthly: 'pri_01kmcfj0431sx07je4drdgb7v9',  // 月額プラン
-  yearly:  'pri_01kmcexz1v453s8g4xgwc4h9s0',  // 年額プラン
-};
-
-// Paddle初期化
-if (typeof Paddle !== 'undefined' && PADDLE_CONFIG.clientToken) {
-  Paddle.Environment.set(PADDLE_CONFIG.sandbox ? 'sandbox' : 'production');
-  Paddle.Initialize({
-    token: PADDLE_CONFIG.clientToken,
-    eventCallback: function(event) {
-      if (event.name === 'checkout.completed') {
-        closeUpgradeModal();
-        toast('決済が完了しました。プランを更新しています...');
-        window._checkoutStarted = false;
-        pollForProPlan();
-      }
-    }
-  });
-}
-
-// Firestore Timestamp / plain object / Date 文字列 → Date に統一
-function _toDate(v) {
-  if (!v) return null;
-  if (v.toDate) return v.toDate();
-  if (v.seconds) return new Date(v.seconds * 1000);
-  return new Date(v);
-}
-
-// トライアル残日数（整数）。trialでなければ null
-function getTrialDaysLeft() {
-  const p = window._userPlan;
-  if (p.tier !== 'trial') return null;
-  const end = _toDate(p.trialEndsAt);
-  if (!end) return null;
-  return Math.ceil((end - new Date()) / (1000 * 60 * 60 * 24));
 }
 
 function isPro() {
@@ -3204,18 +2998,7 @@ window.addEventListener('DOMContentLoaded', () => {
   renderSummary();
   loadSettings();
   initVehicles();
-  // DEV: リロード後もプラン設定を引き継ぐ
-  const _devSaved = localStorage.getItem('dev_plan_override');
-  if (_devSaved === 'pro') {
-    const future = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-    window._userPlan = { tier: 'pro', trialStartedAt: null, trialEndsAt: null, expiresAt: future };
-    _devPlanOverride = true;
-  } else if (_devSaved === 'free') {
-    window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
-    _devPlanOverride = true;
-  }
   renderPlanSection();
-  updateDevPlanStatus();
   initPwaBanner();
 
   // ── 前面復帰時に同期（他端末での変更を取り込む） ──
@@ -3455,7 +3238,7 @@ function updateAuthUI(user) {
   checking.style.display = 'none';
 
   // ── アカウントセクション ──
-  if (user || (_devPlanOverride && isPro())) {
+  if (user) {
     // ログイン済み or DEV PRO：メアド＋ログアウト表示
     if (loggedinEl) loggedinEl.style.display = 'block';
     if (form)       form.style.display       = 'none';
@@ -3864,9 +3647,7 @@ async function restoreFromFirestore(uid) {
     });
 
     // plan を反映（DEVモード中はFirestoreのplanで上書きしない）
-    if (!_devPlanOverride) {
-      window._userPlan = cloudPlan || { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
-    }
+    window._userPlan = cloudPlan || { tier: 'free', trialStartedAt: null, trialEndsAt: null, expiresAt: null };
     // クラウドフラグがある場合はローカルフラグにも伝播（別ブラウザ対策）
     if (cloudPlan && cloudPlan.trialUsed === true) {
       setLocalTrialUsed();

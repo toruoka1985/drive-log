@@ -2,85 +2,898 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>利用規約 / Terms of Service | Drive Log</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drive Log — 社有車走行記録・請求書アプリ</title>
+<meta name="description" content="社有車の走行記録から請求書発行まで、スマホだけで完結。個人事業主・法人向け走行管理PWAアプリ。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  background: #111; color: #ccc;
-  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
-  font-size: 14px; line-height: 1.8;
-  max-width: 680px; margin: 0 auto;
-  padding: 0 20px calc(40px + env(safe-area-inset-bottom));
-  padding-top: env(safe-area-inset-top);
-}
-header {
-  position: sticky; top: 0; background: #111;
-  border-bottom: 1px solid #2a2a2a;
-  padding: 14px 0; display: flex;
-  align-items: center; justify-content: space-between; z-index: 10;
-}
-header a { color: #aaa; text-decoration: none; font-size: 13px; }
-header a:hover { color: #fff; }
-h1 { font-size: 17px; font-weight: 700; color: #fff; }
-main { padding: 28px 0; }
-h3 { font-size: 14px; font-weight: 700; color: #fff; margin: 24px 0 8px; }
-p { margin-bottom: 10px; color: #bbb; }
-ul { padding-left: 20px; margin: 8px 0 10px; color: #bbb; }
-li { margin-bottom: 4px; }
-strong { color: #ddd; }
-.meta { margin-top: 32px; color: #666; font-size: 11px; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0a0a0a;
+    --surface:  #111111;
+    --card:     #181818;
+    --border:   #242424;
+    --accent:   #c8f53a;
+    --text1:    #f0f0f0;
+    --text2:    #a0a0a0;
+    --text3:    #555555;
+    --radius:   16px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text1);
+    font-family: 'Noto Sans JP', sans-serif;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE TEXTURE ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid transparent;
+    transition: background .3s, border-color .3s;
+  }
+  nav.scrolled {
+    background: rgba(10,10,10,.92);
+    backdrop-filter: blur(12px);
+    border-color: var(--border);
+  }
+  .nav-logo {
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text1);
+    letter-spacing: .08em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .nav-logo-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: .5; transform: scale(.8); }
+  }
+  .nav-cta {
+    background: var(--accent);
+    color: #0a0a0a;
+    border: none;
+    border-radius: 100px;
+    padding: 9px 20px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity .2s, transform .1s;
+  }
+  .nav-cta:hover { opacity: .85; }
+  .nav-cta:active { transform: scale(.97); }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 100px 24px 60px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-glow {
+    position: absolute;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(200,245,58,.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(200,245,58,.1);
+    border: 1px solid rgba(200,245,58,.25);
+    border-radius: 100px;
+    padding: 5px 14px;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: var(--accent);
+    letter-spacing: .08em;
+    margin-bottom: 28px;
+    animation: fadeUp .6s ease both;
+  }
+  .hero-title {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: clamp(38px, 9vw, 72px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -.01em;
+    margin-bottom: 20px;
+    animation: fadeUp .6s .1s ease both;
+  }
+  .hero-title span {
+    color: var(--accent);
+  }
+  .hero-sub {
+    font-size: clamp(15px, 3vw, 18px);
+    color: var(--text2);
+    max-width: 480px;
+    margin: 0 auto 40px;
+    animation: fadeUp .6s .2s ease both;
+  }
+  .hero-btns {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadeUp .6s .3s ease both;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #0a0a0a;
+    border: none;
+    border-radius: 100px;
+    padding: 15px 32px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity .2s, transform .1s;
+  }
+  .btn-primary:hover { opacity: .85; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 15px 32px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color .2s, color .2s;
+  }
+  .btn-secondary:hover { border-color: var(--text2); color: var(--text1); }
+
+  .hero-note {
+    margin-top: 20px;
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    animation: fadeUp .6s .4s ease both;
+  }
+
+  /* ── MOCKUP PHONES ── */
+  .phones-wrap {
+    margin-top: 60px;
+    width: 100%;
+    max-width: 700px;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    animation: fadeUp .8s .4s ease both;
+  }
+  .phone-frame {
+    width: 200px;
+    background: #1a1a1a;
+    border-radius: 36px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 40px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.05);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .phone-frame:nth-child(2) {
+    transform: translateY(-20px);
+    z-index: 2;
+    width: 220px;
+    border-color: rgba(200,245,58,.3);
+    box-shadow: 0 40px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(200,245,58,.2), 0 0 40px rgba(200,245,58,.08);
+  }
+  .phone-frame:nth-child(1),
+  .phone-frame:nth-child(3) {
+    opacity: .7;
+    transform: translateY(10px) scale(.95);
+  }
+  .phone-notch {
+    height: 28px;
+    background: #0a0a0a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .phone-notch-bar {
+    width: 60px; height: 5px;
+    background: #333;
+    border-radius: 3px;
+  }
+  .phone-screen {
+    padding: 0;
+    background: #111;
+    aspect-ratio: 9/19.5;
+    overflow: hidden;
+    position: relative;
+  }
+  .phone-screen img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    display: block;
+  }
+
+  /* スクリーン内のダミーUI */
+  .screen-header {
+    padding: 12px 14px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #1e1e1e;
+  }
+  .screen-title { font-size: 11px; font-weight: 700; color: #f0f0f0; font-family: 'DM Mono', monospace; letter-spacing: .05em; }
+  .screen-date  { font-size: 9px; color: #555; font-family: 'DM Mono', monospace; }
+
+  .screen-record {
+    margin: 8px 10px 0;
+    background: #1a1a1a;
+    border-radius: 10px;
+    padding: 10px 12px;
+    border-left: 3px solid var(--accent);
+  }
+  .screen-record.corp { border-color: #3a8ff5; }
+  .screen-record.priv { border-color: #555; }
+  .record-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+  .record-label { font-size: 8px; color: #888; }
+  .record-val   { font-size: 9px; color: #f0f0f0; font-weight: 600; font-family: 'DM Mono', monospace; }
+  .record-purpose { font-size: 9px; color: #c8f53a; margin-bottom: 4px; font-weight: 600; }
+  .record-km-cost { font-size: 8px; color: #666; }
+
+  .screen-summary {
+    margin: 8px 10px 0;
+    background: #1a1a1a;
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .summary-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .summary-label { font-size: 8px; color: #666; }
+  .summary-val   { font-size: 10px; font-weight: 700; font-family: 'DM Mono', monospace; color: #f0f0f0; }
+  .summary-val.accent { color: var(--accent); }
+
+  .screen-nav {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 42px;
+    background: #0f0f0f;
+    border-top: 1px solid #1e1e1e;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+  }
+  .nav-icon { font-size: 14px; opacity: .4; }
+  .nav-icon.active { opacity: 1; }
+
+  /* 請求書画面 */
+  .screen-invoice {
+    margin: 8px 10px 0;
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 10px 10px;
+  }
+  .inv-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .inv-label { font-size: 7px; color: #555; }
+  .inv-val { font-size: 8px; color: #aaa; font-family: 'DM Mono', monospace; }
+  .inv-total { display: flex; justify-content: space-between; border-top: 1px solid #333; margin-top: 6px; padding-top: 6px; }
+  .inv-total-label { font-size: 8px; color: #888; }
+  .inv-total-val { font-size: 11px; font-weight: 700; color: var(--accent); font-family: 'DM Mono', monospace; }
+  .inv-btn { margin-top: 8px; background: var(--accent); border-radius: 6px; padding: 6px; text-align: center; font-size: 8px; font-weight: 700; color: #0a0a0a; }
+
+  /* ── SECTION 共通 ── */
+  section {
+    position: relative;
+    z-index: 1;
+  }
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: clamp(26px, 4.5vw, 40px);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -.01em;
+    margin-bottom: 16px;
+  }
+  .section-sub {
+    font-size: 15px;
+    color: var(--text2);
+    max-width: 520px;
+    line-height: 1.8;
+  }
+
+  /* ── FEATURES ── */
+  .features {
+    padding: 100px 0;
+  }
+  .features-header {
+    margin-bottom: 56px;
+  }
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 2px;
+  }
+  .feature-card {
+    background: var(--card);
+    padding: 32px 28px;
+    border: 1px solid var(--border);
+    transition: border-color .3s;
+    animation: fadeUp .6s ease both;
+  }
+  .feature-card:hover { border-color: rgba(200,245,58,.3); }
+  .feature-card:first-child { border-radius: var(--radius) 0 0 0; }
+  .feature-card:nth-child(3) { border-radius: 0 var(--radius) 0 0; }
+  .feature-card:nth-child(4) { border-radius: 0 0 0 var(--radius); }
+  .feature-card:last-child { border-radius: 0 0 var(--radius) 0; }
+  @media (max-width: 600px) {
+    .feature-card:first-child,
+    .feature-card:last-child { border-radius: 0; }
+    .features-grid { gap: 1px; }
+  }
+  .feature-icon {
+    font-size: 28px;
+    margin-bottom: 16px;
+    display: block;
+  }
+  .feature-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text1);
+    margin-bottom: 8px;
+  }
+  .feature-desc {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.8;
+  }
+
+  /* ── HOW IT WORKS ── */
+  .how {
+    padding: 100px 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 40px;
+    margin-top: 56px;
+  }
+  .step {
+    text-align: center;
+  }
+  .step-num {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: rgba(200,245,58,.1);
+    border: 1px solid rgba(200,245,58,.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--accent);
+    margin: 0 auto 16px;
+  }
+  .step-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text1);
+  }
+  .step-desc {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.8;
+  }
+
+  /* ── PRICING ── */
+  .pricing {
+    padding: 100px 0;
+  }
+  .pricing-header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+  .pricing-header .section-label,
+  .pricing-header .section-sub {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  .plan-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px 28px;
+    position: relative;
+  }
+  .plan-card.featured {
+    border-color: rgba(200,245,58,.5);
+    background: linear-gradient(135deg, rgba(200,245,58,.06) 0%, var(--card) 60%);
+  }
+  .plan-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: #0a0a0a;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: .08em;
+    padding: 3px 10px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+  .plan-badge.free-badge {
+    background: var(--surface);
+    color: var(--text3);
+    border: 1px solid var(--border);
+  }
+  .plan-name {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .plan-price {
+    font-family: 'DM Mono', monospace;
+    font-size: 40px;
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .plan-price-note {
+    font-size: 12px;
+    color: var(--text3);
+    margin-bottom: 24px;
+  }
+  .plan-features {
+    list-style: none;
+    margin-bottom: 28px;
+  }
+  .plan-features li {
+    font-size: 13px;
+    color: var(--text2);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .plan-features li:last-child { border-bottom: none; }
+  .plan-features li .check { color: var(--accent); font-size: 14px; }
+  .plan-features li .cross { color: var(--text3); font-size: 14px; }
+  .plan-cta {
+    display: block;
+    text-align: center;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif;
+    text-decoration: none;
+    transition: opacity .2s;
+    cursor: pointer;
+    border: none;
+  }
+  .plan-cta.accent { background: var(--accent); color: #0a0a0a; }
+  .plan-cta.accent:hover { opacity: .85; }
+  .plan-cta.outline { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .plan-cta.outline:hover { border-color: var(--text2); color: var(--text1); }
+
+  .pricing-note {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── TRIAL BANNER ── */
+  .trial-section {
+    padding: 80px 0;
+    background: linear-gradient(135deg, rgba(200,245,58,.08) 0%, transparent 60%);
+    border-top: 1px solid rgba(200,245,58,.15);
+    border-bottom: 1px solid rgba(200,245,58,.15);
+    text-align: center;
+  }
+  .trial-section .section-title { color: var(--text1); }
+  .trial-days {
+    font-family: 'DM Mono', monospace;
+    font-size: clamp(60px, 15vw, 120px);
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1;
+    margin: 8px 0;
+    opacity: .15;
+    letter-spacing: -.04em;
+  }
+  .trial-section .btn-primary {
+    margin-top: 32px;
+    font-size: 16px;
+    padding: 18px 40px;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    padding: 40px 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+  .footer-logo {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--text3);
+    margin-bottom: 16px;
+  }
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .footer-links a {
+    color: var(--text3);
+    text-decoration: none;
+    font-size: 12px;
+    transition: color .2s;
+  }
+  .footer-links a:hover { color: var(--text2); }
+  .footer-copy {
+    font-size: 11px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity .6s ease, transform .6s ease;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 640px) {
+    .phones-wrap { gap: 10px; }
+    .phone-frame { width: 140px; border-radius: 24px; }
+    .phone-frame:nth-child(2) { width: 155px; }
+    nav { padding: 14px 16px; }
+    .hero { padding: 90px 16px 40px; }
+  }
+
+  /* ── SCREENSHOT PLACEHOLDER ── */
+  /* 実際のスクショに差し替える時はphone-screen内のdivをimgタグに変える */
+  .screenshot-hint {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(200,245,58,.1);
+    border: 1px dashed rgba(200,245,58,.3);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 9px;
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    white-space: nowrap;
+    pointer-events: none;
+    display: none; /* 開発時のみ表示したい場合はblockに */
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>利用規約</h1>
-  <a href="index.html" id="back-link">← Drive Log</a>
-</header>
-<main>
-<h3>第1条（適用）</h3>
-<p>本規約は、Drive Log（以下「当サービス」）の利用に関する条件を定めるものです。ユーザーは本規約に同意のうえ当サービスをご利用ください。</p>
 
-<h3>第2条（利用登録）</h3>
-<p>利用希望者が所定の方法で登録申請を行い、当サービスが承認した時点で利用登録が完了します。当サービスは、登録申請者が以下に該当する場合、承認しないことがあります。</p>
-<ul style="padding-left:18px;margin:8px 0;">
-  <li>虚偽の情報を申告した場合</li>
-  <li>過去に本規約に違反したことがある場合</li>
-  <li>その他当サービスが不適切と判断した場合</li>
-</ul>
+<!-- NAV -->
+<nav id="navbar">
+  <div class="nav-logo">
+    <div class="nav-logo-dot"></div>
+    DRIVE LOG
+  </div>
+  <a href="./drive-log.html" onclick="goToApp(this.href);return false;" class="nav-cta">無料で始める</a>
+</nav>
 
-<h3>第3条（料金・決済）</h3>
-<p>当サービスのPROプランは有料です。料金は以下のとおりです。</p>
-<ul style="padding-left:18px;margin:8px 0;">
-  <li>月額プラン：¥400（税込）/ 月</li>
-  <li>年額プラン：¥3,600（税込）/ 年</li>
-</ul>
-<p>決済はPaddle.com Market Limited（以下「Paddle」）が代行します。Paddleの利用規約およびプライバシーポリシーが別途適用されます。</p>
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-badge">
+    <span>●</span> 30日間 無料体験
+  </div>
+  <h1 class="hero-title" style="text-align:left;font-size:clamp(28px,6.5vw,64px);">走行後のオドメーターを記録するだけ。<span>按分・精算・請求書</span>まで自動。</h1>
+  <p class="hero-sub" style="text-align:left;margin:0 0 40px;">社有車・事業用車の走行費管理がこれ1つで完結。法人・個人事業・私用の使用比率を自動計算し、ガソリン代もまとめて按分精算できます。</p>
+  <div class="hero-btns">
+    <a href="./drive-log.html" onclick="goToApp(this.href);return false;" class="btn-primary">無料で始める →</a>
+    <a href="#features" class="btn-secondary">機能を見る</a>
+  </div>
+  <p class="hero-note">No install required · Works on iOS & Android</p>
 
-<h3>第4条（無料体験）</h3>
-<p>新規登録ユーザーは登録日から30日間、PROプランの全機能を無料でご利用いただけます。無料体験期間終了後は自動的にフリープランに移行します。自動課金は発生しません。</p>
+  <!-- ダミーモックアップ（スクショに差し替え可） -->
+  <div class="phones-wrap">
 
-<h3>第5条（禁止事項）</h3>
-<p>ユーザーは当サービスの利用にあたり、以下の行為を行ってはなりません。</p>
-<ul style="padding-left:18px;margin:8px 0;">
-  <li>法令または公序良俗に違反する行為</li>
-  <li>当サービスの運営を妨害する行為</li>
-  <li>他のユーザーまたは第三者の権利を侵害する行為</li>
-  <li>当サービスのリバースエンジニアリング</li>
-</ul>
+    <!-- 走行記録画面 -->
+    <div class="phone-frame">
+      <div class="phone-notch"><div class="phone-notch-bar"></div></div>
+      <div class="phone-screen">
+        <img src="ss_record.png" alt="走行記録入力画面">
+      </div>
+    </div>
 
-<h3>第6条（免責事項）</h3>
-<p>当サービスは、当サービスに起因してユーザーに生じたいかなる損害についても、当サービスの故意または重大な過失による場合を除き、責任を負いません。当サービスは現状有姿で提供されており、特定目的への適合性を保証するものではありません。</p>
+    <!-- 履歴画面（中央・メイン） -->
+    <div class="phone-frame">
+      <div class="phone-notch"><div class="phone-notch-bar"></div></div>
+      <div class="phone-screen">
+        <img src="ss_history.png" alt="走行履歴画面">
+      </div>
+    </div>
 
-<h3>第7条（サービスの変更・終了）</h3>
-<p>当サービスは、ユーザーへの事前通知なしに当サービスの内容を変更または提供を終了することがあります。これによりユーザーに生じた損害について当サービスは責任を負いません。</p>
+    <!-- 請求書画面 -->
+    <div class="phone-frame">
+      <div class="phone-notch"><div class="phone-notch-bar"></div></div>
+      <div class="phone-screen">
+        <img src="ss_invoice.png" alt="請求書プレビュー画面">
+      </div>
+    </div>
 
-<h3>第8条（規約の変更）</h3>
-<p>当サービスは必要に応じて本規約を変更できます。変更後の規約はアプリ内または当サービスウェブサイトに掲示した時点で効力を生じます。</p>
+    </div>
+</section>
 
-<h3>第9条（準拠法・管轄）</h3>
-<p>本規約は日本法に準拠します。当サービスに関する紛争については、名古屋地方裁判所を第一審の専属的合意管轄裁判所とします。</p>
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="container">
+    <div class="features-header reveal">
+      <div class="section-label">Features</div>
+      <h2 class="section-title">管理の手間を<br>ゼロに近づける</h2>
+      <p class="section-sub">社有車・事業用車を複数の用途で使い分けている方のために設計。難しい按分計算をすべて自動化します。</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <span class="feature-icon">🔢</span>
+        <div class="feature-title">走行後のオドメーターを入力するだけ</div>
+        <p class="feature-desc">乗る前と後のメーター値を記録するだけ。走行距離・使用料金を自動計算。法人・個人事業・私用の3区分で管理できます。</p>
+      </div>
+      <div class="feature-card reveal" style="animation-delay:.1s">
+        <span class="feature-icon">📊</span>
+        <div class="feature-title">使用比率を自動で集計</div>
+        <p class="feature-desc">用途別の走行割合を月ごとに自動集計。「今月は法人62%・個人38%」が一目でわかり、確定申告の経費按分にそのまま使えます。</p>
+      </div>
+      <div class="feature-card reveal" style="animation-delay:.15s">
+        <span class="feature-icon">⛽</span>
+        <div class="feature-title">ガソリン代も距離で自動按分</div>
+        <p class="feature-desc">給油を記録すると、その期間の走行比率でガソリン代を自動按分。法人・個人の精算額を計算して月次でまとめて清算できます。</p>
+      </div>
+      <div class="feature-card reveal" style="animation-delay:.2s">
+        <span class="feature-icon">📄</span>
+        <div class="feature-title">車両使用料の請求書を即発行</div>
+        <p class="feature-desc">1タップで請求書または使用比率計算書を生成。個人→法人、法人→個人、どちらの方向にも対応。PNG形式で共有できます。</p>
+      </div>
+      <div class="feature-card reveal" style="animation-delay:.25s">
+        <span class="feature-icon">🚗</span>
+        <div class="feature-title">複数台・複数名義に対応</div>
+        <p class="feature-desc">法人名義・個人名義など、異なる名義の車両を一括管理。車両ごとに料金レートや名義を設定できます。（PRO機能）</p>
+      </div>
+      <div class="feature-card reveal" style="animation-delay:.3s">
+        <span class="feature-icon">☁️</span>
+        <div class="feature-title">クラウド同期・マルチデバイス対応</div>
+        <p class="feature-desc">ブラウザで開くだけ、アプリ不要。スマホ・PC・タブレットどの端末からでも同じデータにアクセス。機種変更後もすぐ復元できます。（PRO機能）</p>
+      </div>
+    </div>
+  </div>
+</section>
 
-<h3>お問い合わせ</h3>
-<p>本規約に関するお問い合わせは、下記サポート窓口までご連絡ください。<br><a href="/cdn-cgi/l/email-protection#5c28332e2933373d6d65646930303f1c3b313d3530723f3331" style="color:#c8ff00;"><span class="__cf_email__" data-cfemail="0c78637e7963676d3d35343960606f4c6b616d6560226f6361">[email&#160;protected]</span></a></p>
-<p style="margin-top:24px;color:var(--te
+<!-- HOW IT WORKS -->
+<section class="how" id="how">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:0;">
+      <div class="section-label" style="text-align:center;">How it works</div>
+      <h2 class="section-title" style="text-align:center;">3ステップで今日から使える</h2>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">01</div>
+        <div class="step-title">車両と名義を登録</div>
+        <p class="step-desc">車両名と名義（法人・個人事業・私用）を設定するだけ。複数台も管理できます。</p>
+      </div>
+      <div class="step reveal" style="animation-delay:.1s">
+        <div class="step-num">02</div>
+        <div class="step-title">走行後のオドメーターを記録</div>
+        <p class="step-desc">走行後のメーター値と用途を入力するだけ。前回値は自動でセットされます。給油したときも金額を記録しておけば自動で按分されます。</p>
+      </div>
+      <div class="step reveal" style="animation-delay:.2s">
+        <div class="step-num">03</div>
+        <div class="step-title">月末に集計・請求書を発行</div>
+        <p class="step-desc">集計タブを開くと使用比率と精算額が出ています。タップ1つで請求書または使用比率計算書を発行できます。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <div class="container">
+    <div class="pricing-header reveal">
+      <div class="section-label">Pricing</div>
+      <h2 class="section-title">シンプルな料金体系</h2>
+      <p class="section-sub" style="text-align:center;">まずは無料体験から。クレジットカード不要です。</p>
+    </div>
+    <div class="pricing-grid">
+
+      <!-- フリープラン -->
+      <div class="plan-card reveal">
+        <div class="plan-badge free-badge">FREE</div>
+        <div class="plan-name">フリープラン</div>
+        <div class="plan-price" style="color:var(--text2);">¥0</div>
+        <p class="plan-price-note">ずっと無料</p>
+        <ul class="plan-features">
+          <li><span class="check">✓</span> 走行記録・集計</li>
+          <li><span class="check">✓</span> 請求書発行（月1回まで）</li>
+          <li><span class="cross">✗</span> 複数台の車両管理</li>
+          <li><span class="cross">✗</span> CSV出力</li>
+          <li><span class="cross">✗</span> クラウドバックアップ</li>
+          <li><span class="cross">✗</span> マルチデバイス同期</li>
+        </ul>
+        <a href="./drive-log.html" onclick="goToApp(this.href);return false;" class="plan-cta outline">無料で始める</a>
+      </div>
+
+      <!-- PROプラン -->
+      <div class="plan-card featured reveal" style="animation-delay:.1s">
+        <div class="plan-badge">PRO</div>
+        <div class="plan-name">PROプラン</div>
+        <!-- 年額を主役に -->
+        <div style="margin:4px 0 14px;padding:14px 16px;background:rgba(200,245,58,.07);border:1px solid rgba(200,245,58,.35);border-radius:12px;text-align:center;">
+          <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.12em;margin-bottom:6px;">⭐ BEST VALUE・おすすめ</div>
+          <div style="font-size:28px;font-weight:800;color:var(--text1);line-height:1.1;">¥3,600<span style="font-size:14px;font-weight:400;color:var(--text3);"> / 年</span></div>
+          <div style="font-size:13px;color:var(--accent);font-weight:700;margin-top:4px;">月あたり ¥300 &nbsp;—&nbsp; 25% お得</div>
+        </div>
+        <!-- 月払いは控えめに -->
+        <div style="text-align:center;margin-bottom:12px;font-size:12px;color:var(--text3);">月払いの場合 ¥400 / 月</div>
+        <ul class="plan-features">
+          <li><span class="check">✓</span> 走行記録・集計</li>
+          <li><span class="check">✓</span> 請求書発行（無制限）</li>
+          <li><span class="check">✓</span> 複数台の車両管理</li>
+          <li><span class="check">✓</span> 全履歴CSV出力</li>
+          <li><span class="check">✓</span> クラウドバックアップ</li>
+          <li><span class="check">✓</span> マルチデバイス同期（スマホ・PC）</li>
+        </ul>
+        <a href="./drive-log.html" onclick="goToApp(this.href);return false;" class="plan-cta accent">30日間 無料体験 →</a>
+      </div>
+
+    </div>
+    <p class="pricing-note reveal" style="animation-delay:.2s">
+      決済はPaddle（paddle.com）が処理します。いつでもキャンセル可能。
+    </p>
+  </div>
+</section>
+
+<!-- TRIAL CTA -->
+<section class="trial-section">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label" style="text-align:center;">Free Trial</div>
+      <div class="trial-days">30</div>
+      <h2 class="section-title" style="margin-top:-20px;">まずは30日間、無料で。</h2>
+      <p class="section-sub" style="margin:12px auto 0;text-align:center;">クレジットカード不要。登録後すぐにすべての機能が使えます。</p>
+      <a href="./drive-log.html" onclick="goToApp(this.href);return false;" class="btn-primary" style="display:inline-block;margin-top:32px;font-size:16px;padding:18px 40px;">
+        無料体験を始める →
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">DRIVE LOG</div>
+  <div class="footer-links">
+    <a href="./terms.html">利用規約</a>
+    <a href="./privacy.html">プライバシーポリシー</a>
+    <a href="./refund.html">返金ポリシー</a>
+    <a href="./drive-log.html" onclick="goToApp(this.href);return false;">アプリを開く</a>
+  </div>
+  <p class="footer-copy">© 2026 Drive Log. All rights reserved.</p>
+</footer>
+
+<script>
+  // ── 2回目以降はLPをスキップしてアプリへ直接転送 ──
+  const APP_URL = './drive-log.html';
+  const VISITED_KEY = 'dl_lp_visited';
+
+  if (localStorage.getItem(VISITED_KEY)) {
+    // 訪問済み → アプリへ即転送（LPを描画しない）
+    location.replace(APP_URL);
+  }
+
+  // アプリへ遷移する際にフラグを立てる
+  function goToApp(url) {
+    localStorage.setItem(VISITED_KEY, '1');
+    location.href = url || APP_URL;
+  }
+
+  // ── ナビゲーション スクロール ──
+  const navbar = document.getElementById('navbar');
+  window.addEventListener('scroll', () => {
+    navbar.classList.toggle('scrolled', window.scrollY > 40);
+  }, { passive: true });
+
+  // ── スクロール reveal ──
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

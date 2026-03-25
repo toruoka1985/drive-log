@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="走行記録">
+<meta name="apple-mobile-web-app-title" content="Drive-log">
 <title>Drive-log</title>
 <!-- Firebase SDK -->
 <script type="module">
@@ -1230,8 +1230,8 @@
 <script>
 (function() {
   const manifest = {
-    name: "社有車走行記録",
-    short_name: "走行記録",
+    name: "Drive-log",
+    short_name: "Drive-log",
     start_url: ".",
     display: "standalone",
     background_color: "#0f0f0f",
@@ -2489,6 +2489,23 @@ function closeFuelAllocExplain() {
 }
 
 function showDeleteAccountModal() {
+  // PROユーザー（有効なサブスク契約中）は先に解約を促す
+  const p = window._userPlan;
+  const hasActiveSubscription = isPro() && p?.subscriptionId && p?.tier === 'pro';
+  if (hasActiveSubscription) {
+    const confirmed = window.confirm(
+      '⚠️ 現在PROプランをご契約中です。\n\n' +
+      '退会前にサブスクリプションを解約してください。\n' +
+      '解約しないと退会後も課金が継続します。\n\n' +
+      '「OK」を押すとPaddleの解約ページを開きます。\n' +
+      '解約完了後に改めて退会してください。'
+    );
+    if (confirmed) {
+      executeCancelPlan();
+    }
+    return;
+  }
+
   // ログイン状態に関わらず表示（モーダル内でメール+パスワードで認証）
   const emailInput = document.getElementById('delete-account-email');
   const pwdInput   = document.getElementById('delete-account-password');

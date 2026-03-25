@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Drive-log">
+<meta name="apple-mobile-web-app-title" content="走行記録">
 <title>Drive-log</title>
 <!-- Firebase SDK -->
 <script type="module">
@@ -1230,8 +1230,8 @@
 <script>
 (function() {
   const manifest = {
-    name: "Drive-log",
-    short_name: "Drive-log",
+    name: "社有車走行記録",
+    short_name: "走行記録",
     start_url: ".",
     display: "standalone",
     background_color: "#0f0f0f",
@@ -2252,10 +2252,10 @@ window._userPlan = { tier: 'free', trialStartedAt: null, trialEndsAt: null, expi
 
 // ── Paddle 商品ID（審査通過後に本番IDへ差し替え） ──
 const PADDLE_CONFIG = {
-  clientToken: 'test_8c5d62b97f0ae52685fe27b7995',
-  sandbox: true,                               // サンドボックス中はtrue、本番時はfalse
-  monthly: 'pri_01kmcfj0431sx07je4drdgb7v9',  // 月額プラン
-  yearly:  'pri_01kmcexz1v453s8g4xgwc4h9s0',  // 年額プラン
+  clientToken: 'live_2a69927ebf9ec23c23de227e195',
+  sandbox: false,                              // サンドボックス中はtrue、本番時はfalse
+  monthly: 'pri_01kmhknk2grrrt5yps7p1ch379',  // 月額プラン
+  yearly:  'pri_01kmhkpm8zz5wcpge8emme4xbr',  // 年額プラン
 };
 
 // Paddle初期化

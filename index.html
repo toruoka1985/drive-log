@@ -856,25 +856,16 @@
     <a href="./terms.html">利用規約</a>
     <a href="./privacy.html">プライバシーポリシー</a>
     <a href="./refund.html">返金ポリシー</a>
-    <a href="./tokushoho.html">特定商取引法</a>
     <a href="./drive-log.html" onclick="goToApp(this.href);return false;">アプリを開く</a>
   </div>
   <p class="footer-copy">© 2026 Drive Log. All rights reserved.</p>
 </footer>
 
 <script>
-  // ── 2回目以降はLPをスキップしてアプリへ直接転送 ──
+  // ── 審査官対応版: スキップなし（常にLPを表示） ──
   const APP_URL = './drive-log.html';
-  const VISITED_KEY = 'dl_lp_visited';
 
-  if (localStorage.getItem(VISITED_KEY)) {
-    // 訪問済み → アプリへ即転送（LPを描画しない）
-    location.replace(APP_URL);
-  }
-
-  // アプリへ遷移する際にフラグを立てる
   function goToApp(url) {
-    localStorage.setItem(VISITED_KEY, '1');
     location.href = url || APP_URL;
   }
 
